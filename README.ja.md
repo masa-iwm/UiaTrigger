@@ -26,13 +26,27 @@
 |---|---|
 | `UiaTrigger.Core` | UI 非依存のクラスライブラリ。`UiaSession` (要素の探索・記録)・モデル (POCO)・ビーム探索式要素解決・`TriggerMonitor`・JSON context |
 | `UiaTrigger.Picker.Core` | UI 非依存のピッカー本体。`TriggerPickerPresenter` と `TriggerListEditorPresenter` (振る舞い)・オーバーレイ・View との継ぎ目 (`IPickerView` ほか) |
-| `UiaTrigger.Picker.WinUI` | WinUI3 の View。`TriggerPickerWindow` と `TriggerListEditorWindow`。振る舞いは持たない。第三者の依存を持つ唯一のパッケージで、`CommunityToolkit.WinUI.Controls.Sizers` を使う (WinUI3 だけが標準の区切りを持たないため) |
+| `UiaTrigger.Picker.WinUI` | WinUI3 の View。`TriggerPickerWindow` と `TriggerListEditorWindow`。振る舞いは持たない。他の View に無い依存を 2 つ持つ (下記) |
 | `UiaTrigger.Picker.Wpf` | WPF の View。`TriggerPickerWindow` と `TriggerListEditorWindow`。振る舞いは持たない |
 | `UiaTrigger.Picker.WinForms` | Windows Forms の View。`TriggerPickerForm` と `TriggerListEditorForm`、加えて `PropertyGrid` 用の `TriggerListEditor`。振る舞いは持たない |
 | `UiaTrigger.App.WinUI` | サンプルホスト (WinUI3)。Picker を起動し `List<TriggerDefinition>` を JSON 保存 |
 | `UiaTrigger.App.Wpf` | サンプルホスト (WPF)。同上 |
 | `UiaTrigger.App.WinForms` | サンプルホスト (Windows Forms)。同上 |
 | `UiaTrigger.TestHost` | ライブラリ検証用コンソール。`record` / `monitor` コマンド |
+
+### 各パッケージが引き込むもの
+
+| パッケージ | 依存 |
+|---|---|
+| `UiaTrigger.Core` | `Microsoft.Extensions.Logging.Abstractions` |
+| `UiaTrigger.Picker.Core` | `UiaTrigger.Core` |
+| `UiaTrigger.Picker.Wpf` / `.WinForms` | `UiaTrigger.Picker.Core` |
+| `UiaTrigger.Picker.WinUI` | `UiaTrigger.Picker.Core`・`Microsoft.WindowsAppSDK`・`CommunityToolkit.WinUI.Controls.Sizers` |
+
+`Microsoft.Extensions.Logging.Abstractions` は**全パッケージに届く** — ライブラリは `ILogger`
+経由でログを出し、実装は持たないためである。**Microsoft 以外の依存は
+`CommunityToolkit.WinUI.Controls.Sizers` だけ**で、必要とするのは WinUI3 の View だけである
+(WPF と Windows Forms が標準で持つ区切りを、WinUI3 だけが持たない)。
 
 ### 窓が 2 つある — ピッカーと一覧エディタ
 

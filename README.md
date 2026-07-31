@@ -27,13 +27,27 @@ changes through UI Automation, and raises an event when a condition is met.
 |---|---|
 | `UiaTrigger.Core` | UI-independent class library. `UiaSession` (element search and recording), the model (POCOs), beam-search element resolution, `TriggerMonitor`, JSON context |
 | `UiaTrigger.Picker.Core` | UI-independent picker proper. `TriggerPickerPresenter` and `TriggerListEditorPresenter` (behaviour), the overlay, and the seams to the views (`IPickerView` and friends) |
-| `UiaTrigger.Picker.WinUI` | The WinUI 3 views: `TriggerPickerWindow` and `TriggerListEditorWindow`. Hold no behaviour. The only package with a third-party dependency: `CommunityToolkit.WinUI.Controls.Sizers`, for the splitter WinUI 3 has no built-in equivalent of |
+| `UiaTrigger.Picker.WinUI` | The WinUI 3 views: `TriggerPickerWindow` and `TriggerListEditorWindow`. Hold no behaviour. Carries two dependencies the other views do not — see below |
 | `UiaTrigger.Picker.Wpf` | The WPF views: `TriggerPickerWindow` and `TriggerListEditorWindow`. Hold no behaviour |
 | `UiaTrigger.Picker.WinForms` | The Windows Forms views: `TriggerPickerForm` and `TriggerListEditorForm`, plus `TriggerListEditor` for a `PropertyGrid`. Hold no behaviour |
 | `UiaTrigger.App.WinUI` | Sample host (WinUI 3). Launches the picker and saves `List<TriggerDefinition>` as JSON |
 | `UiaTrigger.App.Wpf` | Sample host (WPF). Same |
 | `UiaTrigger.App.WinForms` | Sample host (Windows Forms). Same |
 | `UiaTrigger.TestHost` | Console app for exercising the library. `record` / `monitor` commands |
+
+### What each package pulls in
+
+| Package | Depends on |
+|---|---|
+| `UiaTrigger.Core` | `Microsoft.Extensions.Logging.Abstractions` |
+| `UiaTrigger.Picker.Core` | `UiaTrigger.Core` |
+| `UiaTrigger.Picker.Wpf` / `.WinForms` | `UiaTrigger.Picker.Core` |
+| `UiaTrigger.Picker.WinUI` | `UiaTrigger.Picker.Core`, `Microsoft.WindowsAppSDK`, `CommunityToolkit.WinUI.Controls.Sizers` |
+
+`Microsoft.Extensions.Logging.Abstractions` reaches every package, because the library logs through
+`ILogger` and brings no logging implementation of its own. `CommunityToolkit.WinUI.Controls.Sizers` is
+the only dependency from outside Microsoft, and only the WinUI 3 view needs it: it supplies the splitter
+that WPF and Windows Forms have built in and WinUI 3 does not.
 
 ### Two windows: the picker and the list editor
 

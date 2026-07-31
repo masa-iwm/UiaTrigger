@@ -10,9 +10,15 @@
 
 | パッケージ | 依存 |
 |---|---|
-| `UiaTrigger.Core` | (なし) |
+| `UiaTrigger.Core` | `Microsoft.Extensions.Logging.Abstractions` |
 | `UiaTrigger.Picker.Core` | → `UiaTrigger.Core` |
-| `UiaTrigger.Picker.WinUI` / `.Wpf` / `.WinForms` | → `UiaTrigger.Picker.Core` |
+| `UiaTrigger.Picker.Wpf` / `.WinForms` | → `UiaTrigger.Picker.Core` |
+| `UiaTrigger.Picker.WinUI` | → `UiaTrigger.Picker.Core` + `Microsoft.WindowsAppSDK` + `CommunityToolkit.WinUI.Controls.Sizers` |
+
+**この表と README の依存表は同じものを指す。**README は利用者に「何が入ってくるか」を
+案内しており、ずれると案内が嘘になる。`Microsoft.Extensions.Logging.Abstractions` は
+`Core` 経由で**5 つ全部に届く** — 「第三者依存を持つのは `Picker.WinUI` だけ」と書くと、
+Microsoft 以外という意味であっても利用者はそう読み分けない。
 
 **5 つ全部を配る。**README が「自分のアプリと同じ UI フレームワークの `Picker.*` を
 参照すればよい」と案内している以上、どれかを欠くと案内が嘘になる。
