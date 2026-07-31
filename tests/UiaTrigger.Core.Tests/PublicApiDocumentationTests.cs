@@ -191,9 +191,44 @@ public sealed class PublicApiDocumentationTests
     private static string OutputDirectoryFor(string assembly)
         => assembly == WinUiAssemblyName ? WinUiOutputDirectory.Value : AppContext.BaseDirectory;
 
-    /// <summary>ビルド出力に並ぶ英語 (neutral) の XML ドキュメント。</summary>
+    /// <summary>ビルド出力に並ぶ英語 (neutral) の XML ドキュメント。**絞り込み済み**である。</summary>
     private static string NeutralXmlPath(string assembly)
         => Path.Combine(OutputDirectoryFor(assembly), $"{assembly}.xml");
+
+    /// <summary>
+    /// 絞り込み**前**の XML ドキュメント (obj に控えてある)。
+    ///
+    /// <para>
+    /// **公開 API の側を見るときは必ずこちらを使う。**`bin` に並ぶほうは
+    /// <c>KeepDistributedDocumentationPublic</c> が ja のキー集合で絞ったあとの姿なので、
+    /// ja からメンバーを落とすと英語側からも同時に消える。両者を突き合わせても
+    /// 常に一致し、**「公開 API に在って ja に無い」を原理的に検出できない**
+    /// (docs/LOCALIZATION.md §5)。
+    /// </para>
+    /// </summary>
+    private static string UnfilteredXmlPath(string assembly)
+    {
+        string configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+
+        // bin と同じ形で場所を絞る。**再帰で「見つかったもの」を採らない** — 単体ビルドが
+        // 残した別レイアウト (obj\Release\... と obj\x64\Release\... が並存する) を
+        // 掴む罠が実在する (.claude/rules/build.md)
+        string root = assembly == WinUiAssemblyName
+            ? RepoPaths.Combine("src", assembly, "obj", "x64", configuration)
+            : RepoPaths.Combine("src", assembly, "obj", configuration);
+
+        string[] found = Directory.Exists(root)
+            ? Directory.GetFiles(root, $"{assembly}.unfiltered.xml", SearchOption.AllDirectories)
+            : [];
+
+        if (found.Length != 1)
+        {
+            throw new InvalidOperationException(
+                $"{assembly}.unfiltered.xml が {root} の下に {found.Length} 個ありました (1 個であるべきです)。" +
+                "ソリューションビルド (dotnet build UiaTrigger.slnx) を先に通してください。");
+        }
+        return found[0];
+    }
 
     /// <summary>同じ出力の <c>ja/</c> サブフォルダ。IDE はここを先に見る。</summary>
     private static string JapaneseXmlPath(string assembly)
@@ -216,6 +251,15 @@ public sealed class PublicApiDocumentationTests
         Assert.True(
             PublicApiDoc.ReadPublicEntries(NeutralXmlPath(assembly), AssemblyFor(assembly)).Count >= MinimumEntries(assembly),
             $"{assembly}: 公開 API のドキュメント項目が少なすぎます。ID の解釈が壊れている可能性があります。");
+
+        // 絞り込み前の控えは obj の中だけに置く。**あれは配ってはいけないものそのもの**で、
+        // 非公開メンバーの日本語コメントを 1 件残らず含んでいる (実測: Core は 620 対 317)。
+        // 出力に混ざる形は、名前が違うので他のどの検査にも掛からない
+        string[] leaked = [.. Directory.GetFiles(OutputDirectoryFor(assembly), "*.unfiltered.xml")];
+        Assert.True(
+            leaked.Length == 0,
+            $"絞り込み前の XML ドキュメントがビルド出力に出ています: {string.Join(", ", leaked)}。" +
+            "あれは非公開メンバーの日本語コメントを含むので配ってはいけません (docs/LOCALIZATION.md §5)。");
     }
 
     /// <summary>
@@ -229,7 +273,7 @@ public sealed class PublicApiDocumentationTests
     [MemberData(nameof(DocumentedAssemblies))]
     public void ThePublicApiDocumentationIsEnglish(string assembly)
     {
-        string[] japanese = [.. PublicApiDoc.ReadPublicEntries(NeutralXmlPath(assembly), AssemblyFor(assembly))
+        string[] japanese = [.. PublicApiDoc.ReadPublicEntries(UnfilteredXmlPath(assembly), AssemblyFor(assembly))
             .Where(e => Cjk.IsMatch(e.Text))
             .Select(e => e.Id)];
 
@@ -278,7 +322,7 @@ public sealed class PublicApiDocumentationTests
     [MemberData(nameof(DocumentedAssemblies))]
     public void TheJapaneseDocumentationCoversExactlyThePublicApi(string assembly)
     {
-        string[] english = [.. PublicApiDoc.ReadPublicEntries(NeutralXmlPath(assembly), AssemblyFor(assembly)).Select(e => e.Id)];
+        string[] english = [.. PublicApiDoc.ReadPublicEntries(UnfilteredXmlPath(assembly), AssemblyFor(assembly)).Select(e => e.Id)];
         string[] japanese = [.. PublicApiDoc.ReadAllEntries(JapaneseXmlPath(assembly)).Select(e => e.Id).Order(StringComparer.Ordinal)];
 
         string[] missing = [.. english.Except(japanese, StringComparer.Ordinal).Order(StringComparer.Ordinal)];
@@ -302,7 +346,7 @@ public sealed class PublicApiDocumentationTests
     [MemberData(nameof(DocumentedAssemblies))]
     public void TheJapaneseDocumentationIsActuallyTranslated(string assembly)
     {
-        Dictionary<string, string> english = PublicApiDoc.ReadPublicEntries(NeutralXmlPath(assembly), AssemblyFor(assembly))
+        Dictionary<string, string> english = PublicApiDoc.ReadPublicEntries(UnfilteredXmlPath(assembly), AssemblyFor(assembly))
             .ToDictionary(e => e.Id, e => e.Text, StringComparer.Ordinal);
 
         string[] untranslated = [.. PublicApiDoc.ReadAllEntries(JapaneseXmlPath(assembly))

@@ -303,6 +303,15 @@
     <member name="M:UiaTrigger.Models.ElementRect.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
       <summary>要素の境界矩形 (スクリーン座標)。</summary>
     </member>
+    <member name="M:UiaTrigger.Models.ElementRect.Contains(System.Int32,System.Int32)">
+      <summary>物理スクリーン座標の点がこの矩形の内側にあるかどうか。</summary>
+      <param name="x">水平位置。</param>
+      <param name="y">垂直位置。</param>
+      <remarks>
+        Win32 の矩形と同じく**半開区間**である: 左辺と上辺は矩形に属し、右辺と下辺は属さない。
+        辺を共有する 2 つの矩形が同じ点を二重に主張することがない。
+      </remarks>
+    </member>
     <member name="M:UiaTrigger.Models.ElementRect.ToString">
       <summary>invariant な <c>(L,T)-(R,B)</c> 形式。表示にも比較にも使われる。</summary>
     </member>

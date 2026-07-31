@@ -19,10 +19,11 @@ ja.xml は公開 API と 1:1 (docs/LOCALIZATION.md §5):
 
 - `ja/` の doc ファイルは**丸ごと**使われる。無いメンバーは英語に落ちるのではなく
   **説明が消える**。
-- **公開 API を足したら ja.xml も書き足すこと。忘れても CI は落ちない。**
-  英語側は ja のキー集合で絞られるので、ja に無いメンバーは英語側からも消え、
-  `TheJapaneseDocumentationCoversExactlyThePublicApi` は一致したまま緑になる。
-  検査が捕まえるのは「ja にのみ在る残骸」だけである (docs/LOCALIZATION.md §5)。
+- **過不足なしを `TheJapaneseDocumentationCoversExactlyThePublicApi` が両方向で縛る** —
+  公開 API を足したら ja.xml も書き足さないと CI が落ちる。英語側として読むのは
+  `obj\**\<アセンブリ名>.unfiltered.xml` (絞り込み前) である。**`bin` の `.xml` を
+  読む形に戻さないこと** — あれは ja のキー集合で絞ったあとなので、常に一致して
+  不足を検出できなくなる (docs/LOCALIZATION.md §5)。
 - 配る 5 パッケージすべてが英語と日本語の `.xml` を持つ。`Picker.WinUI` だけは T1 から
   参照できないので `MetadataLoadContext` で読む — `PublicApiDoc` が `typeof` との比較を
   使わないのはそのためである。

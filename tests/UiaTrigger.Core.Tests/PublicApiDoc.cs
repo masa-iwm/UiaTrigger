@@ -89,6 +89,14 @@ internal static class PublicApiDoc
             return false;
         }
 
+        // 型ごと生成された型のメンバーも対象外である。**属性は型にしか付かない** —
+        // XamlMetaDataProvider の GetXamlType / GetXmlnsDefinitions は個々には
+        // [GeneratedCode] を持たないので、メンバー単位の判定だけでは素通りする (実測)。
+        if (IsWholeTypeGenerated(type))
+        {
+            return false;
+        }
+
         // JsonSerializerContext のメンバー (型ごとの JsonTypeInfo プロパティ・GetTypeInfo・
         // コンストラクタ) は STJ のソースジェネレーターが doc ごと生成する。型宣言そのものは
         // 手書きなので残すが、メンバーを翻訳対象にすると
