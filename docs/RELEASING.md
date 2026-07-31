@@ -124,6 +124,14 @@ publish → 添付 → notes という配布の全工程を、後戻りできる
   自動で走る」経路に載せない。NuGet への push は、ドラフトの中身を人が確かめたあとに
   別途実行する。
 
+禁じているのは**自動で走ること**であって、ワークフローを使うことではない。GitHub Packages
+への発行は `workflow_dispatch` 専用のワークフローが行う (§6) — 押すのは人のままで、
+`GITHUB_TOKEN` で足りるので新しい秘密情報を持たずに済む。**長期の NuGet API キーは
+秘密情報として持たない。**将来 nuget.org への push を CI から出す必要が生じたときも、キーを
+置くのではなく nuget.org の Trusted Publishing (GitHub Actions の OIDC を 1 時間だけ有効な
+API キーへ交換する) を使う。あちらのポリシーは**ワークフローのファイル名**に紐づくので、
+使う日には「どのファイルが押してよいか」がレジストリ側にも書かれることになる。
+
 タグ push でワークフローが走るのは、ワークフローが**タグの指すコミットから**読まれる
 ためで、既定ブランチに在る必要は無い (実測)。§2 の `workflow_dispatch` の制限と混同しないこと。
 また、**履歴を書き換える rebase より前に打ったタグは、捨てられるコミットを指したまま残る**。
@@ -209,3 +217,69 @@ publish → 添付 → notes という配布の全工程を、後戻りできる
   未確認のまま (無い環境では `Platform linker not found` で落ちる — 製品側の問題ではない)。
   マネージドのビルドと非 AOT の発行は通り、Windows App SDK の ARM64 資産も復元できる
   (実測)。**「ARM64 で AOT 発行できる」は測っていないので、そう書かない。**
+
+## §6 GitHub Packages
+
+nuget.org へ出す前に、レジストリ → 復元 → IntelliSense という**取得の経路**を実際のアプリで
+一度通すための工程である。`.github/workflows/publish-packages.yml` が
+`workflow_dispatch` だけで走り、**ドラフト Release に添付された `.nupkg` をそのまま押す**。
+pack し直さない — 評価する意味があるのは nuget.org へ出す当のバイト列である (§4)。
+
+- 認証は `GITHUB_TOKEN` + `permissions: packages: write` で足りる。**新しい秘密情報を持たない。**
+  パッケージとリポジトリの紐づけは nuspec の `RepositoryUrl` (`Directory.Build.props`) で決まる。
+- `.snupkg` は押さない (`--no-symbols`)。GitHub Packages にシンボルサーバーは無い。
+- `--skip-duplicate` は付けない。既に在る版を黙って飛ばすと「いま評価しているのはこのバイト列だ」
+  という保証が消える。
+- push のあと、**レジストリの応答で** 5 つとも当の版が引けることを数える。push が 1 件も
+  走らなくても緑になる形を塞ぐため (§1 の「検証はプロパティではなく中身で行う」と同じ)。
+
+### 版数は使い切りである
+
+同じ版を上書きできない。消したあとに同じ版で出し直せるという保証も無い (GitHub の文書は
+republish について何も書いていない)。**直したければ `Directory.Build.props` の `<Version>` を
+上げて、タグから通し直す。**preview 札の番号は安いので、迷ったら上げる。
+
+### 読むのにも認証が要る — ここの緑は「誰でも取れる」を意味しない
+
+**リポジトリが公開でも、認証なしでは取れない。**`https://nuget.pkg.github.com/<owner>/index.json`
+は service index からして **401** である (実測)。利用者側には `read:packages` を持つ
+personal access token (classic) と、それを渡す `nuget.config` が要る:
+
+```xml
+<packageSources>
+  <add key="github" value="https://nuget.pkg.github.com/<owner>/index.json" />
+</packageSources>
+<packageSourceCredentials>
+  <github>
+    <add key="Username" value="<owner>" />
+    <add key="ClearTextPassword" value="<read:packages を持つ PAT>" />
+  </github>
+</packageSourceCredentials>
+```
+
+つまり**匿名で取得する経路は、nuget.org へ出すまで一度も通らない。**ここが緑でも
+「利用者が何もせずに復元できる」は測れていないので、そう書かない。
+
+### nuget.org へ出す前に決めること
+
+配るものについての判断であり、どれも**版を上げないと直せない**。
+
+- **`Picker.WinUI` だけ `.xml` を配らない。**`GenerateDocumentationFile` を立てていないので、
+  `TriggerPickerWindow` / `TriggerListEditorWindow` の説明が利用者の IntelliSense に出ない
+  (5 パッケージ中 1 つだけ空になる)。立てると CS1591 + `TreatWarningsAsErrors` で
+  公開メンバーぶんの doc 作業が発生するので、やるかどうかは判断を要する。
+- **日本語 IntelliSense は NuGet の利用者に届いていない。**`.nupkg` に在るのは
+  `lib/**/ja/*.resources.dll` (サテライト) だけで、**`lib/**/ja/*.xml` が入っていない**
+  (実測)。`Resources/<アセンブリ名>.ja.xml` で作り込んだ説明は、いまは `ProjectReference` の
+  利用者にしか出ない。全利用者の IDE に日本語を出すかどうかは方針の話である
+  (docs/LOCALIZATION.md §5)。
+- **README の依存の記述と、nuspec の依存を突き合わせる。**README は
+  「第三者依存を持つのは `Picker.WinUI` だけ (`CommunityToolkit.WinUI.Controls.Sizers`)」と
+  案内しているが、実際には **5 パッケージすべてが `Microsoft.Extensions.Logging.Abstractions`
+  を宣言している** (実測)。「第三者 = Microsoft 以外」と読めば嘘ではないが、利用者は
+  そこを読み分けない。
+- **配る `.xml` に `<b>` タグが混じっている** (`UiaTrigger.Core.xml` に 12 / `Picker.Core.xml`
+  に 2 — 実測)。強調の `**…**` が HTML に化けたもので、`///` doc・`.cs` のコメント・
+  `.csproj` / `.props` / `.targets` / `.yml` のコメントに広く残っている。XML doc としては
+  未知のタグなので中身は表示されるが、**利用者の IntelliSense に出る**。直すなら配る前に
+  一度で直す — 版を上げるたびに配り直すものである。

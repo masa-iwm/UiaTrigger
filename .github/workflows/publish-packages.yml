@@ -1,0 +1,135 @@
+name: Publish to GitHub Packages
+
+# ドラフト Release に添付された .nupkg を、そのまま GitHub Packages
+# (nuget.pkg.github.com) へ発行する (docs/RELEASING.md §6)。
+#
+# 手動起動だけである。タグ push では走らせない。release.yml が「消せるものを先に通す」
+# という順序を作っているのに対し、パッケージレジストリの版数は上書きできない。
+# だから「人が押す」を残す。
+#
+# nuget.org への push はここでもやらない。あちらは認証なしで誰でも取れる公開の
+# 名前空間で、GitHub Packages は読むだけでもトークンが要る (認証なしの index.json は
+# 401 — 実測)。配る相手の範囲が違うので工程も別にする。
+#
+# 新しい秘密情報は要らない。GITHUB_TOKEN に packages: write を与えれば、同じリポジトリに
+# 紐づくパッケージには発行できる (紐づけは nuspec の RepositoryUrl で決まる)。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "発行元のタグ (ドラフト Release の名前。例 v0.1.0-preview.1)"
+        required: true
+
+permissions:
+  contents: read # ドラフト Release の添付を読む
+  packages: write # nuget.pkg.github.com へ発行する
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  publish:
+    name: Publish the packages to GitHub Packages
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # pack し直さない。評価する意味があるのは「nuget.org へ出す当のバイト列」であり、
+      # 建て直すと別のビルドになって、確かめたことが配るものについて何も言わなくなる
+      # (docs/RELEASING.md §4 の「中身のバイト列で確かめる」と同じ規律)。
+      #
+      # snupkg は落とさない — GitHub Packages にシンボルサーバーは無い。
+      # glob の '*.nupkg' は '.snupkg' に一致しない (拡張子の直前がドットでないため)。
+      - name: Download the .nupkg from the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force packages | Out-Null
+          gh release download "${{ inputs.tag }}" --repo "$env:GITHUB_REPOSITORY" --pattern '*.nupkg' --dir packages
+          if ($LASTEXITCODE -ne 0) { throw "gh release download が失敗しました ($LASTEXITCODE)." }
+
+      # 件数と版数を、発行する前に数える。
+      # 5 という数は docs/RELEASING.md §1 の「5 つ全部を配る」がここで機械になったものである。
+      # 版数はタグから導き、落としてきたファイル名の全部が同じ版であることを要求する
+      # (「タグと違う版の nupkg が添付されている」形を塞ぐ)。
+      - name: Check what will be published
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.tag }}" -replace '^v', ''
+          $files = @(Get-ChildItem packages/*.nupkg | Sort-Object Name)
+          $files | ForEach-Object { Write-Host ("  {0}  ({1:N2} MB)" -f $_.Name, ($_.Length / 1MB)) }
+          if ($files.Count -ne 5) {
+            throw "nupkg が 5 つではありません ($($files.Count))。docs/RELEASING.md §1 の表を参照。"
+          }
+          $wrong = @($files | Where-Object { $_.Name -notlike "*.$version.nupkg" })
+          if ($wrong.Count -gt 0) {
+            throw "タグ ($version) と版数が違う nupkg があります: $(($wrong | ForEach-Object Name) -join ', ')."
+          }
+          Add-Content $env:GITHUB_ENV "PUBLISH_VERSION=$version"
+
+      # --skip-duplicate は付けない。GitHub Packages の版数は上書きできないので、既に在る版を
+      # 黙って飛ばして緑にすると「いま評価しているのはこのバイト列だ」という保証が消える。
+      # 既に在るなら落とし、版を上げるか消すかを人に決めさせる。
+      #
+      # --no-symbols: GitHub Packages にシンボルサーバーは無い。付けないと NuGet が
+      # 隣の .snupkg を探しに行く。
+      - name: Push
+        shell: pwsh
+        run: |
+          dotnet nuget push "packages/*.nupkg" `
+            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
+            --api-key "${{ github.token }}" `
+            --no-symbols
+          if ($LASTEXITCODE -ne 0) { throw "dotnet nuget push が失敗しました ($LASTEXITCODE)." }
+
+      # 「push が 1 件も走らなくても緑」を塞ぐ。プロパティではなくレジストリの応答で数える
+      # (docs/RELEASING.md §1 の「検証はプロパティではなく中身で行う」と同じ)。
+      #
+      # 取得先は service index が広告する PackageBaseAddress から引く — URL を直書きすると、
+      # レジストリが配置を変えたときに「見つからない」なのか「無い」なのか区別できなくなる。
+      # 読むのにも認証が要るので Basic (nuget.config の packageSourceCredentials と同じ形) を付ける。
+      # 発行直後は索引が追いつかないことがあるので、数回だけ待って引き直す。
+      - name: Verify the registry serves all five versions
+        shell: pwsh
+        run: |
+          $owner = "${{ github.repository_owner }}"
+          $version = $env:PUBLISH_VERSION
+          $ids = @(
+            "UiaTrigger.Core", "UiaTrigger.Picker.Core",
+            "UiaTrigger.Picker.WinUI", "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms")
+
+          $pair = [Text.Encoding]::ASCII.GetBytes("${{ github.actor }}:${{ github.token }}")
+          $headers = @{ Authorization = "Basic $([Convert]::ToBase64String($pair))" }
+
+          $index = Invoke-RestMethod -Uri "https://nuget.pkg.github.com/$owner/index.json" -Headers $headers
+          $base = ($index.resources | Where-Object { $_.'@type' -like 'PackageBaseAddress/*' })[0].'@id'
+          if ([string]::IsNullOrWhiteSpace($base)) {
+            throw "service index が PackageBaseAddress を広告していません。"
+          }
+          $base = $base.TrimEnd('/')
+          Write-Host "PackageBaseAddress = $base"
+
+          $missing = @()
+          foreach ($id in $ids) {
+            $url = "$base/$($id.ToLowerInvariant())/index.json"
+            $found = $false
+            foreach ($attempt in 1..6) {
+              try {
+                $versions = (Invoke-RestMethod -Uri $url -Headers $headers).versions
+                if ($versions -contains $version) { $found = $true; break }
+              } catch {
+                Write-Host "  ($id) 試行 $attempt : $($_.Exception.Message)"
+              }
+              Start-Sleep -Seconds 10
+            }
+            if ($found) { Write-Host "  OK: $id $version" } else { $missing += $id }
+          }
+          if ($missing.Count -gt 0) {
+            throw "レジストリに版 $version が見えないパッケージがあります: $($missing -join ', ')."
+          }
+          Write-Host "OK: 5 パッケージすべて $version が GitHub Packages から引ける"
