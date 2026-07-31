@@ -85,6 +85,16 @@ jobs:
       # 判定は**日本語が 1 文字も無いこと**で行う。公開 API の doc は英語であることを
       # L1 が要求しており (PublicApiDocumentationTests)、非公開のコメントは日本語のままでよいと
       # 決めてある。つまりこの 1 つの検査が「絞り込みが効いたか」をそのまま表す。
+      #
+      # **配る .xml は 2 種類あり、日本語の要否が逆である。**
+      #
+      #   lib/<TFM>/<名前>.xml      … 英語 (neutral)。日本語が 1 文字でもあれば絞り込みが漏れている
+      #   lib/<TFM>/ja/<名前>.xml   … 日本語 IntelliSense。日本語が無ければ中身が入れ替わっている
+      #
+      # 片側だけを見る形にしない。ja を足したとき、名前だけで数えると
+      # neutral と ja が**同じキーになり**、neutral が消えて ja だけ残っても
+      # 「在る」で通ってしまう — この検査が塞いでいるはずの形がそのまま戻る。
+      # 分類できない .xml (見知らぬカルチャなど) は緑にせず名指しで落とす。
       - name: Check the packaged XML docs carry no internal comments
         shell: pwsh
         run: |
@@ -94,7 +104,8 @@ jobs:
           $expected = @(
             "UiaTrigger.Core", "UiaTrigger.Picker.Core",
             "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms")
-          $seen = @()
+          $seenNeutral = @()
+          $seenJapanese = @()
           $bad = @()
           foreach ($pkg in Get-ChildItem artifacts/packages/*.nupkg) {
             $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
@@ -104,13 +115,29 @@ jobs:
                 $reader = New-Object System.IO.StreamReader($e.Open())
                 $text = $reader.ReadToEnd()
                 $reader.Dispose()
-                $seen += [System.IO.Path]::GetFileNameWithoutExtension($e.Name)
+                $name = [System.IO.Path]::GetFileNameWithoutExtension($e.Name)
                 $members = ([regex]'<member name=').Matches($text).Count
-                if ($text -cmatch $cjk) {
-                  $bad += "$($pkg.Name) -> $($e.FullName)"
-                  Write-Host "::error::$($pkg.Name) の $($e.FullName) に日本語が残っています"
+                $hasCjk = $text -cmatch $cjk
+
+                if ($e.FullName -match '^lib/[^/]+/[^/]+\.xml$') {
+                  $seenNeutral += $name
+                  if ($hasCjk) {
+                    $bad += "$($pkg.Name) -> $($e.FullName) (英語のはずが日本語を含む)"
+                    Write-Host "::error::$($pkg.Name) の $($e.FullName) に日本語が残っています"
+                  } else {
+                    Write-Host ("  OK: {0} -> {1} (member {2} 件, 英語)" -f $pkg.Name, $e.FullName, $members)
+                  }
+                } elseif ($e.FullName -match '^lib/[^/]+/ja/[^/]+\.xml$') {
+                  $seenJapanese += $name
+                  if (-not $hasCjk) {
+                    $bad += "$($pkg.Name) -> $($e.FullName) (日本語のはずが 1 文字も含まない)"
+                    Write-Host "::error::$($pkg.Name) の $($e.FullName) に日本語が 1 文字もありません"
+                  } else {
+                    Write-Host ("  OK: {0} -> {1} (member {2} 件, 日本語)" -f $pkg.Name, $e.FullName, $members)
+                  }
                 } else {
-                  Write-Host ("  OK: {0} -> {1} (member {2} 件)" -f $pkg.Name, $e.FullName, $members)
+                  $bad += "$($pkg.Name) -> $($e.FullName) (分類できない配置)"
+                  Write-Host "::error::$($pkg.Name) の $($e.FullName) は想定していない配置です"
                 }
               }
             } finally {
@@ -118,17 +145,22 @@ jobs:
             }
           }
 
-          # 「1 つも見つからなかったから緑」を塞ぐ。GenerateDocumentationFile が外れても
-          # pack は成功するので、数えないと静かに doc 無しのパッケージを配ることになる
-          $missing = @($expected | Where-Object { $seen -notcontains $_ })
-          if ($missing.Count -gt 0) {
-            throw "XML doc を配るはずのパッケージに .xml が入っていません: $($missing -join ', ')."
+          # 「1 つも見つからなかったから緑」を塞ぐ。GenerateDocumentationFile が外れても、
+          # ja を pack する経路が外れても pack は成功するので、両方を数える
+          $missingNeutral = @($expected | Where-Object { $seenNeutral -notcontains $_ })
+          if ($missingNeutral.Count -gt 0) {
+            throw "英語の .xml が入っていないパッケージがあります: $($missingNeutral -join ', ')."
+          }
+          $missingJapanese = @($expected | Where-Object { $seenJapanese -notcontains $_ })
+          if ($missingJapanese.Count -gt 0) {
+            throw "日本語 IntelliSense (lib/<TFM>/ja/*.xml) が入っていないパッケージがあります: " +
+                  "$($missingJapanese -join ', ')。Directory.Build.targets の " +
+                  "AddJapaneseDocumentationToPackage を確認してください。"
           }
           if ($bad.Count -gt 0) {
-            throw "配布する .xml に非公開メンバーの日本語コメントが残っています ($($bad.Count) 件)。" +
-                  "Directory.Build.targets の KeepDistributedDocumentationPublic を確認してください。"
+            throw "配布する .xml に問題があります ($($bad.Count) 件): $($bad -join '; ')."
           }
-          Write-Host "OK: 配布する .xml は $($seen.Count) ファイルすべて公開 API だけです"
+          Write-Host ("OK: 英語 {0} ファイル / 日本語 {1} ファイルを配ります" -f $seenNeutral.Count, $seenJapanese.Count)
 
       # 配布するホストは win-x64 だけである。
       # **ARM64 は出さない** — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と

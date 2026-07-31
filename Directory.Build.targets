@@ -124,6 +124,44 @@ else if (Removed > 0)
   </Target>
 
   <!--
+    日本語 IntelliSense を .nupkg にも入れる (docs/LOCALIZATION.md §5 / docs/RELEASING.md §1)
+
+    **CopyToOutputDirectory は pack に効かない。**各 csproj の `<None Link="ja\....xml">` は
+    bin に置くだけなので、日本語の説明は `ProjectReference` の利用者にしか出ない。
+    NuGet の利用者に届けるには pack の側にも入れる必要がある。
+
+    **置き場所は dll の隣でなければならない。**IDE / Roslyn は
+    `<アセンブリのフォルダ>\<カルチャ>\<アセンブリ名>.xml` を見るので、
+    `lib/<TFM>/ja/` 以外に置くと**エラーも警告も出さずにただ出ない**。
+
+    そのため `TargetsForTfmSpecificContentInPackage` ではなく
+    **`TargetsForTfmSpecificBuildOutput`** を使う。あちらは PackagePath を自分で組むので
+    TFM のフォルダ名 (`net10.0-windows` ではなく `net10.0-windows7.0`) を当てにいくことになり、
+    外しても pack は成功して**静かに間違った場所に入る**。こちらは NuGet が dll を置くのと
+    同じ場所を基準にし、%(TargetPath) がその下の相対パスになる — サテライトアセンブリが
+    `lib/<TFM>/ja/` に入るのと同じ経路である。
+
+    配るのは**絞り込みの正そのもの** (`Resources\<アセンブリ名>.ja.xml`) である。
+    あれは公開 API と 1:1 であることを `TheJapaneseDocumentationCoversExactlyThePublicApi` が
+    両方向で縛っているので、英語側のような絞り込みは要らない。
+  -->
+  <PropertyGroup Condition="'$(IsPackable)' == 'true' And '$(GenerateDocumentationFile)' == 'true'">
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);AddJapaneseDocumentationToPackage</TargetsForTfmSpecificBuildOutput>
+  </PropertyGroup>
+
+  <Target Name="AddJapaneseDocumentationToPackage">
+    <PropertyGroup>
+      <_UiaTriggerPackedJapaneseDoc>$(MSBuildProjectDirectory)\Resources\$(AssemblyName).ja.xml</_UiaTriggerPackedJapaneseDoc>
+    </PropertyGroup>
+    <!-- KeepDistributedDocumentationPublic と同じ理由の検査。無いまま黙って配らない -->
+    <Error Condition="!Exists('$(_UiaTriggerPackedJapaneseDoc)')"
+           Text="$(AssemblyName) は XML doc を配布しますが、$(_UiaTriggerPackedJapaneseDoc) がありません (docs/LOCALIZATION.md §5)。" />
+    <ItemGroup>
+      <BuildOutputInPackage Include="$(_UiaTriggerPackedJapaneseDoc)" TargetPath="ja\$(AssemblyName).xml" />
+    </ItemGroup>
+  </Target>
+
+  <!--
     Windows App SDK の .mui を、対応している言語だけに絞る (docs/LOCALIZATION.md §9)
 
     **SatelliteResourceLanguages では止まらない。**あれが絞るのは .NET のサテライト

@@ -208,15 +208,31 @@ resx のキー集合一致 (docs/LOCALIZATION.md §3) と同じ理由で、ja.xm
 
 検査は 2 段で、片方だけでは塞げない: `TheDistributedDocumentationContainsNoNonPublicMembers`
 がビルド出力の `.xml` に非公開項目が 0 件であることを見て、リリースワークフローが
-**実際に配る `.nupkg` を開いて**日本語が 1 文字も無いこと・配るはずの `.xml` 4 つが
-在ることを数える。「絞ったファイルとは別のファイルが pack された」形は出力側の検査では
-捕まらないからである。
+**実際に配る `.nupkg` を開いて**中身を数える (docs/RELEASING.md §3)。
+「絞ったファイルとは別のファイルが pack された」形は出力側の検査では捕まらないからである。
 
-現状の到達範囲も事実として記録しておく: `nupkg` に入るのは `lib/**/ja/*.resources.dll`
-(サテライト) だけで **`ja/*.xml` は入らない**ため、日本語 IntelliSense が届くのは
-ProjectReference の利用者だけである。また `Picker.WinUI` は `GenerateDocumentationFile` を
-立てておらず `.xml` を配らない (立てると CS1591 + `TreatWarningsAsErrors` でドキュメント
-作業が発生する)。どちらも「配るものが変わる」話であり、変えるかどうかは利用者の判断を要する。
+### ja.xml は nupkg にも入れる
+
+`CopyToOutputDirectory` は bin に置くだけで **pack には効かない**。各 csproj の
+`<None Link="ja\....xml">` だけだと、日本語の説明は ProjectReference の利用者にしか出ない。
+NuGet の利用者に届けるため、`Directory.Build.targets` の `AddJapaneseDocumentationToPackage`
+が `Resources\<アセンブリ名>.ja.xml` を `lib/<TFM>/ja/<アセンブリ名>.xml` として同梱する。
+
+- **置き場所は dll の隣でなければならない。**IDE は
+  `<アセンブリのフォルダ>\<カルチャ>\<アセンブリ名>.xml` を見るので、外れると
+  **エラーも警告も出さずにただ出ない**。
+- そのため `TargetsForTfmSpecificContentInPackage` ではなく
+  **`TargetsForTfmSpecificBuildOutput`** を使う。あちらは `PackagePath` を自分で組むことになり、
+  TFM のフォルダ名 (`net10.0-windows` ではなく **`net10.0-windows7.0`**) を外しても
+  pack は成功して**静かに間違った場所に入る**。こちらは NuGet が dll を置く場所が基準で、
+  `%(TargetPath)` がその下の相対パスになる。
+- 配るのは**絞り込みの正そのもの**である。公開 API と 1:1 であることを
+  `TheJapaneseDocumentationCoversExactlyThePublicApi` が両方向で縛っているので、
+  英語側のような絞り込みは要らない。
+
+`Picker.WinUI` は `GenerateDocumentationFile` を立てておらず `.xml` を配らない
+(立てると CS1591 + `TreatWarningsAsErrors` でドキュメント作業が発生する)。
+これは「配るものが変わる」話であり、変えるかどうかは利用者の判断を要する。
 
 ## §6 表示名と安定名
 
