@@ -225,8 +225,11 @@ nuget.org へ出す前に、レジストリ → 復元 → IntelliSense とい�
 `workflow_dispatch` だけで走り、**ドラフト Release に添付された `.nupkg` をそのまま押す**。
 pack し直さない — 評価する意味があるのは nuget.org へ出す当のバイト列である (§4)。
 
-- 認証は `GITHUB_TOKEN` + `permissions: packages: write` で足りる。**新しい秘密情報を持たない。**
-  パッケージとリポジトリの紐づけは nuspec の `RepositoryUrl` (`Directory.Build.props`) で決まる。
+- 認証は `GITHUB_TOKEN` で足りる。**新しい秘密情報を持たない。**パッケージとリポジトリの
+  紐づけは nuspec の `RepositoryUrl` (`Directory.Build.props`) で決まる。
+- 権限は `packages: write` に加えて **`contents: write`** が要る。**ドラフト Release は push
+  権限を持つ相手にしか見えない**ので、`contents: read` では添付を数えるどころか一覧に出ず、
+  `gh` が `release not found` で落ちる (実測)。読むだけなのに write が要る。
 - `.snupkg` は押さない (`--no-symbols`)。GitHub Packages にシンボルサーバーは無い。
 - `--skip-duplicate` は付けない。既に在る版を黙って飛ばすと「いま評価しているのはこのバイト列だ」
   という保証が消える。

@@ -21,7 +21,10 @@ on:
         required: true
 
 permissions:
-  contents: read # ドラフト Release の添付を読む
+  # ドラフト Release の添付を読む。read では足りない — **ドラフトは push 権限を持つ相手にしか
+  # 見えない**ので、contents: read のトークンには一覧に出ず gh が "release not found" で
+  # 落ちる (実測)。読むだけなのに write が要るのはそのためである。
+  contents: write
   packages: write # nuget.pkg.github.com へ発行する
 
 env:
