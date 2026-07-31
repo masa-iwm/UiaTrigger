@@ -353,7 +353,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 1 | T5 | `TargetInputTests.WhileThePickerHooksTheKeyboard_OtherAppsStillReceiveArrows` | 全体実行でまれに落ちる。原因未特定 |
 | 2 | T1 | `TriggerMonitorPollingTests.Polling_DoesNotDriveResolution` | ビルド直後の 1 回目だけ落ちることがある。見立てはあるが未確認 |
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
-| 4 | T4 | `CompositeShowcaseTests.ABrokenExpression_IsRefusedAndAddsNothing` | ランナーでまれに落ちる。ホストの窓が pick 点を覆う。原因未特定 |
+| 4 | T4 | ランナーで**どれか 1 件**が「ホストの窓が pick 点を覆う」で落ちる | 落ちる顔ぶれは回ごとに違うが、**矩形も pick 点も毎回同じ**。余裕が 4px しかない |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —
@@ -391,22 +391,27 @@ end-to-end はランナー上の T3 でしか検証されていない** — 開�
 残る不明点は「ランナーで実際に落ちたのはどの呼び出しか」であり、分けるには
 ランナー上の monitor のログが要る。設計側の記述は docs/DESIGN.md §8。
 
-**(4)** `RecordSecond` が 2 枚目のピッカーを開こうとしたところで、
-`PickerHostProcess.RequireThePickPointsAreNotCoveredByTheHost` が落とす。**これは狙いどおりの
-落ち方である** — ガードが無ければ、ホバー捕捉が起きず `_lastCapturedPoint` により再捕捉も
-されないまま「実体化しなかった」という顔の 20 秒タイムアウトになる (§6 と同じ形)。
-落ちたときの実測値:
+**(4)** `PickerHostProcess.RequireThePickPointsAreNotCoveredByTheHost` が落とす。
+**これは狙いどおりの落ち方である** — ガードが無ければ、ホバー捕捉が起きず
+`_lastCapturedPoint` により再捕捉もされないまま「実体化しなかった」という顔の
+20 秒タイムアウトになる (§6 と同じ形)。落ちたときの実測値:
 
 ```
 pick 点 (1670,676) がホストの窓 (234,234)-(1674,987) に覆われています
 (class='WinUIDesktopWin32WindowClass')
 ```
 
-**窓の幅が 1440px** であり、`DesktopLayout.NarrowHost` の 1100px ではない。つまり狭いホストの
-話ではなく、**ホストの窓がどこに・どの大きさで出るか**が回ごとに違うことが原因である。
-同じコミットで再実行すると緑になった (1 回)。**「直った」とは書かない** — 落ちたのが
-1 回・通ったのが 1 回というだけである。次に落ちたら**窓の矩形と pick 点を突き合わせる**こと。
-pick 点の側を動かすのか、ホストを画面の端へ寄せるのかは、その数字が出てから決める。
+**落ちる顔ぶれは回ごとに違う** (`CompositeShowcaseTests.ABrokenExpression_IsRefusedAndAddsNothing`
+と `MonitorShowcaseTests.DeletingOneTriggerWhileMonitoring_LeavesTheOthersRunning` で実測)。
+**しかし矩形も pick 点も 2 回とも 1 px 違わず同じである。**窓の出る位置が揺れているのではない。
+
+- **余裕が 4px しかない。**pick 点の x=1670 に対してホストの窓の右端は 1674 である。
+  つまり境界の当たり方の問題であり、**どのテストが落ちるかだけが揺れている**。
+- 窓の幅は 1440px で、`DesktopLayout.NarrowHost` の 1100px ではない。狭いホストの話ではない。
+- 再実行すると緑になる (実測 1 回)。**「直った」とは書かない。**
+
+次に触るときは、揺れを追うのではなく **pick 点と `DesktopLayout` の `Host` 右端・`Gap` を
+突き合わせる**こと。4px という数字は、片方をわずかに動かせば消える種類の重なりを指している。
 
 ## §6 ローカル実行の注意
 
