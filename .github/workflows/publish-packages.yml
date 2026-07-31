@@ -81,14 +81,19 @@ jobs:
       #
       # --no-symbols: GitHub Packages にシンボルサーバーは無い。付けないと NuGet が
       # 隣の .snupkg を探しに行く。
+      #
+      # ワイルドカードは渡さない。`packages/*.nupkg` は展開されず
+      # `File does not exist (packages/*.nupkg)` で落ちる (実測)。1 件ずつ、
+      # どれで落ちたかが読める形で押す。
       - name: Push
         shell: pwsh
         run: |
-          dotnet nuget push "packages/*.nupkg" `
-            --source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" `
-            --api-key "${{ github.token }}" `
-            --no-symbols
-          if ($LASTEXITCODE -ne 0) { throw "dotnet nuget push が失敗しました ($LASTEXITCODE)." }
+          $source = "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+          foreach ($f in Get-ChildItem packages/*.nupkg | Sort-Object Name) {
+            Write-Host "--- push $($f.Name)"
+            dotnet nuget push $f.FullName --source $source --api-key "${{ github.token }}" --no-symbols
+            if ($LASTEXITCODE -ne 0) { throw "$($f.Name) の push が失敗しました ($LASTEXITCODE)." }
+          }
 
       # 「push が 1 件も走らなくても緑」を塞ぐ。プロパティではなくレジストリの応答で数える
       # (docs/RELEASING.md §1 の「検証はプロパティではなく中身で行う」と同じ)。
