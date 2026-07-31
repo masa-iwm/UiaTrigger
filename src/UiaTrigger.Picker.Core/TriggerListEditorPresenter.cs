@@ -3,7 +3,7 @@
 // ピッカーの presenter と同じ形である — どの UI フレームワークでも同じ答えになるものだけを持ち、
 // 違うもの (窓の出し方・一覧コントロール・モーダルの有無) は継ぎ目の向こうに置く。
 //
-// <b>作業用の写しの上で編集する。</b>渡されたリストにも、その中の定義にも触れない。
+// **作業用の写しの上で編集する。**渡されたリストにも、その中の定義にも触れない。
 // 保存先を決めるのも監視を止めるのもホストの仕事であり、エディタは値を受け取って値を返すだけである
 // (docs/DESIGN.md §4 が定める継ぎ目の絶対条件)。
 using System.Globalization;
@@ -73,7 +73,7 @@ public sealed class TriggerListEditorPresenter
     /// </summary>
     /// <remarks>
     /// ピッカーは 1 回開いたら何件でもコミットできるので、「いま編集しているのはどの行か」を
-    /// 覚えておかないと、2 度目のコミットが<b>末尾への追加</b>に化ける。
+    /// 覚えておかないと、2 度目のコミットが**末尾への追加**に化ける。
     /// </remarks>
     private string? _editingId;
 
@@ -132,7 +132,7 @@ public sealed class TriggerListEditorPresenter
 
         _editingId = target.Id;
         // 写しを渡す。ピッカーは渡された実体へ書き戻すので、直に渡すと
-        // <b>キャンセルしても作業用リストが変わってしまう</b>
+        // **キャンセルしても作業用リストが変わってしまう**
         _view.ShowPicker(Clone(target));
     }
 
@@ -207,7 +207,7 @@ public sealed class TriggerListEditorPresenter
     /// <summary>Reports a trigger the picker committed.</summary>
     /// <param name="definition">The committed trigger. The presenter copies it.</param>
     /// <remarks>
-    /// While editing, the edited row is replaced <b>where it is</b> rather than moved to the end, so
+    /// While editing, the edited row is replaced **where it is** rather than moved to the end, so
     /// a list the user has arranged stays arranged. Otherwise — and whenever the committed id is a
     /// new one — the id decides: an existing trigger with that id is replaced, so re-recording the
     /// same trigger updates it instead of adding a second one.
@@ -277,7 +277,7 @@ public sealed class TriggerListEditorPresenter
                 // 複合は 1 行に収まらないので別書式にする。プロセス名を出しても意味が無い
                 // (要素ごとに違う) ので、条件の数と式を出す。
                 //
-                // <b>「要素が何個か」をここで数えないこと。</b>同じ要素かどうかは Window / Locator の
+                // **「要素が何個か」をここで数えないこと。**同じ要素かどうかは Window / Locator の
                 // 値で決まるが、あの 2 つは Equals を持たない可変クラスなので、素朴に比べると
                 // JSON から読んだ「同じ要素を指す 2 句」を別物と数えてしまう。正しい数は
                 // 監視中の TriggerMonitorDiagnostics.ElementSlotCount が持っている
@@ -300,7 +300,7 @@ public sealed class TriggerListEditorPresenter
 
     /// <summary>定義の深い写し。</summary>
     /// <remarks>
-    /// JSON の往復で作る。手で写すと、モデルにプロパティが増えたときに<b>黙って欠ける</b> —
+    /// JSON の往復で作る。手で写すと、モデルにプロパティが増えたときに**黙って欠ける** —
     /// しかも欠けるのは「エディタを通したときだけ」なので、保存されたファイルを見るまで分からない。
     /// <see cref="TriggerJsonContext"/> は source-generated なので AOT でも動く。
     /// </remarks>

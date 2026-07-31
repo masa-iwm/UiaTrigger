@@ -49,10 +49,10 @@ public interface ICursorSource
 /// <summary>要素が乗っているモニターの DPI (docs/DESIGN.md §9)。</summary>
 /// <remarks>
 /// <para>
-/// <b>矩形から引くのが要点である。</b>オーバーレイの寸法を決めるのは
+/// **矩形から引くのが要点である。**オーバーレイの寸法を決めるのは
 /// <see cref="OverlayController"/> (<c>_pendingRect</c>) と
 /// <see cref="TriggerPickerPresenter"/> (<c>_shownRect</c>) の 2 か所あり、
-/// 同じ矩形からは必ず同じ DPI が出ないと、<b>絵と当たり判定が食い違う</b>
+/// 同じ矩形からは必ず同じ DPI が出ないと、**絵と当たり判定が食い違う**
 /// — 見えているアイコンが押せない / ホバーの除外領域が絵からずれる、という
 /// 例外の出ない壊れ方になる。
 /// </para>
@@ -63,7 +63,7 @@ public interface ICursorSource
 /// <para>
 /// 直接 P/Invoke せず継ぎ目にしてあるのは <see cref="ICursorSource"/> と同じ理由である —
 /// 埋め込むと T1 が動いている機械の表示スケールで結果を変え、
-/// 96 では緑・175% では赤 (逆もある) という<b>再現しないテスト</b>になる。
+/// 96 では緑・175% では赤 (逆もある) という**再現しないテスト**になる。
 /// </para>
 /// </remarks>
 internal interface IDpiSource

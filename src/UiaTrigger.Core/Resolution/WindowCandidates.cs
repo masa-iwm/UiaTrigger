@@ -50,7 +50,7 @@ internal sealed class Win32WindowSource : IWindowSource
 /// <summary>
 /// 1 回の解決パス (起動時 / 1 回の sweep) の間だけ生きるウィンドウ候補キャッシュ。
 /// ウィンドウ列挙・プロセスパス取得・候補リストの 3 つを全トリガー間で共有する。
-/// <b>パスをまたいで使い回さないこと</b> — ウィンドウの出現・消滅を見落とす。
+/// **パスをまたいで使い回さないこと** — ウィンドウの出現・消滅を見落とす。
 ///
 /// 照合方式は docs/DESIGN.md A4 のとおり。全属性を 1 つのスコアに足し込んで
 /// 閾値 (実質「ClassName 完全一致が必須」) を掛けると、
@@ -75,7 +75,7 @@ internal sealed class WindowCandidateCache(IWindowSource source, ResolverOptions
     ///
     /// 非昇格クライアントから昇格プロセスを OpenProcess すると必ず失敗する。それを
     /// 静かに候補から落とすだけだと、「昇格したアプリは監視できない」という制約が
-    /// <b>症状としては「トリガーが永久に解決しない」だけ</b>に見える。数だけ数えておけば
+    /// **症状としては「トリガーが永久に解決しない」だけ**に見える。数だけ数えておけば
     /// 未解決の理由として呼び出し元に返せる。
     /// </summary>
     public int InaccessibleProcessCount { get; private set; }

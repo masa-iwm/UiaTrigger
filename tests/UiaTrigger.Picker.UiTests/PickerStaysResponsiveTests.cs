@@ -1,15 +1,15 @@
 // T4: 対象アプリが固まってもピッカーの UI が凍らないこと
 // (docs/MANUAL-CHECKS.md §8 (応答しないアプリに対する耐性) / docs/DESIGN.md §3)。
 //
-// <b>「UI が凍っていない」は目視ではなく期限付きの assert に落とせる。</b>
+// **「UI が凍っていない」は目視ではなく期限付きの assert に落とせる。**
 // しかもこの形は人より検出力が強い — 人は「なんとなく重い」を「凍っていない」と読んでしまう。
 //
-// <b>ここでしか見られないもの:</b> ピッカーの UI の経路が UIA の経路を待たないこと。
+// **ここでしか見られないもの:** ピッカーの UI の経路が UIA の経路を待たないこと。
 // 選択の反映と枠の描画はキャッシュ済みの矩形で同期に走り、プロパティの読み取りは
 // fire-and-forget である。T1 の fake View にはこの 2 つを分ける実体が無い。
 //
 // WPF だけで回す。この性質は TriggerPickerPresenter / OverlayController = Picker.Core に在って
-// 3 変種で<b>同じもの</b>なので、変種を増やしても検査対象の被覆は増えない (OverlayTests と同じ理由)。
+// 3 変種で**同じもの**なので、変種を増やしても検査対象の被覆は増えない (OverlayTests と同じ理由)。
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows.Automation;
@@ -25,15 +25,15 @@ public sealed class PickerStaysResponsiveTests
     /// <summary>対象アプリを塞ぐ時間。</summary>
     /// <remarks>
     /// <c>TestTargetProcess</c> の応答待ち (20 秒) より十分に短くとる。塞ぐ直前に送っておいた
-    /// <c>ping</c> をこの後で受けるので、超えると<b>ハーネス自身が時間切れになる</b>。
+    /// <c>ping</c> をこの後で受けるので、超えると**ハーネス自身が時間切れになる**。
     /// </remarks>
     private static readonly TimeSpan Hang = TimeSpan.FromSeconds(10);
 
     /// <summary>
-    /// 塞がっている最中の操作に与える期限。<b>この数字がこのテストの検出力そのものである。</b>
+    /// 塞がっている最中の操作に与える期限。**この数字がこのテストの検出力そのものである。**
     /// </summary>
     /// <remarks>
-    /// <see cref="Hang"/> より<b>ずっと短く</b>すること。UI スレッドが UIA の往復を待つ実装なら
+    /// <see cref="Hang"/> より**ずっと短く**すること。UI スレッドが UIA の往復を待つ実装なら
     /// 反映は塞ぎ明け (10 秒) まで遅れるので、短い期限だけがその失敗を捕まえる。
     /// 実測は選択が 34〜53ms、枠は最初のポーリングで既に移動済みである。
     /// </remarks>
@@ -52,22 +52,22 @@ public sealed class PickerStaysResponsiveTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>なぜこれが効くのか。</b><c>SelectionItemPattern.Select()</c> は
-    /// <b>ピッカーの UI スレッドへの他プロセス呼び出し</b>である。UI スレッドが詰まっていれば
-    /// この呼び出し自体が返らない — <b>観測点が探針そのものになっている</b>。
+    /// **なぜこれが効くのか。**<c>SelectionItemPattern.Select()</c> は
+    /// **ピッカーの UI スレッドへの他プロセス呼び出し**である。UI スレッドが詰まっていれば
+    /// この呼び出し自体が返らない — **観測点が探針そのものになっている**。
     /// </para>
     /// <para>
     /// ピッカーの UIA 読み取りは専用スレッド (MTA) で走り、塞がっているあいだ丸ごと止まる。
     /// 一方 <c>NotifyTreeSelectionChanged</c> → <c>RefreshCurrentNode</c> は
-    /// <b>キャッシュ済みの矩形で同期に枠を出し</b>、プロパティの読み取りは fire-and-forget である。
-    /// つまりこのテストは<b>「UI の経路が UIA の経路を待たない」という設計の性質</b>を直接固定する。
+    /// **キャッシュ済みの矩形で同期に枠を出し**、プロパティの読み取りは fire-and-forget である。
+    /// つまりこのテストは**「UI の経路が UIA の経路を待たない」という設計の性質**を直接固定する。
     /// </para>
     /// <para>
-    /// <b>プロパティ一覧は見ない。</b>塞がっているあいだ埋まらないのは正しい。
-    /// ただし<b>塞ぎが明けても更新されない</b>ことが実測で分かっている
+    /// **プロパティ一覧は見ない。**塞がっているあいだ埋まらないのは正しい。
+    /// ただし**塞ぎが明けても更新されない**ことが実測で分かっている
     /// (<c>RefreshPropsAsync</c> が <c>COMException</c> を捕まえないため —
     /// docs/TESTING.md §5 の未修正の不具合)。
-    /// <b>それは送ってある不具合であり、ここで固定してしまうと直せなくなる。</b>
+    /// **それは送ってある不具合であり、ここで固定してしまうと直せなくなる。**
     /// 代わりに <see cref="WithoutAHang_SelectingTheSameRowAlsoFillsThePropertyList"/> が
     /// 「塞いでいなければ埋まる」を押さえ、この振る舞いが hang 固有だと読めるようにしてある。
     /// </para>
@@ -113,8 +113,8 @@ public sealed class PickerStaysResponsiveTests
     /// 対照: 塞いでいなければ、同じ操作でプロパティ一覧も埋まること。
     /// </summary>
     /// <remarks>
-    /// <b>これが無いと、上のテストが「塞いだから埋まらない」のか
-    /// 「そもそも埋まらない」のかを区別できない。</b>塞がっている最中にプロパティ一覧が
+    /// **これが無いと、上のテストが「塞いだから埋まらない」のか
+    /// 「そもそも埋まらない」のかを区別できない。**塞がっている最中にプロパティ一覧が
     /// 前の要素のままであることは正しい振る舞いだが、それを言うには
     /// 「塞がなければ埋まる」を別に示さなければならない。
     /// 実測では 268ms で埋まる。
@@ -144,31 +144,31 @@ public sealed class PickerStaysResponsiveTests
     }
 
     /// <summary>
-    /// 対象アプリ + ホスト + 捕捉済みのピッカー。<b>塞ぐ前に見るものを全部掴んでおく。</b>
+    /// 対象アプリ + ホスト + 捕捉済みのピッカー。**塞ぐ前に見るものを全部掴んでおく。**
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>この「先に掴む」規律がこのファイルの要である (docs/TESTING.md §1)。</b>
+    /// **この「先に掴む」規律がこのファイルの要である (docs/TESTING.md §1)。**
     /// <c>PickerHostProcess.PickerWindow()</c> / <c>Overlays()</c> /
     /// <c>AutomationElement.FromPoint</c> / <c>Diagnostics()</c> は
     /// どれも <c>AutomationElement.RootElement</c> の子を列挙するか、対象アプリを直接読む。
-    /// <b>応答しない窓が 1 つでも在ると、それらは検査対象と一緒に詰まる</b>
+    /// **応答しない窓が 1 つでも在ると、それらは検査対象と一緒に詰まる**
     /// (実測: <c>Overlays()</c> 12052ms / <c>PickerWindow()</c> 14912ms /
     /// <c>FromPoint</c> は 10 秒で <c>TimeoutException</c> / <c>Diagnostics()</c> は
     /// <c>Win32Exception</c> を投げる)。
     /// </para>
     /// <para>
-    /// <b>それを「ピッカーが凍った」と読むと、docs/TESTING.md §4 の円環がそのまま 1 層上で再現する</b> —
+    /// **それを「ピッカーが凍った」と読むと、docs/TESTING.md §4 の円環がそのまま 1 層上で再現する** —
     /// 探針が詰まったことを検査対象の不具合として報告することになる。
     /// だから塞いでいるあいだは <c>AutomationElement.FromHandle</c> と
     /// <c>GetWindowRect</c> しか使わない。
     /// </para>
     /// <para>
-    /// <b>ここを <c>host.Overlays()</c> 等へ「単純化」しないこと。</b>
+    /// **ここを <c>host.Overlays()</c> 等へ「単純化」しないこと。**
     /// 12 秒の停止が、ちょうどピッカーの停止に見える形で戻ってくる。
     /// </para>
     /// <para>
-    /// <b>WPF 固定なので <c>PickerHostProfile</c> を引数に取らない</b> —
+    /// **WPF 固定なので <c>PickerHostProfile</c> を引数に取らない** —
     /// ツリーの AutomationId をここで直接書いているのはそのためである。
     /// 変種を横断する <c>[Theory]</c> へ広げるなら、まずそこを引数にすること。
     /// </para>
@@ -231,13 +231,13 @@ public sealed class PickerStaysResponsiveTests
                         $"ホバー捕捉で {Target} の行が選択されること",
                         host.Diagnostics);
 
-                    // <b>塞ぐ前に</b>兄弟を実体化させる。塞いでいる最中の全列挙は相手の
+                    // **塞ぐ前に**兄弟を実体化させる。塞いでいる最中の全列挙は相手の
                     // 読み取りを要するので正当に遅い。そこを論点にしない
                     RevealTheSiblings(host);
 
                     // 塞いでいるあいだに使うものを全部ここで掴む (このクラスの remarks を参照)
                     var pickerHwnd = (nint)host.PickerWindow().Current.NativeWindowHandle;
-                    // オーバーレイは<b>捕捉が枠を描くまで存在しない</b>ので、待ってから掴む。
+                    // オーバーレイは**捕捉が枠を描くまで存在しない**ので、待ってから掴む。
                     // Overlays()[0] を直接書くと、まだ 1 つも無い実行で
                     // ArgumentOutOfRangeException になり、診断の付かない失敗になる
                     nint overlayHwnd = Ui.Until(
@@ -281,7 +281,7 @@ public sealed class PickerStaysResponsiveTests
                 host.Diagnostics);
         }
 
-        /// <summary>対象アプリの UI スレッドを塞ぐ。<b>応答は先に返る。</b></summary>
+        /// <summary>対象アプリの UI スレッドを塞ぐ。**応答は先に返る。**</summary>
         public void HangTheTarget(TimeSpan duration)
         {
             _target.Hang(duration);
@@ -312,7 +312,7 @@ public sealed class PickerStaysResponsiveTests
         /// その行を選んだときに枠が出るべき矩形。<c>OverlayGeometry</c> (純関数) から計算する。
         /// </summary>
         /// <remarks>
-        /// 元になる要素の矩形は<b>塞ぐ前に</b>読んである。塞がれた相手には訊けないうえ、
+        /// 元になる要素の矩形は**塞ぐ前に**読んである。塞がれた相手には訊けないうえ、
         /// 枠が使うのも捕捉時のキャッシュなので、そちらが正しい情報源である。
         /// マジックナンバーを書かないので、幾何を変えたらここも一緒に動く。
         /// </remarks>
@@ -320,14 +320,14 @@ public sealed class PickerStaysResponsiveTests
         {
             ElementRect element = _buttonRects[button];
             // 製品と同じで、DPI は要素が乗っているモニターから引く (docs/DESIGN.md §9)。
-            // 見ているのは<b>枠の窓</b>である (確定アイコンは別の窓。docs/DESIGN.md §10)
+            // 見ているのは**枠の窓**である (確定アイコンは別の窓。docs/DESIGN.md §10)
             int dpi = NativeWindows.DpiAt(element.Left, element.Top);
             (int w, int h) = OverlayGeometry.FrameSize(element, dpi);
             (int x, int y) = OverlayGeometry.FrameOrigin(element);
             return new System.Windows.Rect(x, y, w, h);
         }
 
-        /// <summary>掴んでおいた行を選ぶ。<b>これがピッカーの UI スレッドへの探針である。</b></summary>
+        /// <summary>掴んでおいた行を選ぶ。**これがピッカーの UI スレッドへの探針である。**</summary>
         public void SelectTheOtherRow()
         {
             AutomationElement row = _rows.FirstOrDefault(
@@ -342,8 +342,8 @@ public sealed class PickerStaysResponsiveTests
         /// 観測の窓のあいだ、対象アプリが本当に応答していなかったこと。
         /// </summary>
         /// <remarks>
-        /// <b>ハーネス自身の検証である</b> (docs/TESTING.md §4 の教訓 (b))。塞ぎが効いていなければ
-        /// 「塞がっている最中でも選べた」は<b>何も言っていない</b> — 応答するアプリを相手に
+        /// **ハーネス自身の検証である** (docs/TESTING.md §4 の教訓 (b))。塞ぎが効いていなければ
+        /// 「塞がっている最中でも選べた」は**何も言っていない** — 応答するアプリを相手に
         /// 普通に選べただけである。
         /// </remarks>
         public void RequireTheTargetWasBlockedThroughout(Stopwatch clock, TimeSpan hang)
@@ -361,13 +361,13 @@ public sealed class PickerStaysResponsiveTests
         }
 
         /// <summary>
-        /// 失敗したときに読む状態。<b>対象アプリにもデスクトップの列挙にも触らない。</b>
+        /// 失敗したときに読む状態。**対象アプリにもデスクトップの列挙にも触らない。**
         /// </summary>
         /// <remarks>
         /// <c>PickerHostProcess.Diagnostics()</c> は使えない。あれは対象アプリを読み、
-        /// デスクトップの子を列挙するので、<b>いちばん診断が要る場面で詰まるか
-        /// <c>Win32Exception</c> を投げる</b> — 後者は <c>Ui.Until</c> の診断収集が捕まえないので
-        /// <b>本当の失敗を置き換えて消す</b> (docs/TESTING.md §1)。
+        /// デスクトップの子を列挙するので、**いちばん診断が要る場面で詰まるか
+        /// <c>Win32Exception</c> を投げる** — 後者は <c>Ui.Until</c> の診断収集が捕まえないので
+        /// **本当の失敗を置き換えて消す** (docs/TESTING.md §1)。
         /// </remarks>
         public string Describe()
         {

@@ -3,15 +3,15 @@
   <!--
     パッケージに実際に README を入れる (docs/RELEASING.md §1)
 
-    <b>PackageReadmeFile を立てるだけでは足りない。</b>プロパティは「パッケージ内のどのファイルか」を
+    **PackageReadmeFile を立てるだけでは足りない。**プロパティは「パッケージ内のどのファイルか」を
     指すだけなので、そのファイルを Pack しなければ NU5039 で失敗する。よく踏む形なのでここに書いておく。
 
-    <b>props ではなく targets に置くのは IsPackable のためである。</b>
-    Directory.Build.props はプロジェクト本体より<b>先に</b>評価されるので、
+    **props ではなく targets に置くのは IsPackable のためである。**
+    Directory.Build.props はプロジェクト本体より**先に**評価されるので、
     そこで IsPackable を条件にしても「パッケージ化するプロジェクトが個別に true にする」方式では
-    まだ false のままになる。targets は<b>後に</b>評価されるので条件が効く。
+    まだ false のままになる。targets は**後に**評価されるので条件が効く。
 
-    入れるのは<b>英語版だけ</b>である (README.ja.md は入れない)。
+    入れるのは**英語版だけ**である (README.ja.md は入れない)。
     nuget.org は README を単独で描画するため、英語版のリンクは絶対 URL にしてある
     (docs/LOCALIZATION.md §8)。
   -->
@@ -22,22 +22,22 @@
   <!--
     配布する XML doc を公開 API だけに絞る (docs/LOCALIZATION.md §5)
 
-    <b>csc は可視性で絞らない。</b>`///` を書いた private / internal のメンバーも
+    **csc は可視性で絞らない。**`///` を書いた private / internal のメンバーも
     そのまま `.xml` に入るので、L1 (docs/LOCALIZATION.md §1) で「実装内部のコメントは
     日本語のままでよい」と決めている以上、配布物に日本語の内部コメントが同梱される。
-    `PublicApiDocumentationTests` は<b>公開面だけ</b>を見るので、どのテストも捕まえなかった
+    `PublicApiDocumentationTests` は**公開面だけ**を見るので、どのテストも捕まえなかった
     (実測: Core 618 項目のうち 212、Picker.Core 352 のうち 77、View 2 つは 31 のうち 17/18)。
 
-    <b>絞り込みの正は `Resources\<アセンブリ名>.ja.xml` である。</b>
+    **絞り込みの正は `Resources\<アセンブリ名>.ja.xml` である。**
     手書きの日本語 IntelliSense ファイルで、`TheJapaneseDocumentationCoversExactlyThePublicApi`
-    が公開 API との<b>過不足なし</b>を両方向で縛っている。つまり「ja に在る項目 = 公開 API」が
+    が公開 API との**過不足なし**を両方向で縛っている。つまり「ja に在る項目 = 公開 API」が
     CI のゲートで保証されている集合なので、ここで可視性を作り直す必要は無い。
-    リフレクションもメタデータ読みも要らず、<b>正しさは既存のテストから継承する</b>。
+    リフレクションもメタデータ読みも要らず、**正しさは既存のテストから継承する**。
 
     副作用として `JsonSerializerContext` の生成メンバー (STJ のソースジェネレーターが
-    doc ごと出すもの) も落ちる。ja 側が対象外にしているためで、<b>これは意図どおり</b>である。
+    doc ごと出すもの) も落ちる。ja 側が対象外にしているためで、**これは意図どおり**である。
 
-    <b>obj の doc を書き換える</b>ので、bin / publish / nupkg のすべてに効く。
+    **obj の doc を書き換える**ので、bin / publish / nupkg のすべてに効く。
     pack のときだけ絞る形にすると、GitHub Release に付ける zip (ホストの発行物には
     `UiaTrigger.Core.xml` が並ぶ) が漏れたままになる。
     引き換えに、IVT を持つテストアセンブリ側の IDE で internal メンバーの説明が出なくなる —
@@ -126,22 +126,22 @@ else if (Removed > 0)
   <!--
     Windows App SDK の .mui を、対応している言語だけに絞る (docs/LOCALIZATION.md §9)
 
-    <b>SatelliteResourceLanguages では止まらない。</b>あれが絞るのは .NET のサテライト
+    **SatelliteResourceLanguages では止まらない。**あれが絞るのは .NET のサテライト
     (*.resources.dll) であり、.mui は Windows App SDK が配る Win32 の MUI リソースだからである。
-    放っておくと `App.WinUI` の発行物に en-us / ja-jp 以外の<b>85 言語ぶん / 3.3MB</b> が入り、
-    en-US と ja-JP しか持たないアプリが<b>85 言語で使えるように見える</b>。
+    放っておくと `App.WinUI` の発行物に en-us / ja-jp 以外の**85 言語ぶん / 3.3MB** が入り、
+    en-US と ja-JP しか持たないアプリが**85 言語で使えるように見える**。
 
-    <b>上流が用意している逃げ道を使う。</b>
+    **上流が用意している逃げ道を使う。**
     microsoft.windowsappsdk.base/*/build/Microsoft.WindowsAppSDK.SelfContained.targets の
     AddMicrosoftWindowsAppSDKPayloadFilesFromComponents が、集めた一覧に対して
 
       <MicrosoftWindowsAppSDKFiles Remove="@(MicrosoftWindowsAppSDKFilesExcluded)"/>
 
-    を掛けている。そこへ入れておけば済む。<b>None を後から削る形にしないこと</b> —
+    を掛けている。そこへ入れておけば済む。**None を後から削る形にしないこと** —
     あの一覧は .dll / .winmd / .xbf も運んでおり、後追いで消す形は取りこぼしと行き過ぎの両方を作る。
 
-    <b>Remove する側を先に列挙してから、残したい言語を差し戻す</b>形にしてある。
-    「残す側を列挙する」形にすると、言語フォルダの命名が変わった日に<b>黙って全部落ちる</b>。
+    **Remove する側を先に列挙してから、残したい言語を差し戻す**形にしてある。
+    「残す側を列挙する」形にすると、言語フォルダの命名が変わった日に**黙って全部落ちる**。
     こちらの形なら、変わったときに増えるのは「落とし損ね」であって「消しすぎ」ではない。
 
     条件は WindowsAppSdkComponentPackages の有無で見る。WinUI を参照しないプロジェクトでは

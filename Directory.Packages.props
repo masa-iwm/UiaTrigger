@@ -14,7 +14,7 @@
       GridSplitter (docs/DESIGN.md §12)。WinUI3 だけが標準で持っていない —
       WPF には System.Windows.Controls.GridSplitter が、Windows Forms には SplitContainer がある。
       自作しない理由は、掴み代・カーソル・キーボードでの寸法変更・テーマ追従を
-      自分で持つことになり、それは<b>この道具の題材ではない</b>ためである。
+      自分で持つことになり、それは**この道具の題材ではない**ためである。
       Sizers はそのコントロールだけの小さなパッケージ (MIT / .NET Foundation) である。
 
       版は 8.2.251219 (安定)。8.3-preview は Microsoft.WindowsAppSDK.WinUI という

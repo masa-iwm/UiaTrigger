@@ -10,7 +10,7 @@ namespace UiaTrigger.Tests;
 /// 予約フラグを停止時 (StopCore) に落とさないと、「停止 → デバウンス窓のうちに再開」で
 /// 次の sweep 要求が予約済みとみなされて黙って捨てられる。
 ///
-/// デバウンスは TimeProvider.CreateTimer なので (B8)、ここは <b>実時間を一切待たない</b>。
+/// デバウンスは TimeProvider.CreateTimer なので (B8)、ここは **実時間を一切待たない**。
 /// Task.Delay の完了を待つ形だと、「窓の手前では鳴らない」という肝心の側を
 /// 書けない (待ち時間を延ばすだけのテストになる)。
 /// </summary>

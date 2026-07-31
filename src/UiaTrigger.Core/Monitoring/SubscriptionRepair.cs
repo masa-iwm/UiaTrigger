@@ -1,10 +1,10 @@
 // 購読を失ったトリガーを拾い直すための間隔付き再試行 (docs/DESIGN.md §8)。
 //
-// <b>これはポーリングではない。</b>armed になるのは SubscriptionHealth.IsOrphaned が
+// **これはポーリングではない。**armed になるのは SubscriptionHealth.IsOrphaned が
 // 成立している間だけで、購読が戻れば次の予約はされない。健全なときはタイマーが 1 本も動かない。
 //
 // 間隔を伸ばす (backoff) のは、塞がったままの相手を同じ速さで叩き続けないためである。
-// 再試行 1 回は掃引 1 回であり、掃引は<b>ピッカーと共有している MTA スレッド</b>の上で走って
+// 再試行 1 回は掃引 1 回であり、掃引は**ピッカーと共有している MTA スレッド**の上で走って
 // 相手ごとに TransactionTimeout ぶん止まりうる。機械が苦しいときほど激しく叩く形にしない。
 //
 // SweepDebouncer と同じく TimeProvider.CreateTimer を使う。時計を差し替えられるので
@@ -68,7 +68,7 @@ internal sealed class SubscriptionRepair : IDisposable
     /// 購読が戻った (または監視を止めた)。予約を解き、間隔を最初の値へ戻す。
     /// </summary>
     /// <remarks>
-    /// 間隔を戻さないと、一度長く塞がれたあとは<b>次に壊れたときも復旧が遅い</b>ままになる。
+    /// 間隔を戻さないと、一度長く塞がれたあとは**次に壊れたときも復旧が遅い**ままになる。
     /// </remarks>
     public void Recovered()
     {

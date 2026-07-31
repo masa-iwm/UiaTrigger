@@ -1,9 +1,9 @@
 // T4: Windows Forms のピッカーにしか無い UI (docs/TESTING.md §1)。
 //
-// <b>この変種を [Theory] で横断させない。</b>ツリーの同期は TreeMirrorTests が
+// **この変種を [Theory] で横断させない。**ツリーの同期は TreeMirrorTests が
 // ウィンドウ無しで丸ごと覆っているので、広げると二重になるだけである
 // (docs/DESIGN.md §12)。ここに在るのは
-// <b>他の 2 変種に存在しない UI</b> のためのものだけである。
+// **他の 2 変種に存在しない UI** のためのものだけである。
 //
 // 行の中にボタンを置けないので、Windows Forms だけは
 // 「選択中の行を確定する」ボタンで確定する。配線は 1 行:
@@ -11,7 +11,7 @@
 //     _confirmNode.Click += (_, _) => _presenter.ConfirmNode(_tree.SelectedNode?.Tag as PickerTreeNode);
 //
 // Tag にノードが入っていなければ as は null になり、ConfirmNode(null) は
-// <b>例外を出さずに何もしない</b>。TreeMirror が Tag を設定し続けることへの暗黙の依存である。
+// **例外を出さずに何もしない**。TreeMirror が Tag を設定し続けることへの暗黙の依存である。
 using System.Windows.Automation;
 using UiaTrigger.Models;
 using UiaTrigger.RealUia.Tests;
@@ -33,20 +33,20 @@ public sealed class WinFormsPickerTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>T1 では書けない。</b>Windows Forms は仮想化が無いのでノードはウィンドウ無しでも
+    /// **T1 では書けない。**Windows Forms は仮想化が無いのでノードはウィンドウ無しでも
     /// 存在するが、<c>Button.PerformClick()</c> は <c>CanSelect</c> (= 可視かつ有効) を要求し、
     /// <c>Show()</c> していないフォームでは何も起きない。ウィンドウを出す検査は
     /// T1 の担当ではない (docs/TESTING.md §2) ので T4 が引き取る。
     /// </para>
     /// <para>
-    /// <b>コミットまで見るのは、確定の表示だけでは足りないからである。</b>
+    /// **コミットまで見るのは、確定の表示だけでは足りないからである。**
     /// <c>ConfirmNode</c> が動いたことは <c>ConfirmedText</c> に出るが、
     /// そこで見えているのは presenter の中の話でしかない。
     /// トリガーファイルに正しい要素が入って初めて、この UI が仕事をしたと言える。
     /// </para>
     /// <para>
     /// 退行: <c>TreeMirror</c> の <c>Tag</c> 設定を外す → <c>as</c> が null になり、
-    /// <b>例外なしで何も起きない</b> → 確定が来ないので落ちる。
+    /// **例外なしで何も起きない** → 確定が来ないので落ちる。
     /// </para>
     /// </remarks>
     [Fact]
@@ -76,7 +76,7 @@ public sealed class WinFormsPickerTests
     }
 
     /// <summary>
-    /// 確定できない行を選んで押しても、<b>例外を出さずに何も起きない</b>こと。
+    /// 確定できない行を選んで押しても、**例外を出さずに何も起きない**こと。
     /// </summary>
     /// <remarks>
     /// <para>
@@ -85,14 +85,14 @@ public sealed class WinFormsPickerTests
     /// これを選んで押せばその経路に入る。
     /// </para>
     /// <para>
-    /// <b>「捕捉させなければ選択が無い」では書けない。</b>
+    /// **「捕捉させなければ選択が無い」では書けない。**
     /// 画面の外 (-30000,-30000) を指しても <c>ElementFromPoint</c> は
-    /// <b>デスクトップを返す</b> (実測)。ピッカーはそれを普通に捕捉して選択するので、
+    /// **デスクトップを返す** (実測)。ピッカーはそれを普通に捕捉して選択するので、
     /// 「選択が無い状態」は作れない。プロセスルートの行を選ぶほうは
-    /// <b>捕捉に依存しない</b>ぶん決定的である。
+    /// **捕捉に依存しない**ぶん決定的である。
     /// </para>
     /// <para>
-    /// <b>「落ちない」だけを見ると弱い。</b>ボタンの配線が丸ごと外れていても通る。
+    /// **「落ちない」だけを見ると弱い。**ボタンの配線が丸ごと外れていても通る。
     /// コミットのボタンが無効のままであることまで見る — <c>ConfirmNode</c> が
     /// 早期に戻れば <c>SetCommitEnabled(true)</c> は呼ばれない。
     /// 上の 1 件目が「配線は在る」ほうを押さえている。
@@ -121,16 +121,16 @@ public sealed class WinFormsPickerTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>これは回帰の網ではなく、事実の記録である。</b>製品の何も守っていない。
+    /// **これは回帰の網ではなく、事実の記録である。**製品の何も守っていない。
     /// MANUAL-CHECKS §4.3.4 の「深い階層で横に切れず読める」を自動化できるかを調べ、
-    /// <b>できないと分かった</b>ことをここに残している。
+    /// **できないと分かった**ことをここに残している。
     /// WPF / WinUI では同じ検査が <c>TreePresentationTests</c> で成立する。
     /// </para>
     /// <para>
-    /// 「出なければ <c>Assert.Skip</c> で理由付きでスキップ」には<b>しない</b>。
+    /// 「出なければ <c>Assert.Skip</c> で理由付きでスキップ」には**しない**。
     /// スキップは「まだ書いていない」と区別がつかない。
     /// 出ないことを assert しておけば、将来 Windows Forms が出すようになったときに
-    /// <b>このテストが落ちて教えてくれる</b> — そのときは手動項目を回収できる。
+    /// **このテストが落ちて教えてくれる** — そのときは手動項目を回収できる。
     /// </para>
     /// </remarks>
     [Fact]
@@ -201,7 +201,7 @@ public sealed class WinFormsPickerTests
         public string Diagnostics() => _host.Diagnostics();
 
         /// <summary>
-        /// ピッカーの<b>コントロールを探す起点</b>。
+        /// ピッカーの**コントロールを探す起点**。
         /// </summary>
         /// <remarks>
         /// Windows Forms では所有フォームが UIA 上でメインウィンドウの下に入るので、
@@ -224,7 +224,7 @@ public sealed class WinFormsPickerTests
             $"ホバー捕捉で {Target} の行が選択されること",
             Diagnostics);
 
-        /// <summary>プロセスルートの行を選ぶ。<b>要素を持たない合成ノード</b>である。</summary>
+        /// <summary>プロセスルートの行を選ぶ。**要素を持たない合成ノード**である。</summary>
         public void SelectTheProcessRootRow()
         {
             IReadOnlyList<AutomationElement> rows = Tree().Descendants(ControlType.TreeItem);
@@ -259,7 +259,7 @@ public sealed class WinFormsPickerTests
         /// ホストが生きていて、未処理例外を残していないこと。
         /// </summary>
         /// <remarks>
-        /// 「例外を出さずに何もしない」を確かめるので、<b>例外が出ていないこと</b>を
+        /// 「例外を出さずに何もしない」を確かめるので、**例外が出ていないこと**を
         /// 見に行かないと意味が半分になる。WinUI ほどではないが Windows Forms でも
         /// UI スレッドの例外はログにしか出ない (docs/DESIGN.md D7)。
         /// </remarks>

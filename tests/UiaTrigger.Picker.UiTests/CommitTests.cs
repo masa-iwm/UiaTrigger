@@ -2,7 +2,7 @@
 //
 // MANUAL-CHECKS §4.3.1 の 4 項目を引き取る。
 //
-// <b>真偽の根拠は画面の文字列ではなくトリガーファイルに置く。</b>
+// **真偽の根拠は画面の文字列ではなくトリガーファイルに置く。**
 // 「追加しました」と出ていることと、追加されていることは別である —
 // 画面だけを見るテストは、保存が丸ごと落ちても緑のままになる。
 //
@@ -32,15 +32,15 @@ public sealed class CommitTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>プロパティのコンボが項目で埋まることを見るのは WinUI の罠のためである。</b>
+    /// **プロパティのコンボが項目で埋まることを見るのは WinUI の罠のためである。**
     /// 継ぎ目が渡す <c>IReadOnlyList&lt;T&gt;</c> を <c>ItemsSource</c> へそのまま代入すると、
     /// T が WinRT 射影を持たない .NET 型のとき <c>E_INVALIDARG</c> になる。例外は
-    /// 「Value does not fall within the expected range.」としか言わず<b>投げた場所が分からない</b>
+    /// 「Value does not fall within the expected range.」としか言わず**投げた場所が分からない**
     /// (docs/DESIGN.md §12)。View 側で配列に具象化して回避している。
     /// </para>
     /// <para>
     /// ファイル側で見るのは <c>Id</c> / <c>ProcessName</c> / 経路の末端の <c>AutomationId</c> である。
-    /// 「1 件入った」だけだと、<b>まったく別の要素の定義が入っても通る</b>。
+    /// 「1 件入った」だけだと、**まったく別の要素の定義が入っても通る**。
     /// </para>
     /// </remarks>
     [Theory]
@@ -86,13 +86,13 @@ public sealed class CommitTests
     }
 
     /// <summary>
-    /// 通らない下書きは<b>ファイルに増えず</b>、理由が画面に出ること。
+    /// 通らない下書きは**ファイルに増えず**、理由が画面に出ること。
     /// </summary>
     /// <remarks>
     /// <para>
     /// <c>Between</c> を文字列プロパティ (<c>Name</c>) に掛ける。検証は UI から切り離してあり
     /// (<c>TriggerDraftValidator</c>、T1 が網羅している)、ここで見るのは
-    /// <b>コミットが検証を通ること</b>と<b>落ちたときに何も書かないこと</b>だけである。
+    /// **コミットが検証を通ること**と**落ちたときに何も書かないこと**だけである。
     /// </para>
     /// <para>
     /// 退行: <c>Commit()</c> から <c>Validate</c> の分岐を外す → 不正な条件のまま 1 件書かれ、
@@ -120,20 +120,20 @@ public sealed class CommitTests
     }
 
     /// <summary>
-    /// 続けて別の要素を確定すると id もその要素のものになる。<b>自分で書き換えた後は変わらない。</b>
+    /// 続けて別の要素を確定すると id もその要素のものになる。**自分で書き換えた後は変わらない。**
     /// </summary>
     /// <remarks>
     /// <para>
     /// 既定 id を「欄が空のときだけ」入れる実装だと、
     /// 続けて別の要素を確定したときに前の id が残り、コミットが
-    /// <b>前のトリガーを黙って置き換える</b> (<c>TriggerStore.Save</c> は <c>Id</c> で dedupe する)。
+    /// **前のトリガーを黙って置き換える** (<c>TriggerStore.Save</c> は <c>Id</c> で dedupe する)。
     /// 追加したつもりが差し替えになるので、症状は「1 件しか増えない」である。
     /// </para>
     /// <para>
-    /// 後半が本題である。<b>ユーザーが書いた値は尊重する</b> — 見分けは
+    /// 後半が本題である。**ユーザーが書いた値は尊重する** — 見分けは
     /// 「こちらが最後に入れた値と一致するか」で行っている。
     /// 「空のときだけ入れる」へ戻すと前半が落ち、「常に入れる」にすると後半が落ちる。
-    /// <b>両方向に検出力がある。</b>
+    /// **両方向に検出力がある。**
     /// </para>
     /// </remarks>
     [Theory]
@@ -168,7 +168,7 @@ public sealed class CommitTests
     }
 
     /// <summary>
-    /// 検索が<b>何件中の何件目か</b>を出すこと (<c>SearchPosition</c>)。
+    /// 検索が**何件中の何件目か**を出すこと (<c>SearchPosition</c>)。
     /// </summary>
     /// <remarks>
     /// S4 が見ているのは当たりが無いときの <c>SearchNoMatch</c> だけで、
@@ -192,23 +192,23 @@ public sealed class CommitTests
     }
 
     /// <summary>
-    /// 捕捉した要素が<b>消えた後</b>に確定すると、そう言って何も確定しないこと。
+    /// 捕捉した要素が**消えた後**に確定すると、そう言って何も確定しないこと。
     /// </summary>
     /// <remarks>
     /// <para>
     /// <c>ConfirmFailedElementGone</c> の経路である。対象アプリの <c>remove</c> で
     /// 実際に起こせることを測ってある — <c>BuildDefinitionAsync</c> は
-    /// <b>例外ではなく null を返す</b> (docs/DESIGN.md §3)。
+    /// **例外ではなく null を返す** (docs/DESIGN.md §3)。
     /// </para>
     /// <para>
-    /// <b>ネガティブコントロールは <see cref="Confirming_ShowsTheShape_AndCommittingWritesTheTrigger"/>
-    /// が兼ねている。</b>同じシナリオで <c>remove</c> を挟まなければ確定は成功し、
+    /// **ネガティブコントロールは <see cref="Confirming_ShowsTheShape_AndCommittingWritesTheTrigger"/>
+    /// が兼ねている。**同じシナリオで <c>remove</c> を挟まなければ確定は成功し、
     /// コミットのボタンが有効になってファイルに 1 件入る。つまりこのテストが見ているのは
     /// 「確定がいつも失敗する」ことではない。
     /// </para>
     /// <para>
-    /// <b>コミットのボタンが無効なままであることまで見る。</b>ここが有効になると、
-    /// 直前に確定した<b>別の</b>定義がそのまま書かれうる — 失敗したのに何かが保存される形は
+    /// **コミットのボタンが無効なままであることまで見る。**ここが有効になると、
+    /// 直前に確定した**別の**定義がそのまま書かれうる — 失敗したのに何かが保存される形は
     /// 例外を出さないので、件数でしか捕まらない。
     /// </para>
     /// </remarks>
@@ -308,9 +308,9 @@ public sealed class CommitTests
         /// いま選択されている行を確定する。
         /// </summary>
         /// <remarks>
-        /// <b>「確定した」は「コミットできるようになった」で待つ。</b>
+        /// **「確定した」は「コミットできるようになった」で待つ。**
         /// 確定の表示 (<c>ConfirmedText</c>) は未確定のときも非空なので、
-        /// 「非空になるまで」で待つと<b>待たずに通り抜ける</b> (探りで実際にそうなった)。
+        /// 「非空になるまで」で待つと**待たずに通り抜ける** (探りで実際にそうなった)。
         /// </remarks>
         public void ConfirmTheSelectedRow()
         {
@@ -340,12 +340,12 @@ public sealed class CommitTests
         }
 
         /// <summary>
-        /// いま選択されている行を確定し、<b>結果の表示が変わるまで待って</b>それを返す。
+        /// いま選択されている行を確定し、**結果の表示が変わるまで待って**それを返す。
         /// </summary>
         /// <remarks>
         /// <see cref="ConfirmTheSelectedRow"/> と違って「コミットできるようになる」では待てない —
         /// 失敗する経路ではそれが永久に来ないためである。かわりに表示の変化で待つ。
-        /// <b>押す前に読むこと。</b>押した後に読むと、既に変わった値を基準にしてしまい
+        /// **押す前に読むこと。**押した後に読むと、既に変わった値を基準にしてしまい
         /// 「変わるまで待つ」が永久に成立しない (探りで実際にそうなった)。
         /// </remarks>
         public string ConfirmTheSelectedRowAndReadTheOutcome()
@@ -372,7 +372,7 @@ public sealed class CommitTests
             Diagnostics);
 
         /// <summary>
-        /// 行の確定ボタン。<b>その行自身のもの</b>を取る (WPF は行が入れ子)。
+        /// 行の確定ボタン。**その行自身のもの**を取る (WPF は行が入れ子)。
         /// </summary>
         private static AutomationElement ConfirmButtonOf(AutomationElement row)
         {
@@ -418,14 +418,14 @@ public sealed class CommitTests
         }
 
         /// <summary>
-        /// コンボを開いて項目名を読む。<b><paramref name="atLeast"/> 件そろうまで待つ。</b>
+        /// コンボを開いて項目名を読む。**<paramref name="atLeast"/> 件そろうまで待つ。**
         /// </summary>
         /// <remarks>
         /// <para>
-        /// 「1 件でも出たら返す」にはしない。<b>項目は一度に出そろうとは限らない</b> —
+        /// 「1 件でも出たら返す」にはしない。**項目は一度に出そろうとは限らない** —
         /// 実際に落ちたときは、<c>Length &gt;= 10</c> が落ちたのに、直後にメッセージを
-        /// 組み立てるための 2 回目の読みでは 10 件見えていた。つまり<b>「埋まっていない」ではなく
-        /// 「読むのが早かった」</b>のであり、症状は「項目が足りない」という顔で出る。
+        /// 組み立てるための 2 回目の読みでは 10 件見えていた。つまり**「埋まっていない」ではなく
+        /// 「読むのが早かった」**のであり、症状は「項目が足りない」という顔で出る。
         /// </para>
         /// <para>
         /// <c>SelectComboItem</c> が項目の出現を待つのも同じ理由である。

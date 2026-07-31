@@ -2,17 +2,17 @@
 //
 // ここでしか見られないものが 2 つある:
 //
-//   (1) <b>子ピッカーを開く経路</b> (ITriggerListEditorView.ShowPicker)。Show() を呼ぶので
+//   (1) **子ピッカーを開く経路** (ITriggerListEditorView.ShowPicker)。Show() を呼ぶので
 //       窓の表示が要り、T1 の担当ではない (WPF のコンテナ実体化を外したのと同じ線)。
-//   (2) <b>WinUI の ShowDraft</b>。WinUI View は x64 / WindowsAppSDK のため T1 から
+//   (2) **WinUI の ShowDraft**。WinUI View は x64 / WindowsAppSDK のため T1 から
 //       実体化できない。既存トリガーを読み込んだときに条件欄が埋まることは、
 //       実物を起こす以外に見る手立てが無い。
 //
-// <b>WinUI ホストだけを対象にする。</b>WPF / Windows Forms のエディタは ShowDialog による
+// **WinUI ホストだけを対象にする。**WPF / Windows Forms のエディタは ShowDialog による
 // 本物のモーダルなので、UIA の Invoke() がダイアログが閉じるまで返らないおそれがある。
 // あちらは MANUAL-CHECKS §4.3.2 で人が見る。
 //
-// 真偽の根拠は<b>トリガーファイル</b>に置く。画面の文字列で見ると、
+// 真偽の根拠は**トリガーファイル**に置く。画面の文字列で見ると、
 // 「一覧に出ているが保存されていない」を通してしまう (M2 の教訓)。
 using System.Windows.Automation;
 using UiaTrigger.Models;
@@ -32,7 +32,7 @@ public sealed class EditorShowcaseTests
     /// 追加の経路: エディタから子ピッカーを開いて録り、[OK] でファイルに入ること。
     /// </summary>
     /// <remarks>
-    /// <b>[OK] を押すまでファイルが変わらないことも見る。</b>エディタは写しの上で動く
+    /// **[OK] を押すまでファイルが変わらないことも見る。**エディタは写しの上で動く
     /// (docs/DESIGN.md §4 の継ぎ目の絶対条件) ので、途中で書かれていたらその約束が破れている。
     /// </remarks>
     [Fact]
@@ -57,16 +57,16 @@ public sealed class EditorShowcaseTests
     }
 
     /// <summary>
-    /// 編集の経路: [条件を編集] で子ピッカーが<b>既存の値で埋まり</b>、
+    /// 編集の経路: [条件を編集] で子ピッカーが**既存の値で埋まり**、
     /// 変えて確定すると同じ id のままファイルの値が変わること。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>これが WinUI の <c>ShowDraft</c> を見る唯一の場所である</b> (docs/DESIGN.md §4)。
+    /// **これが WinUI の <c>ShowDraft</c> を見る唯一の場所である** (docs/DESIGN.md §4)。
     /// 埋まっていなければ <c>KeyBox</c> が空になるので、そこで落ちる。
     /// </para>
     /// <para>
-    /// <b>要素を捕まえ直していない</b>ことが要点である。「しきい値を 1 つ変えるにも
+    /// **要素を捕まえ直していない**ことが要点である。「しきい値を 1 つ変えるにも
     /// 要素をホバーで捕まえ直す必要がある」という穴 (docs/DESIGN.md §4) が、これで塞がっている。
     /// </para>
     /// </remarks>
@@ -109,7 +109,7 @@ public sealed class EditorShowcaseTests
             Settle,
             "編集した値がファイルに入ること",
             scenario.Diagnostics));
-        // <b>増えていないこと。</b>id を保つのが編集であって、増えるなら追加になっている
+        // **増えていないこと。**id を保つのが編集であって、増えるなら追加になっている
         Assert.Equal(id, saved.Id);
     }
 
@@ -117,7 +117,7 @@ public sealed class EditorShowcaseTests
     /// 取り消しの経路: エディタで削除してから窓を閉じると、ファイルが変わらないこと。
     /// </summary>
     /// <remarks>
-    /// <b>「変わらない」は待ち切って確かめる</b> — 閉じた直後に数えると、
+    /// **「変わらない」は待ち切って確かめる** — 閉じた直後に数えると、
     /// まだ書かれていないだけで通ってしまう。
     /// </remarks>
     [Fact]
@@ -167,7 +167,7 @@ public sealed class EditorShowcaseTests
 
                 (int x, int y) = target.CenterOf(Target);
                 // pick 点は 2 つ渡す。エディタは開くたびに子ピッカーを作り、
-                // ホストは NextCursor() を<b>エディタ 1 つにつき 1 回</b>消費する
+                // ホストは NextCursor() を**エディタ 1 つにつき 1 回**消費する
                 PickerHostProcess host = PickerHostProcess.Start(profile, Culture, (x, y), (x, y));
                 try
                 {
@@ -197,9 +197,9 @@ public sealed class EditorShowcaseTests
         /// <summary>[追加] を押し、出てきた子ピッカーで捕捉 → 確定 → コミットする。</summary>
         public void RecordOneThroughTheChildPicker(out string id)
         {
-            // <b>退かしながら開くこと。</b>素の Invoke() だと子ピッカーがカスケードして
+            // **退かしながら開くこと。**素の Invoke() だと子ピッカーがカスケードして
             // pick 点を覆い、滞留が明けた瞬間にピッカーが自分の DesktopChildSiteBridge を
-            // 掴んで<b>二度と捕捉しなくなる</b> (docs/TESTING.md §1。実測で 1 度踏んだ)
+            // 掴んで**二度と捕捉しなくなる** (docs/TESTING.md §1。実測で 1 度踏んだ)
             AutomationElement picker = _host.OpenPickerFromEditor("AddTriggerButton");
 
             AutomationElement row = Ui.Until(
@@ -242,7 +242,7 @@ public sealed class EditorShowcaseTests
         /// <summary>[条件を編集] を押し、出てきた子ピッカーを返す。</summary>
         /// <remarks>
         /// 編集の経路はホバー捕捉を使わない (それが <c>LoadDefinition</c> の要点である) が、
-        /// <b>開き方は追加と揃える</b> — 覆われたままだと、この後に要素を捕まえ直す操作を
+        /// **開き方は追加と揃える** — 覆われたままだと、この後に要素を捕まえ直す操作を
         /// 足したときだけ間欠に落ちる形になる。
         /// </remarks>
         public AutomationElement EditTheSelectedRow() =>
@@ -287,7 +287,7 @@ public sealed class EditorShowcaseTests
         /// エディタが閉じるまで待つ。
         /// </summary>
         /// <remarks>
-        /// <b>閉じたことを待たないと次の <c>OpenEditor</c> が古い窓を掴む。</b>
+        /// **閉じたことを待たないと次の <c>OpenEditor</c> が古い窓を掴む。**
         /// ホストは await 中ボタンを無効にしているので、押しても何も起きないまま
         /// 「一覧が出ない」で落ちる形になる。
         /// </remarks>
@@ -310,12 +310,12 @@ public sealed class EditorShowcaseTests
         }
 
         /// <summary>
-        /// 行の確定ボタン。<b>その行自身のもの</b>を取る。
+        /// 行の確定ボタン。**その行自身のもの**を取る。
         /// </summary>
         /// <remarks>
         /// AutomationId では探せない — ボタンは <c>DataTemplate</c> の中にあり、
         /// 行ごとに実体化されるので id を持たない。加えて WinUI の <c>TreeView</c> は
-        /// 行を入れ子にするので、部分木をそのまま辿ると<b>子の行のボタンを掴みうる</b>。
+        /// 行を入れ子にするので、部分木をそのまま辿ると**子の行のボタンを掴みうる**。
         /// <c>MonitorShowcaseTests</c> と同じ形である。
         /// </remarks>
         private static AutomationElement ConfirmButtonOf(AutomationElement row)

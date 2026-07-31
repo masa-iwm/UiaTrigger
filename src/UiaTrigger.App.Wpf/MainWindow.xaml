@@ -28,7 +28,7 @@
             <Button x:Name="ReloadButton" Padding="8,3" Margin="0,0,8,0" Click="OnReload" />
             <!--
                 トリガ一覧エディタ (docs/DESIGN.md §4)。この窓が持っている一覧・削除相当を、
-                <b>組み込む側が使える形で</b>ライブラリが持つ。
+                **組み込む側が使える形で**ライブラリが持つ。
             -->
             <Button x:Name="EditListButton" Padding="8,3" Margin="0,0,8,0" Click="OnEditList" />
             <TextBlock x:Name="StatusText" VerticalAlignment="Center" />

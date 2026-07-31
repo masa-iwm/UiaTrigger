@@ -9,7 +9,7 @@ internal sealed class ResolvedTarget
     public required IElementNode Element { get; init; }
 
     /// <summary>
-    /// ウィンドウ要素から対象の <b>親</b> までの経路 (対象自身は含まない)。
+    /// ウィンドウ要素から対象の **親** までの経路 (対象自身は含まない)。
     /// 空なら対象 = ウィンドウ要素。
     /// StructureChanged の購読範囲をこの経路だけに絞るために使う (docs/DESIGN.md B3)。
     /// </summary>
@@ -35,7 +35,7 @@ internal sealed class ResolvedTarget
 ///
 /// <para>
 /// 「段ごとにスコア合計 &gt;= 閾値の最良候補を貪欲に選ぶ」方式ではなく、
-/// <b>必須述語 (足切り) + ランキング + ビーム探索</b> を使う (docs/DESIGN.md §3 / A3〜A7)。
+/// **必須述語 (足切り) + ランキング + ビーム探索** を使う (docs/DESIGN.md §3 / A3〜A7)。
 /// 貪欲・閾値方式は
 /// (a) 段ごとの閾値が「AutomationId も Name も無い段の満点」と同じ値だと
 ///     兄弟が 1 個増えるだけで解決全体が失敗し (A3)、
@@ -140,7 +140,7 @@ internal static class ElementResolver
     /// </para>
     ///
     /// <para>
-    /// 一致が <b>ちょうど 1 件でなければ採らない</b>。0 件なら居ないだけだが、2 件以上あるときに
+    /// 一致が **ちょうど 1 件でなければ採らない**。0 件なら居ないだけだが、2 件以上あるときに
     /// 先頭を選ぶと「記録時は一意だった id が重複するようになった」ときに静かに別の要素を掴む。
     /// どちらの場合も null を返して経路方式に委ねる (そちらは兄弟インデックスなど他の手掛かりを持つ)。
     /// </para>
@@ -373,7 +373,7 @@ internal static class ElementResolver
     }
 
     /// <summary>
-    /// 記録された兄弟インデックスからのずれ。順位付けの <b>タイブレークにのみ</b> 使う
+    /// 記録された兄弟インデックスからのずれ。順位付けの **タイブレークにのみ** 使う
     /// (docs/DESIGN.md A3)。加点・減点としてスコアに混ぜると、
     /// 兄弟が 1 個挿入されただけで段の合計が閾値を割る。
     /// 記録できなかった場合 (<see cref="ElementPathStep.UnknownSiblingIndex"/>) は
@@ -384,7 +384,7 @@ internal static class ElementResolver
         step.SiblingIndex < 0 ? 0 : Math.Abs(index - step.SiblingIndex);
 
     /// <summary>
-    /// 候補 1 件のスコア。<b>記録された属性が肯定する度合い</b>であり、
+    /// 候補 1 件のスコア。**記録された属性が肯定する度合い**であり、
     /// <see cref="ResolverOptions.StepAcceptScore"/> を下回る候補は採らない。
     /// 記録されていない属性は加点も減点もしない。
     /// </summary>

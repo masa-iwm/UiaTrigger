@@ -6,12 +6,12 @@ namespace UiaTrigger.Picker.UiTests;
 /// T4 が駆動するサンプルホストの種別。
 ///
 /// <para>
-/// <b>Windows Forms は入っていない。</b> ここで見るのは「行のコントロールが生成されるのを
+/// **Windows Forms は入っていない。** ここで見るのは「行のコントロールが生成されるのを
 /// 待つ経路」であり、Windows Forms の View にはそれが無い
 /// (<c>TriggerPickerForm.ExpandThenSelect</c> は遅延もリトライも持たない — 仮想化が無く
 /// ウィンドウを出さなくても <c>TreeNode</c> が存在するため)。同期の正しさは
 /// <c>TreeMirrorTests</c> が T1 で覆っている。機械的に 3 変種へ広げると、
-/// WinForms のぶんは<b>二重になるだけ</b>で実行時間と flake だけが増える
+/// WinForms のぶんは**二重になるだけ**で実行時間と flake だけが増える
 /// (docs/DESIGN.md §12)。
 /// </para>
 /// </summary>
@@ -19,7 +19,7 @@ namespace UiaTrigger.Picker.UiTests;
 /// <param name="ProjectDirectory"><c>src/</c> 直下のプロジェクトフォルダー名。</param>
 /// <param name="ExecutableName">実行ファイル名。</param>
 /// <param name="TreeAutomationId">
-/// 要素ツリーの AutomationId。<b>変種で違う</b> — WPF は <c>TreeView</c> 自身
+/// 要素ツリーの AutomationId。**変種で違う** — WPF は <c>TreeView</c> 自身
 /// (<c>ElementTree</c>) が UIA に出るが、WinUI の <c>TreeView</c> は自身を出さず
 /// 内側の <c>TreeViewList</c> (部品名 <c>ListControl</c>) が Tree として現れる (実測)。
 /// </param>
@@ -33,7 +33,7 @@ namespace UiaTrigger.Picker.UiTests;
 /// </param>
 /// <param name="PublishDirectory">
 /// リポジトリ直下 <c>publish/</c> の中のフォルダー名。CI の <c>aot</c> ジョブがここへ発行し、
-/// S4 が<b>発行レイアウトのほう</b>を起動する (docs/TESTING.md §1)。
+/// S4 が**発行レイアウトのほう**を起動する (docs/TESTING.md §1)。
 /// </param>
 internal sealed record PickerHostProfile(
     string Name,
@@ -63,15 +63,15 @@ internal sealed record PickerHostProfile(
         PublishDirectory: "App");
 
     /// <summary>
-    /// Windows Forms ホスト。<b>変種を横断する <c>[Theory]</c> には入れない</b>
+    /// Windows Forms ホスト。**変種を横断する <c>[Theory]</c> には入れない**
     /// (<see cref="AllNames"/> を参照)。
     /// </summary>
     /// <remarks>
-    /// <b>この変種にしか無い UI</b> 1 つだけのために在る —
+    /// **この変種にしか無い UI** 1 つだけのために在る —
     /// 行の中にボタンを置けないので、確定は「選択中の行を確定する」ボタンで行う
     /// (<c>TriggerPickerForm.cs</c>)。その配線は 1 行で、
     /// <c>_tree.SelectedNode?.Tag as PickerTreeNode</c> が null になると
-    /// <b>例外を出さずに何もしない</b>形をしている。
+    /// **例外を出さずに何もしない**形をしている。
     /// </remarks>
     public static readonly PickerHostProfile WinForms = new(
         Name: "WinForms",
@@ -90,10 +90,10 @@ internal sealed record PickerHostProfile(
     /// (<c>TargetProfile</c> と同じ理由)。
     /// </summary>
     /// <remarks>
-    /// <b>Windows Forms は入っていない。</b>入れると、ツリーの同期のように
+    /// **Windows Forms は入っていない。**入れると、ツリーの同期のように
     /// <c>TreeMirrorTests</c> がウィンドウ無しで丸ごと覆っているものを二重に見ることになり、
     /// 実行時間と flake だけが増える (docs/DESIGN.md §12)。
-    /// WinForms は<b>固有の項目のためだけ</b>に <see cref="WinForms"/> を名指しで使う。
+    /// WinForms は**固有の項目のためだけ**に <see cref="WinForms"/> を名指しで使う。
     /// </remarks>
     public static TheoryData<string> AllNames => [Wpf.Name, WinUI.Name];
 

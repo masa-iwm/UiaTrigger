@@ -110,14 +110,14 @@ internal sealed class TargetApp(string title)
 
             case "set-accessible-name":
             {
-                // UIA の Name を、<b>変化通知を上げずに</b>書き換える。
+                // UIA の Name を、**変化通知を上げずに**書き換える。
                 //
                 // Control.Text の代入は MSAA ブリッジの通知経路を通って UIA の
                 // PropertyChanged になるが、AccessibleName はただのプロパティなので通らない
                 // (accName を上書きするだけ)。これで「画面上は変わっているのに
                 // アプリが何も知らせてこない」というアプリが実在する状況を再現できる。
                 //
-                // <b>それがポーリング (TriggerDefinition.PollInterval) の存在理由そのものである</b>
+                // **それがポーリング (TriggerDefinition.PollInterval) の存在理由そのものである**
                 // (docs/DESIGN.md §5 / docs/MANUAL-CHECKS.md §9)。
                 // 「通知を上げないこと」は推測ではなく PollingScenarioTests で測ってある。
                 (string name, string text) = Two(rest);
@@ -282,14 +282,14 @@ internal sealed class TargetApp(string title)
                 // T4 はピッカーのウィンドウを画面に出したうえで、この窓の中の 1 点を
                 // 「カーソルが在る場所」としてピッカーに教える。ピッカーの窓は大きいので、
                 // 既定位置 (40,40) のままだと重なる。TopMost にしてあっても、
-                // <b>UIA のヒットテストは重なった WinUI3 の窓を返す</b>ことを実測した
+                // **UIA のヒットテストは重なった WinUI3 の窓を返す**ことを実測した
                 // (docs/DESIGN.md §12)。重ならない場所へ動かすしかない。
                 //
-                // <b>既定サイズ (520x1000) を縮めるのは T4 の都合であり、T3 では縮めないこと。</b>
+                // **既定サイズ (520x1000) を縮めるのは T4 の都合であり、T3 では縮めないこと。**
                 // あの寸法は兄弟走査 (B9) が 20 個以上の子を縦に並べるために要るもので、
                 // クライアント領域からはみ出した子は座標から記録できない (Open のコメントを参照)。
                 // 縮めたまま Record_AmongManySiblings_CapturesTheSiblingIndex を走らせると、
-                // 例外は出ずに<b>別の要素を記録した定義</b>が出来上がる。
+                // 例外は出ずに**別の要素を記録した定義**が出来上がる。
                 string[] parts = rest.Split(' ');
                 int Value(int index) => int.Parse(parts[index], CultureInfo.InvariantCulture);
                 Form.Bounds = new Rectangle(Value(0), Value(1), Value(2), Value(3));
@@ -299,15 +299,15 @@ internal sealed class TargetApp(string title)
 
             case "topmost-refresh":
             {
-                // トップモースト帯の<b>先頭へ出し直す</b>。
+                // トップモースト帯の**先頭へ出し直す**。
                 //
                 // この窓は TopMost なので、同じ帯の中では最後に位置を主張したものが上に来る。
                 // ピッカーのオーバーレイも TopMost なので、これで「対象アプリがオーバーレイの
                 // 上に回り込む」状況を作れる。
                 //
-                // <b>Activate() / BringToFront() にしないこと。</b>どちらも
+                // **Activate() / BringToFront() にしないこと。**どちらも
                 // SetForegroundWindow を通り、フォアグラウンドロックの規則によって
-                // バックグラウンドのプロセスからは<b>拒否される</b> (タスクバーが点滅するだけ)。
+                // バックグラウンドのプロセスからは**拒否される** (タスクバーが点滅するだけ)。
                 // そのまま「再現しない」と結論すると、間違った理由で null な結果になる。
                 // 要るのはフォアグラウンド化ではなく帯の先頭へ動くことなので、素の
                 // Form プロパティで足りる — P/Invoke もフォアグラウンドロックも関係しない。
@@ -320,19 +320,19 @@ internal sealed class TargetApp(string title)
             {
                 // UI スレッドを指定ミリ秒だけ塞ぐ (MANUAL-CHECKS §8)。
                 //
-                // <b>応答を先に返してから塞ぐ。</b>コマンドループは UI スレッドに居る
+                // **応答を先に返してから塞ぐ。**コマンドループは UI スレッドに居る
                 // (Program.ReadLoop が pump.Invoke でここへ渡す) ので、この場で眠ると
-                // ハーネスが応答を待って<b>一緒に固まる</b>。だから眠りは UI スレッドの
+                // ハーネスが応答を待って**一緒に固まる**。だから眠りは UI スレッドの
                 // 待ち行列へ積むだけにして、この Dispatch はすぐ返す。
                 //
                 // 応答の書き出しは stdin を読んでいるスレッドが行い、UI スレッドを要らない。
                 // だから積んだ眠りが先に始まっても応答は出る (順序に依存しない)。
                 //
-                // <b>これは協調的な停止である。</b>自分の UI スレッドを塞ぐモデルであり、
+                // **これは協調的な停止である。**自分の UI スレッドを塞ぐモデルであり、
                 // 本当に固まったアプリ (デバッガでブレーク等) と同じではない。
                 // その差は docs/MANUAL-CHECKS.md §8 に書いてある。
                 //
-                // <b>recreate-window と混ぜないこと。</b>あれは _form を捨てて作り直すので、
+                // **recreate-window と混ぜないこと。**あれは _form を捨てて作り直すので、
                 // 塞いでいる最中に呼ぶと積み先が無くなる。
                 int milliseconds = int.Parse(rest, CultureInfo.InvariantCulture);
                 ArgumentOutOfRangeException.ThrowIfNegative(milliseconds);
@@ -371,7 +371,7 @@ internal sealed class TargetApp(string title)
 
             case "focus":
             {
-                // フォーカスを当てて、<b>当たったかどうかを報告する</b>。
+                // フォーカスを当てて、**当たったかどうかを報告する**。
                 // 「当てようとした」と「当たった」は別である — フォアグラウンドロックの
                 // 規則により、背景のプロセスが自分を前面へ出すことはできない。
                 // 撃つ前の検算はテスト側が UIA の HasKeyboardFocus で行うが、
@@ -430,7 +430,7 @@ internal sealed class TargetApp(string title)
     /// </summary>
     /// <remarks>
     /// <c>Control.Tag</c> に数を持たせる。専用のフィールドを足さないのは、
-    /// 数えたい相手が <c>NewButton</c> で作られる<b>すべて</b>のコントロールだからである。
+    /// 数えたい相手が <c>NewButton</c> で作られる**すべて**のコントロールだからである。
     /// </remarks>
     private static int ClickCountOf(Control control) => control.Tag as int? ?? 0;
 

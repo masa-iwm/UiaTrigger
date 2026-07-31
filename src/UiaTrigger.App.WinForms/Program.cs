@@ -14,7 +14,7 @@ internal static class Program
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log($"AppDomain: {e.ExceptionObject}");
         TaskScheduler.UnobservedTaskException += (_, e) => Log($"UnobservedTask: {e.Exception}");
 
-        // DPI 認識は<b>ウィンドウを 1 つも作る前に</b>宣言する (docs/DESIGN.md A19 / docs/TESTING.md §4)。
+        // DPI 認識は**ウィンドウを 1 つも作る前に**宣言する (docs/DESIGN.md A19 / docs/TESTING.md §4)。
         // 非認識のままだと Windows が座標を仮想化し、ピッカーがカーソル位置から掴む要素が
         // 狙ったものとずれる。例外にはならず「静かに別の要素を記録した定義」ができる。
         //
@@ -24,7 +24,7 @@ internal static class Program
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         ApplicationConfiguration.Initialize();
 
-        // カルチャの上書きは<b>ウィンドウを 1 つも作る前</b>に行う (docs/DESIGN.md §12)。
+        // カルチャの上書きは**ウィンドウを 1 つも作る前**に行う (docs/DESIGN.md §12)。
         // HostOptions の static プロパティ初期化子は MainForm から初めて触られたときに
         // 走るので、そこに任せると遅い
         HostOptions.ApplyCulture();

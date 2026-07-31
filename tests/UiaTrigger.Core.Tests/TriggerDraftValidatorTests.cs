@@ -10,7 +10,7 @@ namespace UiaTrigger.Tests;
 ///
 /// この規則が View (WinUI3 のコントロール) の中に埋まっていると一切テストできず、
 /// 「NumberBox が見えているかどうか」で句へ載せる値を決める形になる —
-/// <b>表示の都合が永続化される値を左右する</b>。Core に置いてここで固定する。
+/// **表示の都合が永続化される値を左右する**。Core に置いてここで固定する。
 /// </summary>
 public sealed class TriggerDraftValidatorTests
 {
@@ -310,7 +310,7 @@ public sealed class TriggerDraftValidatorTests
     ///
     /// <para>
     /// <see cref="TriggerDraftValidator.Apply"/> の doc は "replacing its clauses" と言っているのに
-    /// 式だけ残ると、定義を使い回したホストで<b>もう存在しない句を指す式</b>が生き残る。
+    /// 式だけ残ると、定義を使い回したホストで**もう存在しない句を指す式**が生き残る。
     /// 症状は監視開始時の <see cref="ArgumentException"/> であって、書き換えた瞬間には何も起きない。
     /// </para>
     /// <para>
@@ -333,19 +333,19 @@ public sealed class TriggerDraftValidatorTests
     }
 
     /// <summary>
-    /// <b>録り直しで <c>On</c> が変わったとき、意味を失うポーリングも落とすこと。</b>
+    /// **録り直しで <c>On</c> が変わったとき、意味を失うポーリングも落とすこと。**
     ///
     /// <para>
     /// 下書きは <c>PollInterval</c> を持たないので、録り直しても既存の値は残る
     /// (<c>Window</c> / <c>Locator</c> と同じで、それ自体は望ましい)。
-    /// だが <c>On</c> だけは上書きされるので、<b>「ポーリング付きのまま
-    /// <see cref="TriggerOn.ElementAppeared"/> になった定義」</b>が作れてしまう。
+    /// だが <c>On</c> だけは上書きされるので、**「ポーリング付きのまま
+    /// <see cref="TriggerOn.ElementAppeared"/> になった定義」**が作れてしまう。
     /// それは <c>TriggerMonitor.CreateRuntime</c> が弾く組み合わせである。
     /// </para>
     /// <para>
-    /// <b>症状が出ないのが厄介なところである。</b>ホストの録り直しは
+    /// **症状が出ないのが厄介なところである。**ホストの録り直しは
     /// <c>RemoveAsync</c> → <c>AddAsync</c> の投げっぱなしなので、
-    /// 画面には何も出ないまま<b>トリガーが消える</b>
+    /// 画面には何も出ないまま**トリガーが消える**
     /// (監視中の録り直しが壊れやすい理由 — docs/TESTING.md §2)。
     /// 式を落とすのと同じ理由・同じ場所で落とす。
     /// </para>
@@ -383,13 +383,13 @@ public sealed class TriggerDraftValidatorTests
     }
 
     /// <summary>
-    /// <b>2 つの検証が食い違わないこと</b> — 確定できた下書きから作った定義は、
+    /// **2 つの検証が食い違わないこと** — 確定できた下書きから作った定義は、
     /// 必ず監視開始まで通ること。
     ///
     /// <para>
-    /// <c>TriggerDraftValidator</c> の冒頭が「片方だけだと<b>確定できたのに開始できない定義</b>が
+    /// <c>TriggerDraftValidator</c> の冒頭が「片方だけだと**確定できたのに開始できない定義**が
     /// 作れてしまう」と書いている、その食い違いそのものを縛る。
-    /// 上の 2 件は個別の規則を見ているが、こちらは<b>規則が増えたときに腐らない</b>形にしてある —
+    /// 上の 2 件は個別の規則を見ているが、こちらは**規則が増えたときに腐らない**形にしてある —
     /// <c>CreateRuntime</c> に新しい拒否理由を足して <c>Apply</c> 側を忘れると、ここで落ちる。
     /// </para>
     /// </summary>

@@ -4,7 +4,7 @@
     サンプルホスト — WinUI 3 版 (docs/DESIGN.md §12)。
 
     View が 3 変種あるので、ホストも 3 つある。
-    ただし D9 (ピッカー → 監視の E2E ショーケース) は<b>この WinUI 版だけ</b>に置く。
+    ただし D9 (ピッカー → 監視の E2E ショーケース) は**この WinUI 版だけ**に置く。
     3 重化しても得るものが無く、README にその非対称を書いてある。
   -->
   <PropertyGroup>
@@ -21,7 +21,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <!--
       Picker.WinUI と同じ理由で明示する (docs/DESIGN.md §12)。
-      <b>このホストは自分でも GridSplitter を使う</b> (2 つの一覧の間の ListSplitter) ので、
+      **このホストは自分でも GridSplitter を使う** (2 つの一覧の間の ListSplitter) ので、
       A23 の不具合はここにも掛かる。
     -->
     <WindowsSdkPackageVersion>10.0.19041.87</WindowsSdkPackageVersion>
@@ -32,13 +32,13 @@
     RuntimeIdentifier は Platform から導く (docs/DESIGN.md D5 / docs/RELEASING.md §5)。
 
     WinUI3 + WindowsAppSDKSelfContained + PublishAot はビルド時に RID が決まっている必要がある。
-    win-x64 を<b>ハードコード</b>すると、-p:Platform=ARM64 を渡しても x64 のまま建ち、
+    win-x64 を**ハードコード**すると、-p:Platform=ARM64 を渡しても x64 のまま建ち、
     ARM64 へは発行できない。
 
     既定は win-x64 である (UiaTrigger.slnx がこのプロジェクトを x64 に固定しているので、
     ソリューションからのビルドは何も変わらない)。呼び出し元が -r で明示した場合はそちらを優先する。
 
-    ライブラリ側 (Core / Picker.*) は AnyCPU で出るので、この件は<b>配布物には掛からない</b> —
+    ライブラリ側 (Core / Picker.*) は AnyCPU で出るので、この件は**配布物には掛からない** —
     サンプルホストを ARM64 機で発行できるかどうかの話である (docs/RELEASING.md §1)。
   -->
   <PropertyGroup>

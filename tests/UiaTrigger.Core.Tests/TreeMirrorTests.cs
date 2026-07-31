@@ -24,7 +24,7 @@ public sealed class TreeMirrorTests
     /// </summary>
     /// <remarks>
     /// ネイティブのコントロールが無いと <c>AfterExpand</c> / <c>AfterCollapse</c> が上がらず、
-    /// 「ユーザーが開いた」経路のテストが<b>何も検査していないのに緑になる</b>。
+    /// 「ユーザーが開いた」経路のテストが**何も検査していないのに緑になる**。
     /// 本物のフォームも同じ理由でコンストラクターでハンドルを作っている。
     /// </remarks>
     private static TreeView CreateTree()
@@ -58,7 +58,7 @@ public sealed class TreeMirrorTests
             PickerTreeNode parent = Node("parent");
             roots.Add(parent);
             parent.Children.Add(Node("second"));
-            // プレゼンターはチェーンの子の<b>前</b>に兄弟を差し込む (Insert) ので、順序が要点になる
+            // プレゼンターはチェーンの子の**前**に兄弟を差し込む (Insert) ので、順序が要点になる
             parent.Children.Insert(0, Node("first"));
 
             TreeNode mapped = tree.Nodes[0];
@@ -70,7 +70,7 @@ public sealed class TreeMirrorTests
     /// まだ子を取っていない段に展開記号が出ること。
     ///
     /// Windows Forms の TreeView は子が 1 つも無い段に <c>[+]</c> を出さない。
-    /// 出ないと<b>ユーザーが開くという操作自体ができず</b>、子の全列挙が永久に起きない。
+    /// 出ないと**ユーザーが開くという操作自体ができず**、子の全列挙が永久に起きない。
     /// </summary>
     [Fact]
     public void ARowWithUnfetchedChildrenOffersAnExpander()
@@ -123,7 +123,7 @@ public sealed class TreeMirrorTests
     /// <summary>
     /// 表示のために開いた段は、ユーザー操作として報告されないこと。
     ///
-    /// 上のテストと<b>対</b>である。写しの側は IsExpanded の変化を見て TreeNode を開くので、
+    /// 上のテストと**対**である。写しの側は IsExpanded の変化を見て TreeNode を開くので、
     /// そこで上がる AfterExpand が新たな通知を生まないことまで見ないと片手落ちになる。
     /// </summary>
     [Fact]
@@ -151,7 +151,7 @@ public sealed class TreeMirrorTests
     /// <para>
     /// プレゼンターは捕捉のたびに <c>Roots.Clear()</c> から作り直す。解除を忘れると、
     /// 捨てたはずの部分木の変更通知を受け取り続け、購読が積み上がったうえに
-    /// <b>古いノードの変化で今のツリーが書き換わる</b>。例外は出ないので気づけない。
+    /// **古いノードの変化で今のツリーが書き換わる**。例外は出ないので気づけない。
     /// </para>
     /// </summary>
     [Fact]

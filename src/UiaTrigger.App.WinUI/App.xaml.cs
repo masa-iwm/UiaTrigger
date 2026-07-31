@@ -10,7 +10,7 @@ public partial class App : Application
 
     public App()
     {
-        // カルチャの上書きは<b>どのウィンドウを作るより前</b>に行う (docs/DESIGN.md §12)。
+        // カルチャの上書きは**どのウィンドウを作るより前**に行う (docs/DESIGN.md §12)。
         // MrtPickerStrings.Loader は static readonly Lazy なので、一度でも文字列を読んだら
         // その時点の言語で決着している。HostOptions の static プロパティ初期化子は
         // MainWindow から初めて触られたときに走るため、そこに任せると遅い

@@ -2,7 +2,7 @@
 <!--
   UiaTrigger.Picker.WinForms の日本語 IntelliSense (docs/LOCALIZATION.md §4)。
   仕組みは UiaTrigger.Core.ja.xml と同じ。ロールアップの単位はファイルなので、
-  公開面を<b>過不足なく</b>覆う必要がある。
+  公開面を**過不足なく**覆う必要がある。
 -->
 <doc>
   <assembly>
@@ -46,10 +46,10 @@
       <summary>マウス自動選択を、利用者が切ったのと同じように切る。</summary>
       <remarks>
         <para>
-          もう 1 つピッカーを開く前に、<b>既に開いているピッカーに対して</b>呼ぶこと。
+          もう 1 つピッカーを開く前に、**既に開いているピッカーに対して**呼ぶこと。
           カーソル位置はプロセスで 1 つなので、自動選択が入っているピッカーは全部が同じ点を読み、
           同じ要素を捕捉する。先に開いていたほうは新しいピッカーのマウスに黙って追随し、
-          出していた要素を失う。<b>既に確定した条件には影響しない。</b>
+          出していた要素を失う。**既に確定した条件には影響しない。**
         </para>
         <para>
           <see cref="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.LoadDefinition(UiaTrigger.Models.TriggerDefinition)" />
@@ -60,7 +60,7 @@
     <member name="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.LoadDefinition(UiaTrigger.Models.TriggerDefinition)">
       <summary>既存のトリガーを開き、その条件を編集できるようにする。</summary>
       <param name="definition">
-        編集するトリガー。ピッカーがこれを引き取り、確定された条件を<b>この実体へ</b>書き戻すので、
+        編集するトリガー。ピッカーがこれを引き取り、確定された条件を**この実体へ**書き戻すので、
         元をそのまま残す必要があるときは写しを渡すこと。
       </param>
       <exception cref="T:System.ArgumentException">
@@ -72,7 +72,7 @@
     <!--
       Dispose(bool) はここに書かない。sealed クラスの protected メンバーは公開面ではないので、
       書くと「公開 API から消えた残骸」として PublicApiDocumentationTests が落とす。
-      WPF 版は sealed でないため<b>そちらには要る</b> — 同じ名前でも扱いが変わる。
+      WPF 版は sealed でないため**そちらには要る** — 同じ名前でも扱いが変わる。
     -->
 
     <!-- ================= トリガ一覧エディタ (docs/DESIGN.md §4) ================= -->
@@ -123,10 +123,10 @@
           public List&lt;TriggerDefinition&gt; Triggers { get; set; } = [];
         </code>
         <para>
-          想定しているのは<b>動いているアプリケーションが出す</b>
+          想定しているのは**動いているアプリケーションが出す**
           <see cref="T:System.Windows.Forms.PropertyGrid" /> である。ユーザーがトリガーを
           編集するのはそこだからである。Visual Studio のデザイナー向けではない —
-          デザイナーはエディターを自分のプロセスで動かし、ピッカーは<b>いま画面にあるもの</b>を
+          デザイナーはエディターを自分のプロセスで動かし、ピッカーは**いま画面にあるもの**を
           記録するので、そこで録れるのはデザイナー自身になる。
         </para>
       </remarks>

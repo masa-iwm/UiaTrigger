@@ -6,7 +6,7 @@
     ・WinUI  … src/UiaTrigger.Picker.WinUI/Strings/<culture>/Resources.resw + MRT Core
     ・WPF / WinForms … このファイル + ResourceManager + サテライトアセンブリ
 
-  WPF と WinForms は仕組みが同一なので resx は<b>この 1 組を共有する</b>。
+  WPF と WinForms は仕組みが同一なので resx は**この 1 組を共有する**。
   分けると 35 キー × 2 言語を手で二重管理することになり、L3 のテストが
   防ごうとしている drift そのものを作る。
 

@@ -77,16 +77,16 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// 大きなツリーを歩いたあいだ相手プロセスの provider を数千個掴んだままになる。
     /// </para>
     /// <para>
-    /// 「どこで捨てるか」を数え上げる形では<b>漏れる</b>。<see cref="_selectionOrigin"/> は
-    /// ツリーのエイリアスではなく<b>独立した所有根</b>で、重なり切替 (<see cref="MoveStackAsync"/>)
+    /// 「どこで捨てるか」を数え上げる形では**漏れる**。<see cref="_selectionOrigin"/> は
+    /// ツリーのエイリアスではなく**独立した所有根**で、重なり切替 (<see cref="MoveStackAsync"/>)
     /// が入れた要素はツリーに 1 度も現れないまま、次のビュー切替
     /// (<see cref="RebuildChainAsync"/>) で使われる。そこで所有根
     /// — <see cref="Roots"/> ∪ <see cref="_selectionOrigin"/> ∪ <see cref="_currentNode"/> —
     /// から到達できないものを掃き出す形にしてある。presenter の中の小さな GC である。
     /// </para>
     /// <para>
-    /// <b>不変条件が 2 つある。</b>(1) 所有根が変わったら <see cref="ReleaseUnreachable"/> を呼ぶ。
-    /// (2) 受け取ったものは<b>掃く前に</b> <see cref="Own"/> する — 逆順にすると、
+    /// **不変条件が 2 つある。**(1) 所有根が変わったら <see cref="ReleaseUnreachable"/> を呼ぶ。
+    /// (2) 受け取ったものは**掃く前に** <see cref="Own"/> する — 逆順にすると、
     /// まだツリーへ入れていないチェーンを到達不能とみなして即座に解放してしまう。
     /// </para>
     /// </remarks>
@@ -97,7 +97,7 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// <summary>
     /// いまオーバーレイに出している矩形。<see cref="IPickerElement.BoundingRectangle"/> は
     /// ハンドルを作った時点のスナップショットなので、対象ウィンドウが動くと古くなる。
-    /// 確定アイコンの当たり判定も<b>画面に出ている枠</b>に合わせないと、
+    /// 確定アイコンの当たり判定も**画面に出ている枠**に合わせないと、
     /// アイコンの位置と「捕捉しない領域」がずれる。
     /// </summary>
     private ElementRect _shownRect;
@@ -124,7 +124,7 @@ public sealed class TriggerPickerPresenter : IDisposable
     {
     }
 
-    // オーバーレイとプレゼンターは<b>同じ</b> IDpiSource を見る。別々に作ると、
+    // オーバーレイとプレゼンターは**同じ** IDpiSource を見る。別々に作ると、
     // 差し替えたときに片方だけ変わって「絵と当たり判定が食い違う」を作り込める
     private static readonly Win32DpiSource SharedDpiSource = new();
 
@@ -204,7 +204,7 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// step through the elements stacked under the cursor.
     /// </para>
     /// <para>
-    /// This asks about the <b>tree</b>, not the window. Pointing at something in another
+    /// This asks about the **tree**, not the window. Pointing at something in another
     /// application never moves the focus — Windows moves it on a click — so a window-level test is
     /// true for the whole time the user is hovering, which is exactly when stepping through
     /// overlapping elements is the thing they want. Gating on that made the feature unreachable
@@ -339,7 +339,7 @@ public sealed class TriggerPickerPresenter : IDisposable
         _view.ShowOperands(DescribeOperands(draft.On, draft.Op));
 
         // 既定 id を「こちらが最後に入れた値」として空にしておく。こうすると
-        // ConfirmNodeAsync は KeyText を<b>ユーザーが書いた値</b>と見なすので、
+        // ConfirmNodeAsync は KeyText を**ユーザーが書いた値**と見なすので、
         // 編集中に要素を捕まえ直しても id が黙って提案 id へ置き換わらない
         _suggestedId = string.Empty;
         _view.SetCommitEnabled(true);
@@ -348,8 +348,8 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// <summary>選べるプロパティの一覧。<paramref name="selected"/> は必ず含める。</summary>
     /// <remarks>
     /// 確定のときは要素のスナップショットからパターン対応を見て決めるが、既存の定義を
-    /// 読み込むときは要素を読み直さないので見るものが無い。<b>いま入っているプロパティを
-    /// 落とさないこと</b>を優先する — 一覧に無ければコンボは選択なしになり、
+    /// 読み込むときは要素を読み直さないので見るものが無い。**いま入っているプロパティを
+    /// 落とさないこと**を優先する — 一覧に無ければコンボは選択なしになり、
     /// コミットで別のプロパティの条件に化ける。
     /// </remarks>
     private static List<TriggerProperty> PropertiesFor(TriggerProperty selected)
@@ -492,7 +492,7 @@ public sealed class TriggerPickerPresenter : IDisposable
             return; // 同じ場所は再捕捉しない
         }
         // 確定アイコン上では捕捉しない (クリックしに行った先で選択が変わるのを防ぐ)。
-        // 見るのは要素が持つ矩形ではなく<b>いま枠を出している矩形</b>である —
+        // 見るのは要素が持つ矩形ではなく**いま枠を出している矩形**である —
         // 対象ウィンドウが動いたあとは前者が古く、除外領域が画面と食い違う
         if (_currentNode?.Element is not null &&
             OverlayGeometry.IsInIconZone(_shownRect, _dpi.DpiFor(_shownRect), x, y))
@@ -528,7 +528,7 @@ public sealed class TriggerPickerPresenter : IDisposable
     {
         // ApplyCapture は 3 経路 (捕捉 / ビュー切替 / 重なり切替) の合流点なので、
         // チェーンの所有をここで引き受ければ 3 箇所に書かずに済む。
-        // 掃き出しより<b>先</b>であることが要る (_owned の不変条件 2)
+        // 掃き出しより**先**であることが要る (_owned の不変条件 2)
         Own(capture.Chain);
 
         var expandOrder = new List<PickerTreeNode>();
@@ -566,7 +566,7 @@ public sealed class TriggerPickerPresenter : IDisposable
             _view.EndNodeUpdate();
         }
 
-        // 置き換えた木のハンドルを手放す。ExpandThenSelect / RefreshCurrentNode より<b>前</b>に
+        // 置き換えた木のハンドルを手放す。ExpandThenSelect / RefreshCurrentNode より**前**に
         // 掃くのは、あちらが継ぎ目呼び出しを始めるので、解放が在庫中の読み取りと競合する窓が
         // その分だけ狭くなるからである
         ReleaseUnreachable();
@@ -622,7 +622,7 @@ public sealed class TriggerPickerPresenter : IDisposable
         catch (System.Runtime.InteropServices.COMException)
         {
             // 相手から読めない (実測: 塞がれたアプリでは「Operation timed out」になる)。
-            // ここで faulted Task にして一覧を<b>古い値のまま</b>残すと
+            // ここで faulted Task にして一覧を**古い値のまま**残すと
             // 「読めている」ようにしか見えない — 最悪の形なので、一覧は空にする
             // (docs/DESIGN.md §12)。
             // 枠は消さない — 矩形は手元の値で出せており、消すと捕捉ごと壊れたように見える。
@@ -673,7 +673,7 @@ public sealed class TriggerPickerPresenter : IDisposable
     }
 
     /// <summary>
-    /// ノード VM を生成し、<b>ユーザーが</b>展開したときだけ子を全列挙するようにする。
+    /// ノード VM を生成し、**ユーザーが**展開したときだけ子を全列挙するようにする。
     /// チェーン表示のための展開 (ExpandForDisplay) では列挙しない — でないと
     /// 捕捉のたびに経路上の全段が兄弟を取りに行く。
     /// </summary>
@@ -950,7 +950,7 @@ public sealed class TriggerPickerPresenter : IDisposable
             _view.ShowOperands(DescribeOperands(TriggerOn.PropertyChanged, ComparisonOp.Always));
 
             // 既定 id は確定のたびに作り直す。空のときしか入れないと、続けて別の要素を
-            // 確定したときに前の id が残り、コミットで<b>前のトリガーを黙って置き換える</b>。
+            // 確定したときに前の id が残り、コミットで**前のトリガーを黙って置き換える**。
             // ユーザーが自分で書いた値は尊重する — 見分けはこちらが最後に入れた値との一致で行う
             string slug = element.AutomationId.Length > 0 ? element.AutomationId : element.ControlTypeName;
             string suggestedId =
@@ -987,7 +987,7 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// <remarks>
     /// 到達可能性で見るのは、捨てる場所を数え上げると <see cref="_selectionOrigin"/> 経由でしか
     /// 到達できない要素を取りこぼすからである (<see cref="_owned"/> の remarks)。
-    /// 逆に<b>解放しすぎ</b>は静かに間違わない — 値のメンバー 4 つはスナップショットなので
+    /// 逆に**解放しすぎ**は静かに間違わない — 値のメンバー 4 つはスナップショットなので
     /// 読めたままで、壊れるのは継ぎ目へ渡し返す経路だけであり、そこは例外になる。
     /// </remarks>
     private void ReleaseUnreachable()
@@ -1034,7 +1034,7 @@ public sealed class TriggerPickerPresenter : IDisposable
 
     /// <summary>持っているハンドルをすべて解放する (終了時)。</summary>
     /// <remarks>
-    /// <see cref="Roots"/> は<b>触らない</b>。ホストの終了処理の途中で
+    /// <see cref="Roots"/> は**触らない**。ホストの終了処理の途中で
     /// <c>CollectionChanged(Reset)</c> を View (WinForms の TreeMirror / XAML の ItemsSource) へ
     /// 投げることになる。解放済みのハンドルを持つノードを表示し続けるのは安全である
     /// (値はスナップショットで、<see cref="PickerTreeNode.CanConfirm"/> は null 判定しか見ない)。

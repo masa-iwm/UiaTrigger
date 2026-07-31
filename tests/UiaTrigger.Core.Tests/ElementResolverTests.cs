@@ -7,7 +7,7 @@ namespace UiaTrigger.Tests;
 /// <summary>
 /// 経路解決の回帰テスト。
 ///
-/// 解決結果に加えて <b>往復回数</b> (docs/DESIGN.md B1) と <b>RCW の解放</b> (B6) も固定する。
+/// 解決結果に加えて **往復回数** (docs/DESIGN.md B1) と **RCW の解放** (B6) も固定する。
 /// 探索アルゴリズムそのものの回帰は <see cref="BeamSearchTests"/> にある。
 /// </summary>
 public sealed class ElementResolverTests

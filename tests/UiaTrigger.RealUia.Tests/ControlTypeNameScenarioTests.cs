@@ -7,12 +7,12 @@ namespace UiaTrigger.RealUia.Tests;
 /// 識別用の安定名と表示用のローカライズ名の分離を、実 UIA で確かめる (docs/DESIGN.md L6)。
 ///
 /// T1 (<c>ControlTypeNameTests</c>) は擬似的なスナップショットを組み立てて分離の規則を固定するが、
-/// <b>実 UIA が本当に別の文字列を返すのか</b>は擬似データでは分からない。
+/// **実 UIA が本当に別の文字列を返すのか**は擬似データでは分からない。
 /// 表示名が安定名と同じ文字列しか返さないなら、L6 の分離は「持っているが誰も使わない 2 つ目の名前」
 /// でしかなく、ピッカーが安定名を出し続けても誰も気づけない。ここでその前提を実測する。
 ///
 /// <para>
-/// 両プロファイルで走らせる。表示名を出すのは<b>プロバイダー</b>であり、
+/// 両プロファイルで走らせる。表示名を出すのは**プロバイダー**であり、
 /// 1 つのプロバイダーが 2 つ目の名前を返すことを確かめても
 /// 「どのプロバイダーでも成り立つ」根拠にはならない。
 /// </para>
@@ -20,7 +20,7 @@ namespace UiaTrigger.RealUia.Tests;
 public sealed class ControlTypeNameScenarioTests
 {
     /// <summary>
-    /// プロバイダーが表示名を返し、それが安定名とは<b>別の文字列</b>であること。
+    /// プロバイダーが表示名を返し、それが安定名とは**別の文字列**であること。
     ///
     /// WinForms のボタンは UIA の安定名では <c>Button</c> だが、
     /// <c>LocalizedControlType</c> は OS の表示言語に応じた文字列 (英語なら "button"、
@@ -59,7 +59,7 @@ public sealed class ControlTypeNameScenarioTests
     }
 
     /// <summary>
-    /// 記録した定義に載るのは<b>安定名のほう</b>であること。
+    /// 記録した定義に載るのは**安定名のほう**であること。
     ///
     /// <see cref="TriggerDefinition.DisplayName"/> は永続化される。ここが
     /// <c>LocalizedControlType</c> になると、対象アプリを別の言語で起動し直しただけで

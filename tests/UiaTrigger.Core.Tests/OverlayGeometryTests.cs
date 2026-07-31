@@ -11,13 +11,13 @@ namespace UiaTrigger.Tests;
 /// 「動くが位置がずれている」という、コンパイルもテストも通ってしまう壊れ方に戻る。
 ///
 /// 寸法は DPI でスケールする (docs/DESIGN.md §9)。
-/// <b>この一式は dpi を明示的に渡す</b> — 走っている機械の表示スケールを見にいくと、
+/// **この一式は dpi を明示的に渡す** — 走っている機械の表示スケールを見にいくと、
 /// 96 の機械では緑・175% の機械では赤 (逆もある) という再現しないテストになる。
 ///
-/// <b>絵は 2 枚である (docs/DESIGN.md §10)。</b>枠 (<c>PaintFrame</c>) とアイコン (<c>PaintIcon</c>) は
+/// **絵は 2 枚である (docs/DESIGN.md §10)。**枠 (<c>PaintFrame</c>) とアイコン (<c>PaintIcon</c>) は
 /// 別のウィンドウへ流れる。枠の窓は <c>WS_EX_TRANSPARENT</c> でヒットテストから外れており、
 /// アイコンの窓は全ピクセルが不透明でその矩形がそのまま当たり判定である。
-/// <b>この一式が守るのはその 2 つの性質である</b> — 枠の絵にアイコンの色が混じったら
+/// **この一式が守るのはその 2 つの性質である** — 枠の絵にアイコンの色が混じったら
 /// 「見えているのに押せない」に戻るし、アイコンの絵に透過が混じったらそこだけ押せなくなる。
 /// </summary>
 public sealed class OverlayGeometryTests
@@ -44,7 +44,7 @@ public sealed class OverlayGeometryTests
         return pixels;
     }
 
-    /// <summary>枠の絵の 1 ピクセル。座標は<b>枠の窓の中</b> (要素の左上が原点)。</summary>
+    /// <summary>枠の絵の 1 ピクセル。座標は**枠の窓の中** (要素の左上が原点)。</summary>
     private static uint FrameAt(ElementRect rect, int dpi, uint[] pixels, int x, int y)
     {
         (int width, _) = OverlayGeometry.FrameSize(rect, dpi);
@@ -57,11 +57,11 @@ public sealed class OverlayGeometryTests
     /// 実寸を絶対値で固定する。
     ///
     /// これらは目視で決めた値である。
-    /// <b>他のテストをすべて定数からの相対で書くと、定数を変えてもテストが一緒に動いてしまい
-    /// 何も守れない</b>。ここだけは数値そのものを書く。
+    /// **他のテストをすべて定数からの相対で書くと、定数を変えてもテストが一緒に動いてしまい
+    /// 何も守れない**。ここだけは数値そのものを書く。
     /// 意図して見た目を変えるときは、この期待値を明示的に更新すること。
     ///
-    /// <b>96 DPI でこの基準値に一致することが、DPI スケーリング (docs/DESIGN.md §9) が 96 DPI の見た目を変えないことの証明である。</b>
+    /// **96 DPI でこの基準値に一致することが、DPI スケーリング (docs/DESIGN.md §9) が 96 DPI の見た目を変えないことの証明である。**
     /// </summary>
     [Fact]
     public void Constants_AreTheValuesSettledOnByEye()
@@ -95,14 +95,14 @@ public sealed class OverlayGeometryTests
     }
 
     /// <summary>
-    /// <b>当たり判定と描画を結び付けている不変条件。</b>
+    /// **当たり判定と描画を結び付けている不変条件。**
     /// </summary>
     /// <remarks>
     /// <para>
     /// アイコンの窓は一辺 <c>IconSize</c> で、その矩形がそのまま当たり判定になる。
     /// <c>IconRect</c> は「中心から <c>IconHalf</c> で広がる」式から導いているので、
     /// 一辺が偶数 (<c>IconSize == IconHalf * 2</c>) でないと絵と当たり判定が 1px ずれる。
-    /// <b>4 つの定数を別々にスケールすると、これが中途半端な DPI で崩れる</b> —
+    /// **4 つの定数を別々にスケールすると、これが中途半端な DPI で崩れる** —
     /// 175% なら 20 * 1.75 = 35 (奇数) になる。
     /// </para>
     /// <para>
@@ -136,7 +136,7 @@ public sealed class OverlayGeometryTests
     }
 
     /// <summary>
-    /// <b>スケールしていること自体</b>を固定する。これが無いと「dpi を受け取るが無視する」
+    /// **スケールしていること自体**を固定する。これが無いと「dpi を受け取るが無視する」
     /// 実装 (= 元の不具合) が緑のまま通る。
     /// </summary>
     [Fact]
@@ -166,7 +166,7 @@ public sealed class OverlayGeometryTests
     /// <remarks>
     /// 枠 200x120 を (0,0) に、アイコン 20x20 を (184,-4) に置く。
     /// 2 枚を合わせた外周は、1 枚のビットマップ 204x124 を (0,-4) に置いた形と同じ —
-    /// 窓を 2 枚に割っても<b>見た目は変わらない</b> (docs/DESIGN.md §10)。
+    /// 窓を 2 枚に割っても**見た目は変わらない** (docs/DESIGN.md §10)。
     /// </remarks>
     [Fact]
     public void TheTwoWindows_SitAtExactPixelPositions()
@@ -179,7 +179,7 @@ public sealed class OverlayGeometryTests
         Assert.Equal((184, -4, 20), OverlayGeometry.IconRect(rect, Dpi96));
     }
 
-    /// <summary>同じ要素を 175% で。<b>絶対値で書く</b> — 相対で書くと何も守れない。</summary>
+    /// <summary>同じ要素を 175% で。**絶対値で書く** — 相対で書くと何も守れない。</summary>
     [Fact]
     public void TheTwoWindows_At175Percent_SitAtExactPixelPositions()
     {
@@ -212,7 +212,7 @@ public sealed class OverlayGeometryTests
     }
 
     /// <summary>
-    /// 同じ矩形を 175% で。<b>当たり判定は要素の右上に貼り付いたまま、領域だけが広がる。</b>
+    /// 同じ矩形を 175% で。**当たり判定は要素の右上に貼り付いたまま、領域だけが広がる。**
     /// </summary>
     [Fact]
     public void IsInIconZone_At175Percent_CoversTheLargerRectangle()
@@ -228,28 +228,28 @@ public sealed class OverlayGeometryTests
         Assert.False(OverlayGeometry.IsInIconZone(rect, Dpi175, 389, 92));
         Assert.False(OverlayGeometry.IsInIconZone(rect, Dpi175, 389, 129));
 
-        // 96 DPI では入っていた点が、175% では絵が大きいぶん<b>まだ</b>入っている /
+        // 96 DPI では入っていた点が、175% では絵が大きいぶん**まだ**入っている /
         // 96 DPI で外れていた点が入るようになる — スケールが効いている証拠
         Assert.False(OverlayGeometry.IsInIconZone(rect, Dpi96, 371, 93));
         Assert.True(OverlayGeometry.IsInIconZone(rect, Dpi175, 371, 93));
     }
 
     /// <summary>
-    /// <b>見えているアイコンと、押せるアイコンが 1 ピクセルも食い違わないこと。</b>
+    /// **見えているアイコンと、押せるアイコンが 1 ピクセルも食い違わないこと。**
     /// </summary>
     /// <remarks>
     /// <para>
-    /// これがこの一式で最も強い検査である。<b>3 つを同時に主張する</b>:
+    /// これがこの一式で最も強い検査である。**3 つを同時に主張する**:
     /// (a) アイコンの絵は 1 ピクセルも欠けずに不透明である
     /// — レイヤードウィンドウのヒットテストはピクセルごとのアルファで決まるので、
     /// 透過が 1 点でも混じればそこは押せない。
     /// (b) アイコンの窓が占めるスクリーン座標は、ちょうど当たり判定の内側である
     /// (窓の外へ 1px 出れば当たり判定の外)。
-    /// (c) <b>枠の絵にはアイコンの色が 1 ピクセルも無い。</b>
+    /// (c) **枠の絵にはアイコンの色が 1 ピクセルも無い。**
     /// </para>
     /// <para>
-    /// (c) が 2 枚構造 (docs/DESIGN.md §10) の要である。枠の窓は <c>WS_EX_TRANSPARENT</c> で<b>窓ごと</b>
-    /// ヒットテストから外れているので、そちらに描いた絵は<b>どんなに不透明でも押せない</b>。
+    /// (c) が 2 枚構造 (docs/DESIGN.md §10) の要である。枠の窓は <c>WS_EX_TRANSPARENT</c> で**窓ごと**
+    /// ヒットテストから外れているので、そちらに描いた絵は**どんなに不透明でも押せない**。
     /// 2 枚を 1 枚に戻す変更 (= 元の設計) はここで落ちる。
     /// </para>
     /// <para>
@@ -257,8 +257,8 @@ public sealed class OverlayGeometryTests
     /// <c>IconSize</c> を直接スケールして奇数になった実装は、この検査で必ず落ちる。
     /// </para>
     /// <para>
-    /// <b>アイコンより小さい要素も見る。</b>枠は最低アイコン 1 個分まで広げられ、
-    /// アイコンは<b>広げたあとの</b>枠の右上に来る。当たり判定が<b>広げる前の</b>
+    /// **アイコンより小さい要素も見る。**枠は最低アイコン 1 個分まで広げられ、
+    /// アイコンは**広げたあとの**枠の右上に来る。当たり判定が**広げる前の**
     /// <c>rect.Right</c> を見る実装は、ここで右側の帯が
     /// 「描かれているのに押せない」になって落ちる (docs/DESIGN.md §9)。
     /// 96 DPI でも落ちるので、DPI とは独立の検査である。
@@ -390,11 +390,11 @@ public sealed class OverlayGeometryTests
     }
 
     /// <summary>
-    /// <b>枠の絵は枠線と透過だけでできていること。</b>
+    /// **枠の絵は枠線と透過だけでできていること。**
     /// </summary>
     /// <remarks>
     /// アイコンを枠側へ描き戻す変更 (= 1 枚に戻す設計 — docs/DESIGN.md §10) はここで落ちる。
-    /// 枠の窓は <c>WS_EX_TRANSPARENT</c> なので、そこに描いた確定アイコンは<b>押せない</b>。
+    /// 枠の窓は <c>WS_EX_TRANSPARENT</c> なので、そこに描いた確定アイコンは**押せない**。
     /// </remarks>
     [Theory]
     [InlineData(96)]
@@ -413,7 +413,7 @@ public sealed class OverlayGeometryTests
     }
 
     /// <summary>
-    /// <b>アイコンの絵に透過が 1 ピクセルも無いこと。</b>
+    /// **アイコンの絵に透過が 1 ピクセルも無いこと。**
     /// </summary>
     /// <remarks>
     /// これがアイコンの窓が押せる理由そのものである。レイヤードウィンドウのヒットテストは
@@ -492,13 +492,13 @@ public sealed class OverlayGeometryTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>座標と寸法で DPI の効き方が違う</b> (docs/DESIGN.md §9)。座標はすべて物理ピクセルなので
+    /// **座標と寸法で DPI の効き方が違う** (docs/DESIGN.md §9)。座標はすべて物理ピクセルなので
     /// 判定式に換算は要らない — ホストが PerMonitorV2 を宣言している限り、要素の矩形自体が
-    /// 物理ピクセルで来るからである。ここに<b>座標の</b>換算を持ち込む変更が入れば、
+    /// 物理ピクセルで来るからである。ここに**座標の**換算を持ち込む変更が入れば、
     /// それはホストが DPI 非認識であるという別の問題を隠している (docs/DESIGN.md A19 / docs/TESTING.md §4)。
     /// </para>
     /// <para>
-    /// 一方<b>寸法</b> (アイコンの一辺) はスケールする。だから各行は「その表示スケールでの
+    /// 一方**寸法** (アイコンの一辺) はスケールする。だから各行は「その表示スケールでの
     /// 要素の大きさ」と「その DPI」を対にして渡す。この区別が無いと、
     /// 要素だけが伸びてアイコンが取り残される。
     /// </para>

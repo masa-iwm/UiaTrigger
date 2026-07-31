@@ -50,18 +50,18 @@ public static class TriggerStore
     }
 
     /// <summary>
-    /// 読み取り用にファイルを開く。<b>共有モードに <see cref="FileShare.Delete"/> を含めること。</b>
+    /// 読み取り用にファイルを開く。**共有モードに <see cref="FileShare.Delete"/> を含めること。**
     /// </summary>
     /// <remarks>
     /// <see cref="Save"/> の原子的な置き換え (<see cref="File.Replace(string, string, string?)"/>)
-    /// は宛先の<b>名前の差し替え</b>なので、読み手が Delete を共有しないと、
-    /// <b>誰かが読んでいる一瞬に重なった保存が共有違反 (IOException) で失敗する</b>。
+    /// は宛先の**名前の差し替え**なので、読み手が Delete を共有しないと、
+    /// **誰かが読んでいる一瞬に重なった保存が共有違反 (IOException) で失敗する**。
     /// 実際に T4 で起きた — ピッカーは「Added: ...」と言うのに、保存だけが黙って落ちて
     /// 定義はメモリにしか残らなかった (ホストは SaveFailed をステータスに出すだけで再試行しない)。
     /// 監視プロセスがトリガーファイルを読むのは普通の使い方なので、これはテストの都合ではない。
     /// Write は共有しない — 書き手はこのライブラリの置き換えだけを想定し、
     /// truncate で書く他者の半端な内容を読まないためである。
-    /// 開いている読み手は置き換え後も<b>古い中身</b>を最後まで読む (名前が差し替わるだけで
+    /// 開いている読み手は置き換え後も**古い中身**を最後まで読む (名前が差し替わるだけで
     /// 実体は残る) ので、半端な JSON を読む瞬間は存在しない。
     /// </remarks>
     internal static FileStream OpenShared(string path)

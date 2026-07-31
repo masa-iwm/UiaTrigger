@@ -4,7 +4,7 @@
 // この型は「モデルの語彙」であって「COM の実装詳細」ではなく、COM 型はすべて
 // internal に閉じてあるので、interop 名前空間に置く理由が無い。
 //
-// 返すのは <b>英語固定の安定名</b>である (docs/DESIGN.md L6)。
+// 返すのは **英語固定の安定名**である (docs/DESIGN.md L6)。
 // 表示用のローカライズ名は UiaElement.LocalizedControlType /
 // ElementPropertySnapshot.LocalizedControlType として分離してある。値の出所も別で、
 // 表示用は UIA の LocalizedControlType (= 相手アプリのロケール) をそのまま使う。

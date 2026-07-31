@@ -5,11 +5,11 @@
 
     担当は「実体化を待つ経路」だけである — WinUI の ExpandThenSelect / SelectDeferred と、
     WPF の同経路 + IsExpanded の TwoWay 束縛。どちらもコンテナが生成されるまで待つ話であり、
-    <b>ウィンドウを画面に出さないと再現しない</b> (実測。docs/DESIGN.md §12)。
+    **ウィンドウを画面に出さないと再現しない** (実測。docs/DESIGN.md §12)。
     Windows Forms は仮想化が無く、ウィンドウ無しでも TreeNode が存在するので対象外にしてある
     (TreeMirrorTests が T1 で丸ごと覆っている)。
 
-    <b>ローカルで T3 (UiaTrigger.RealUia.Tests) と同時に走らせないこと。</b>
+    **ローカルで T3 (UiaTrigger.RealUia.Tests) と同時に走らせないこと。**
     直列実行の指定 (AssemblyInfo.cs) はアセンブリ単位なので、別プロセスの T3 までは止められない。
     どちらも画面にウィンドウを出して座標から要素を掴むため、重なると取り違える。
     CI では別ジョブ (= 別ランナー) なので問題にならない。
@@ -22,9 +22,9 @@
     <OutputType>Exe</OutputType>
     <InvariantGlobalization>false</InvariantGlobalization>
     <!--
-      XAML は 1 行も無いのに UseWPF を立てているのは、UIA <b>クライアント</b>
+      XAML は 1 行も無いのに UseWPF を立てているのは、UIA **クライアント**
       (System.Windows.Automation = UIAutomationClient / UIAutomationTypes) を引くためである。
-      これは意図的に UiaTrigger.Core の手書き interop とは<b>別実装</b>であり、
+      これは意図的に UiaTrigger.Core の手書き interop とは**別実装**であり、
       両者が食い違えばどちらかが誤っていると分かる (docs/TESTING.md §1 T4)。
       T3 が Core 越しに UIA を触るのと違う点なので、揃えないこと。
     -->
@@ -33,7 +33,7 @@
 
   <ItemGroup>
     <!--
-      UseWPF を立てると暗黙の using から System.IO が<b>外れる</b>
+      UseWPF を立てると暗黙の using から System.IO が**外れる**
       (System.Windows.Shapes.Path と衝突するため)。他のテストプロジェクトと同じ前提で
       ソースを共有できるように戻しておく — 戻さないと、リンクしている RepoPaths.cs /
       TestTargetProcess.cs だけがここでコンパイルできない。
@@ -55,7 +55,7 @@
     <ProjectReference Include="..\..\src\UiaTrigger.Core\UiaTrigger.Core.csproj" />
     <!--
       OverlayGeometry (純関数) から S1 の期待矩形を計算するため (docs/DESIGN.md §10)。
-      これは<b>ホストへの参照ではない</b> — 上の禁止は x64 固定の App.WinUI の話であって、
+      これは**ホストへの参照ではない** — 上の禁止は x64 固定の App.WinUI の話であって、
       Picker.Core は net10.0-windows / AnyCPU なので普通に参照できる。
       純関数なので、ホストのプロセスに別のコピーが在っても構わない。
     -->
@@ -64,7 +64,7 @@
     <ProjectReference Include="..\UiaTrigger.TestTarget\UiaTrigger.TestTarget.csproj"
                       ReferenceOutputAssembly="false" />
     <!--
-      サンプルホストへの ProjectReference は<b>張らない</b>。UiaTrigger.App.WinUI は x64 固定で、
+      サンプルホストへの ProjectReference は**張らない**。UiaTrigger.App.WinUI は x64 固定で、
       AnyCPU のここから参照するとプラットフォーム不一致の警告が出て
       TreatWarningsAsErrors=true でビルドが落ちる。App.Wpf だけ張ると 2 変種の扱いが
       非対称になり、あとから「揃えよう」として WinUI 側を足す事故を招く。

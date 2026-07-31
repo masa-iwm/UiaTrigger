@@ -4,8 +4,8 @@
     ピッカーの Windows Forms View (docs/DESIGN.md §12)。
 
     振る舞いは UiaTrigger.Picker.Core の TriggerPickerPresenter が持つ。ここに残るのは
-    「Windows Forms の事実」だけで、他の 2 変種と最も違うのは<b>データバインディングが
-    無い</b>ことである。TreeView はモデルを見てくれないので、ObservableCollection と
+    「Windows Forms の事実」だけで、他の 2 変種と最も違うのは**データバインディングが
+    無い**ことである。TreeView はモデルを見てくれないので、ObservableCollection と
     TreeNodeCollection を手で同期させる層 (TreeMirror) が要る。それが 3 変種のうち
     ここにしか無いコードであり、いちばん壊れやすいので独立したクラスに切ってある。
 

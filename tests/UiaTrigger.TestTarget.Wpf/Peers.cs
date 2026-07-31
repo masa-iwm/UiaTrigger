@@ -46,11 +46,11 @@ internal sealed class TestLabel : Label
 }
 
 /// <summary>
-/// <b>要素を作り直さずに</b> ControlType だけを変えられる peer。
+/// **要素を作り直さずに** ControlType だけを変えられる peer。
 ///
 /// A8 (「生きているが別物」) の前提はまさにこれで、ピアを作り直してしまうと
 /// クライアントからは「要素消滅 → 別要素の出現」に見え、同一性の再検証を通らないまま
-/// テストが<b>間違った理由で通る</b> (docs/TESTING.md §1)。
+/// テストが**間違った理由で通る** (docs/TESTING.md §1)。
 /// そのため <see cref="AutomationPeer.InvalidatePeer"/> ではなく
 /// 値の差し替え + プロパティ変化イベントで済ませる。
 /// </summary>
@@ -82,7 +82,7 @@ internal sealed class SwitchablePeer(FrameworkElement owner, AutomationControlTy
     protected override bool IsControlElementCore() => true;
 
     /// <summary>
-    /// ボタン・ラベルを<b>葉</b>にする。
+    /// ボタン・ラベルを**葉**にする。
     ///
     /// WPF の <c>Button</c> はテンプレートの <c>ContentPresenter</c> が文字列を
     /// <c>TextBlock</c> として実体化し、その <c>TextBlockAutomationPeer</c> が
@@ -96,7 +96,7 @@ internal sealed class SwitchablePeer(FrameworkElement owner, AutomationControlTy
     protected override string GetClassNameCore() => Owner.GetType().Name;
 
     /// <summary>
-    /// UIA のプロパティ変化イベントは <c>ControlType</c> の <b>ID</b> を運ぶ。
+    /// UIA のプロパティ変化イベントは <c>ControlType</c> の **ID** を運ぶ。
     /// <see cref="AutomationControlType"/> をそのまま渡すと受け手が解釈できない。
     /// </summary>
     private static int ControlTypeIdOf(AutomationControlType type) => type switch

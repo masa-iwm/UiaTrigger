@@ -2,7 +2,7 @@
 <!--
   UiaTrigger.Picker.Wpf の日本語 IntelliSense (docs/LOCALIZATION.md §4)。
   仕組みは UiaTrigger.Core.ja.xml と同じ。公開面はウィンドウ 1 つぶんしかないが、
-  ロールアップの単位はファイルなので<b>過不足なく</b>覆う必要がある。
+  ロールアップの単位はファイルなので**過不足なく**覆う必要がある。
 -->
 <doc>
   <assembly>
@@ -46,10 +46,10 @@
       <summary>マウス自動選択を、利用者が切ったのと同じように切る。</summary>
       <remarks>
         <para>
-          もう 1 つピッカーを開く前に、<b>既に開いているピッカーに対して</b>呼ぶこと。
+          もう 1 つピッカーを開く前に、**既に開いているピッカーに対して**呼ぶこと。
           カーソル位置はプロセスで 1 つなので、自動選択が入っているピッカーは全部が同じ点を読み、
           同じ要素を捕捉する。先に開いていたほうは新しいピッカーのマウスに黙って追随し、
-          出していた要素を失う。<b>既に確定した条件には影響しない。</b>
+          出していた要素を失う。**既に確定した条件には影響しない。**
         </para>
         <para>
           <see cref="M:UiaTrigger.Picker.Wpf.TriggerPickerWindow.LoadDefinition(UiaTrigger.Models.TriggerDefinition)" />
@@ -60,7 +60,7 @@
     <member name="M:UiaTrigger.Picker.Wpf.TriggerPickerWindow.LoadDefinition(UiaTrigger.Models.TriggerDefinition)">
       <summary>既存のトリガーを開き、その条件を編集できるようにする。</summary>
       <param name="definition">
-        編集するトリガー。ピッカーがこれを引き取り、確定された条件を<b>この実体へ</b>書き戻すので、
+        編集するトリガー。ピッカーがこれを引き取り、確定された条件を**この実体へ**書き戻すので、
         元をそのまま残す必要があるときは写しを渡すこと。
       </param>
       <exception cref="T:System.ArgumentException">

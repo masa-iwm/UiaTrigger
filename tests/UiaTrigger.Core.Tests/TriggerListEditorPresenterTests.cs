@@ -10,12 +10,12 @@ namespace UiaTrigger.Tests;
 /// トリガ一覧エディタの振る舞い (docs/DESIGN.md §4)。
 ///
 /// <para>
-/// 一覧・削除・まとめるの規則がサンプルホスト 3 つに<b>三重に</b>書かれている形だと、
+/// 一覧・削除・まとめるの規則がサンプルホスト 3 つに**三重に**書かれている形だと、
 /// そのホストは NuGet では配れない (docs/RELEASING.md §3) ため、組み込む側から見れば参照できる
 /// コードとして存在しない。ここはその規則を 1 か所に集めたものである。
 /// </para>
 /// <para>
-/// いちばん重いのは<b>値渡し・値返し</b>の検査である (docs/DESIGN.md §4 の継ぎ目の絶対条件)。
+/// いちばん重いのは**値渡し・値返し**の検査である (docs/DESIGN.md §4 の継ぎ目の絶対条件)。
 /// エディタが渡されたリストを直に触ると、取り消したはずの編集がホスト側に残る —
 /// 例外は出ず、保存されたファイルを見るまで分からない。
 /// </para>
@@ -154,7 +154,7 @@ public sealed class TriggerListEditorPresenterTests
         TriggerDefinition? handed = Assert.Single(h.View.PickerRequests);
         Assert.NotNull(handed);
         Assert.Equal("a", handed.Id);
-        // <b>写しであること。</b>ピッカーは渡された実体へ書き戻すので、直に渡すと
+        // **写しであること。**ピッカーは渡された実体へ書き戻すので、直に渡すと
         // 取り消しても作業用リストが変わってしまう
         handed.Id = "scribbled";
         Assert.Equal("a", h.Presenter.Snapshot()[0].Id);
@@ -360,7 +360,7 @@ public sealed class TriggerListEditorPresenterTests
     /// <summary>
     /// ほどいて編集し、もう一度まとめられること。
     ///
-    /// <b>これが「ほどく」を足した理由そのものである</b>。
+    /// **これが「ほどく」を足した理由そのものである**。
     /// まとめる前のトリガーを削除していると、これが無い限り複合はどこからも編集できなくなる。
     /// </summary>
     [Fact]

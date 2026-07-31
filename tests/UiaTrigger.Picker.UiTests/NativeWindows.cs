@@ -1,10 +1,10 @@
 // T4 で使う数少ない P/Invoke (docs/DESIGN.md §10 / docs/TESTING.md §1)。
 //
 // ほとんどは読み取り専用である — ウィンドウの位置・Z オーダー・「あるピクセルの上に
-// 誰が居るか」を外から観測するだけ。<b>例外は MoveTo だけ</b>で、これはホストの窓を
+// 誰が居るか」を外から観測するだけ。**例外は MoveTo だけ**で、これはホストの窓を
 // pick 点から退かす (docs/TESTING.md §1)。
 //
-// <b>どれも擬似入力の禁止 (docs/TESTING.md §3) には掛からない。</b>入力スタックには
+// **どれも擬似入力の禁止 (docs/TESTING.md §3) には掛からない。**入力スタックには
 // 1 バイトも入らず、MoveTo もヒットテストとフォーカスを動かさない
 // (SWP_NOZORDER | SWP_NOACTIVATE)。政策が禁じているのは「入力がどこへ届くかを
 // 擬似入力で検証すること」であって、ハーネスが自分の舞台を整えることではない。
@@ -22,21 +22,21 @@ internal static partial class NativeWindows
     /// </summary>
     /// <remarks>
     /// <para>
-    /// レイヤードウィンドウのヒットテストは<b>ピクセルごとのアルファを尊重する</b>ので、
+    /// レイヤードウィンドウのヒットテストは**ピクセルごとのアルファを尊重する**ので、
     /// 枠の透明な内側では Z オーダーに関係なく下のウィンドウが返る。
-    /// 見るべき点は<b>確定アイコンの内側</b> — そこだけが不透明である。
+    /// 見るべき点は**確定アイコンの内側** — そこだけが不透明である。
     /// </para>
     /// <para>
-    /// <b>これでクリックスルーは検査できない。</b>この関数は <c>WM_NCHITTEST</c> を送らないので、
+    /// **これでクリックスルーは検査できない。**この関数は <c>WM_NCHITTEST</c> を送らないので、
     /// <c>HTTRANSPARENT</c> を返す枠の上でもオーバーレイ自身を返す。
     /// あれは実マウス入力の経路の話であり、手動確認のまま残る
     /// (docs/MANUAL-CHECKS.md §3)。
     /// </para>
     /// <para>
-    /// <b>較正して確かめてある</b> (docs/DESIGN.md §10):
-    /// <c>OverlayController</c> の <c>WM_NCHITTEST</c> が<b>全点で</b> <c>HTTRANSPARENT</c> を
+    /// **較正して確かめてある** (docs/DESIGN.md §10):
+    /// <c>OverlayController</c> の <c>WM_NCHITTEST</c> が**全点で** <c>HTTRANSPARENT</c> を
     /// 返すようにしても、確定アイコンの点はオーバーレイを返し続けた。
-    /// <b>尊重しないことが実測で確定している</b> — この関数でクリックスルーを論じないこと。
+    /// **尊重しないことが実測で確定している** — この関数でクリックスルーを論じないこと。
     /// </para>
     /// </remarks>
     public static nint WindowAt(int screenX, int screenY)
@@ -50,10 +50,10 @@ internal static partial class NativeWindows
     /// いま前面に居るウィンドウ。
     /// </summary>
     /// <remarks>
-    /// <b>「クリックがそのウィンドウに届いたか」の観測点として使える</b> (docs/DESIGN.md §10)。
-    /// 前面でないウィンドウを押したときの 1 発目は<b>前面化に食われる</b>ことがあり、
-    /// そのときボタンの <c>Click</c> は上がらない。だが<b>前面化が起きたということは、
-    /// クリックがそのウィンドウまで届いた</b>ということである。
+    /// **「クリックがそのウィンドウに届いたか」の観測点として使える** (docs/DESIGN.md §10)。
+    /// 前面でないウィンドウを押したときの 1 発目は**前面化に食われる**ことがあり、
+    /// そのときボタンの <c>Click</c> は上がらない。だが**前面化が起きたということは、
+    /// クリックがそのウィンドウまで届いた**ということである。
     /// オーバーレイは <c>WS_EX_NOACTIVATE</c> なので、それ自身を押しても前面は変わらない —
     /// つまり前面が変わったなら、クリックはオーバーレイを通り越している。
     /// </remarks>
@@ -68,9 +68,9 @@ internal static partial class NativeWindows
 
     /// <summary>その点が乗っているモニターの DPI (docs/DESIGN.md §9)。</summary>
     /// <remarks>
-    /// <b>96 に決め打ってはいけない。</b>製品は要素が乗っているモニターの DPI で
+    /// **96 に決め打ってはいけない。**製品は要素が乗っているモニターの DPI で
     /// 枠とアイコンの寸法を決めるので、期待側が 96 固定だと
-    /// <b>高 DPI の機械でだけ T4 / T5 が落ちる</b> — 製品は正しいのにテストが赤くなる。
+    /// **高 DPI の機械でだけ T4 / T5 が落ちる** — 製品は正しいのにテストが赤くなる。
     /// 製品と同じ引き方 (<c>MonitorFromPoint</c> + <c>GetDpiForMonitor</c>) をする。
     /// </remarks>
     public static int DpiAt(int screenX, int screenY)
@@ -99,7 +99,7 @@ internal static partial class NativeWindows
 
     /// <summary>そのプロセスのトップレベルウィンドウを Z 順に返す (UIA を通さない)。</summary>
     /// <remarks>
-    /// UIA の <c>RootElement.FindAll</c> と同じものを見るが、<b>桁違いに速い</b>。
+    /// UIA の <c>RootElement.FindAll</c> と同じものを見るが、**桁違いに速い**。
     /// 窓が出た瞬間を捕まえたいときは往復の要らないこちらを使う。
     /// </remarks>
     public static List<nint> TopLevelWindowsOf(int processId)
@@ -121,11 +121,11 @@ internal static partial class NativeWindows
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>「どちらが上か」をヒットテストを通さずに言うための道具である</b> (docs/DESIGN.md §10)。
-    /// <see cref="WindowAt"/> でも上下は分かるが、あれは<b>ヒットテストの結果</b>なので、
+    /// **「どちらが上か」をヒットテストを通さずに言うための道具である** (docs/DESIGN.md §10)。
+    /// <see cref="WindowAt"/> でも上下は分かるが、あれは**ヒットテストの結果**なので、
     /// <c>WS_EX_TRANSPARENT</c> の窓や透過ピクセルの上では「そこに居ない」ことになる。
     /// クリックスルーを測るとき、まさにその窓が上に居ることを先に確かめたい —
-    /// つまり<b>ヒットテストに依らない観測点が要る</b>。
+    /// つまり**ヒットテストに依らない観測点が要る**。
     /// </para>
     /// <para>
     /// 可視かどうかで絞らない。相対的な順位だけが問題で、間に見えない窓が挟まっても
@@ -158,7 +158,7 @@ internal static partial class NativeWindows
     /// </summary>
     /// <remarks>
     /// <c>WNDCLASSEXW.hCursor</c> が <c>default</c> のままだと、そのクラスのウィンドウの上では
-    /// カーソルが<b>親の状態を引きずる</b> (実際に砂時計になった)。
+    /// カーソルが**親の状態を引きずる** (実際に砂時計になった)。
     /// <c>GetClassLongPtr</c> はマクロで、64bit では <c>GetClassLongPtrW</c> が実体である。
     /// </remarks>
     public static nint ClassCursorOf(nint hwnd) => GetClassLongPtr(hwnd, GCLP_HCURSOR);
@@ -167,7 +167,7 @@ internal static partial class NativeWindows
     public static nint ExStyleOf(nint hwnd) => GetWindowLongPtr(hwnd, GWL_EXSTYLE);
 
     /// <summary>
-    /// <c>WS_EX_TRANSPARENT</c>。付いた窓は<b>窓ごと</b>ヒットテストから外れる。
+    /// <c>WS_EX_TRANSPARENT</c>。付いた窓は**窓ごと**ヒットテストから外れる。
     /// </summary>
     /// <remarks>
     /// 定数を製品と共有しないのは <c>OverlayClassName</c> と同じ理由である (docs/TESTING.md §2) —

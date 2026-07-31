@@ -1,15 +1,15 @@
 name: Release
 
-# タグを打つと、配布物を建てて<b>ドラフトの</b> GitHub Release を作る (docs/RELEASING.md §3)。
+# タグを打つと、配布物を建てて**ドラフトの** GitHub Release を作る (docs/RELEASING.md §3)。
 #
 # ci.yml と分けてあるのは、トリガも権限も違うためである
 # (あちらは push / PR で走り、書き込み権限を要らない)。
 #
-# <b>ドラフトで止める。</b>公開は人が中身を見てから押す。
-# NuGet への publish はここでは<b>やらない</b> — あれは取り消せないので、
+# **ドラフトで止める。**公開は人が中身を見てから押す。
+# NuGet への publish はここでは**やらない** — あれは取り消せないので、
 # 「消せるリリースで一度通してから、人が別に実行する」という順序そのものが安全装置である。
 #
-# タグ push でワークフローが走るのは、ワークフローが<b>タグの指すコミットから</b>読まれるためで、
+# タグ push でワークフローが走るのは、ワークフローが**タグの指すコミットから**読まれるためで、
 # 既定ブランチに在る必要は無い (既定ブランチ縛りは workflow_dispatch の手動起動一覧に
 # 固有の制限である — docs/RELEASING.md §2)。
 on:
@@ -47,7 +47,7 @@ jobs:
         shell: pwsh
         run: Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
 
-      # <b>版数の二重管理をここで落とす。</b>
+      # **版数の二重管理をここで落とす。**
       #
       # 正は Directory.Build.props の <Version> である (docs/RELEASING.md §1 に
       # 記録した決定)。タグはその写しにすぎない。
@@ -77,12 +77,12 @@ jobs:
       # 配布する .xml が公開 API だけであること (docs/LOCALIZATION.md §5)
       #
       # 絞り込みそのものは Directory.Build.targets の KeepDistributedDocumentationPublic が行い、
-      # T1 の TheDistributedDocumentationContainsNoNonPublicMembers が<b>ビルド出力</b>を見ている。
-      # ここで見るのは<b>実際に配る .nupkg の中身</b>である — 「絞ったファイルとは別のファイルが
+      # T1 の TheDistributedDocumentationContainsNoNonPublicMembers が**ビルド出力**を見ている。
+      # ここで見るのは**実際に配る .nupkg の中身**である — 「絞ったファイルとは別のファイルが
       # pack された」形は出力側の検査では捕まらない (配置を見るテストが別の場所を見ていて
       # 素通りする形を実際に踏んでいる) ので、成果物の側にも検査を置く。
       #
-      # 判定は<b>日本語が 1 文字も無いこと</b>で行う。公開 API の doc は英語であることを
+      # 判定は**日本語が 1 文字も無いこと**で行う。公開 API の doc は英語であることを
       # L1 が要求しており (PublicApiDocumentationTests)、非公開のコメントは日本語のままでよいと
       # 決めてある。つまりこの 1 つの検査が「絞り込みが効いたか」をそのまま表す。
       - name: Check the packaged XML docs carry no internal comments
@@ -131,7 +131,7 @@ jobs:
           Write-Host "OK: 配布する .xml は $($seen.Count) ファイルすべて公開 API だけです"
 
       # 配布するホストは win-x64 だけである。
-      # <b>ARM64 は出さない</b> — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と
+      # **ARM64 は出さない** — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と
       # 記録しており (C++ ARM64 ツールチェーン不在)、ここで建てていないものを配らない。
       # notes にもそう書く。
       - name: Publish TestHost (win-x64)
@@ -159,7 +159,7 @@ jobs:
           }
           Copy-Item artifacts/packages/*.nupkg, artifacts/packages/*.snupkg artifacts/upload/
 
-      # 添付するものを印字して、<b>数が合わない</b>ときに気づけるようにする。
+      # 添付するものを印字して、**数が合わない**ときに気づけるようにする。
       # 5 パッケージ = nupkg 5 + snupkg 5、ホスト 3 + TestHost = zip 4
       - name: List what will be attached
         shell: pwsh
@@ -179,7 +179,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # <b>ノートは英語で書く。</b>公開面の言語は README と同じ規則である
+          # **ノートは英語で書く。**公開面の言語は README と同じ規則である
           # (README.md が英語、README.ja.md が翻訳 — docs/LOCALIZATION.md §1 の L1/L8)。
           $notes = @"
           Watches UI elements in other applications through UI Automation and raises an event when a
@@ -212,8 +212,8 @@ jobs:
           $notesFile = "$env:RUNNER_TEMP/notes.md"
           Set-Content -Path $notesFile -Value $notes -Encoding utf8
 
-          # 引数は<b>配列で組む</b>。条件付きのフラグを文字列で挟むと、偽のときに
-          # <b>空文字が 1 引数として渡り</b>、gh がそれを添付ファイルの位置引数と解釈して落ちる。
+          # 引数は**配列で組む**。条件付きのフラグを文字列で挟むと、偽のときに
+          # **空文字が 1 引数として渡り**、gh がそれを添付ファイルの位置引数と解釈して落ちる。
           # いまは版数に必ず -preview が付くので露見しないが、1.0.0 を出す日に壊れる形である。
           # 変数名を $args にしない — あれは PowerShell の自動変数である
           $ghArgs = @(

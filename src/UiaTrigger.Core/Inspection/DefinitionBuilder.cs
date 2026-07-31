@@ -67,7 +67,7 @@ internal static class DefinitionBuilder
     /// <summary>
     /// 対象の <c>AutomationId</c> がウィンドウ内で一意なら Search 方式を記録する。
     ///
-    /// 一意性は <b>記録時に実際に数えて</b> 確かめる。「一意だろう」で記録すると、
+    /// 一意性は **記録時に実際に数えて** 確かめる。「一意だろう」で記録すると、
     /// 解決時に黙って別の要素を掴む定義が出来上がる — 静かに間違う類の壊れ方であり、
     /// 記録側でしか防げない (docs/DESIGN.md §3 の Search 方式)。
     /// </summary>

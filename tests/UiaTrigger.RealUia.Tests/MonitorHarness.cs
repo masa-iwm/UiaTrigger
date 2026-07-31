@@ -9,7 +9,7 @@ namespace UiaTrigger.RealUia.Tests;
 /// <summary>
 /// <see cref="TriggerMonitor"/> のイベントを検出順のまま 1 本のキューに集める。
 ///
-/// 発火と解決状態の変化を <b>同じキュー</b> に入れるのが要点で、2 つの相対順序が
+/// 発火と解決状態の変化を **同じキュー** に入れるのが要点で、2 つの相対順序が
 /// 保たれていること (docs/DESIGN.md A2) をそのまま観測できるようにするため。
 /// </summary>
 internal sealed class MonitorHarness : IAsyncDisposable

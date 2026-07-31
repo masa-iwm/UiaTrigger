@@ -3,7 +3,7 @@
 // ここでしか見られないもの:
 //   ・WinUI の ExpandThenSelect / SelectDeferred (ContainerFromItem に 40 回 / 20 回リトライ)
 //   ・WPF の同経路 (ItemContainerGenerator) と IsExpanded の TwoWay 束縛
-// どちらも<b>ウィンドウを画面に出さないと成立しない</b>ことを実測している
+// どちらも**ウィンドウを画面に出さないと成立しない**ことを実測している
 // (Measure/Arrange では ItemContainerGenerator が何も返さない — docs/DESIGN.md §12)。
 // 可視のデスクトップを要する検査は T1 の担当ではない (docs/TESTING.md §2)。
 //
@@ -23,7 +23,7 @@ public sealed class TreeRealisationTests
     /// <summary>「起きないこと」を確かめる窓。滞留 1 秒より十分に長くとる。</summary>
     private static readonly TimeSpan QuietWindow = TimeSpan.FromSeconds(8);
 
-    /// <summary>対象アプリに並べるボタン。狙うのは<b>真ん中</b>である (理由は下記)。</summary>
+    /// <summary>対象アプリに並べるボタン。狙うのは**真ん中**である (理由は下記)。</summary>
     private static readonly string[] Buttons = ["btn-one", "btn-two", "btn-three", "btn-four", "btn-five"];
 
     /// <summary>
@@ -55,13 +55,13 @@ public sealed class TreeRealisationTests
     }
 
     /// <summary>
-    /// 捕捉直後のツリーは<b>チェーンだけ</b>で、各段の兄弟は出ていないこと。
+    /// 捕捉直後のツリーは**チェーンだけ**で、各段の兄弟は出ていないこと。
     /// </summary>
     /// <remarks>
     /// 表示のための展開 (<c>ExpandForDisplay</c>) と、ユーザーが開いたこと (<c>IsExpanded</c>) を
     /// 分けてあることの確認である。presenter が <c>node.IsExpanded</c> を直接書く実装に戻すと
-    /// TwoWay 束縛の書き戻しが「ユーザーが開いた」と解釈され、<b>ホバーのたびに経路上の全段が
-    /// 兄弟を取りに行く</b> (docs/DESIGN.md §12)。例外は出ず、ツリーが重くなるだけである。
+    /// TwoWay 束縛の書き戻しが「ユーザーが開いた」と解釈され、**ホバーのたびに経路上の全段が
+    /// 兄弟を取りに行く** (docs/DESIGN.md §12)。例外は出ず、ツリーが重くなるだけである。
     /// </remarks>
     [Theory]
     [MemberData(nameof(PickerHostProfile.AllNames), MemberType = typeof(PickerHostProfile))]
@@ -80,12 +80,12 @@ public sealed class TreeRealisationTests
     }
 
     /// <summary>
-    /// ネガティブコントロール: 同じ窓の<b>ボタンの無い場所</b>を指すと、ボタンは選ばれない。
+    /// ネガティブコントロール: 同じ窓の**ボタンの無い場所**を指すと、ボタンは選ばれない。
     /// </summary>
     /// <remarks>
     /// これが無いと、上の 2 件は「座標に関係なくボタンを選ぶ」実装でも通る。
     /// ツリー自体は出る (窓や領域が捕捉される) ので、「捕捉が起きたか」ではなく
-    /// 「<b>何が</b>捕捉されたか」に検出力があることの証明になっている。
+    /// 「**何が**捕捉されたか」に検出力があることの証明になっている。
     /// </remarks>
     [Theory]
     [MemberData(nameof(PickerHostProfile.AllNames), MemberType = typeof(PickerHostProfile))]
@@ -104,7 +104,7 @@ public sealed class TreeRealisationTests
     }
 
     /// <summary>
-    /// 行を開くと<b>その行の子が全列挙</b>され、しかも既にあるチェーン子は二重にならないこと。
+    /// 行を開くと**その行の子が全列挙**され、しかも既にあるチェーン子は二重にならないこと。
     /// </summary>
     /// <remarks>
     /// <para>
@@ -114,11 +114,11 @@ public sealed class TreeRealisationTests
     /// </para>
     /// <para>
     /// 「ちょうど 1 回ずつ・対象アプリと同じ順」で並ぶことまで見る。<c>LoadChildrenAsync</c> は
-    /// 既にツリーに在るチェーン子 (ここでは <c>btn-three</c>) を<b>作り直さず</b>、その周りに
+    /// 既にツリーに在るチェーン子 (ここでは <c>btn-three</c>) を**作り直さず**、その周りに
     /// 兄弟を差し込む。作り直すと部分木と選択が失われ、単に足すと同じ行が 2 つ並ぶ。
     /// </para>
     /// <para>
-    /// <b>選択が残ることは見ない。</b> 行を閉じると、その配下に在った選択は閉じた行へ移る —
+    /// **選択が残ることは見ない。** 行を閉じると、その配下に在った選択は閉じた行へ移る —
     /// これはユーザー操作として正しい挙動であり (実測)、押さえるべきは列挙のほうである。
     /// </para>
     /// </remarks>
@@ -211,7 +211,7 @@ public sealed class TreeRealisationTests
                 {
                     host.OpenPicker();
                     // 捕捉は「そこに何が在るか」で決まる。ピッカーの窓に覆われていたら、
-                    // 20 秒待ってから「選択されない」と言うのではなく<b>ここで理由付きで落とす</b>
+                    // 20 秒待ってから「選択されない」と言うのではなく**ここで理由付きで落とす**
                     RequireThePointBelongsTo(target, x, y, "ピッカーを開いた後");
                     return new Scenario(target, host);
                 }
@@ -233,7 +233,7 @@ public sealed class TreeRealisationTests
         /// </summary>
         /// <remarks>
         /// ハーネス自身の検証である (docs/TESTING.md §4 の教訓 (b))。座標が別の窓に覆われていると
-        /// ピッカーは<b>例外も診断も出さずに何もしない</b> (自プロセスの要素は捕捉しない仕様)。
+        /// ピッカーは**例外も診断も出さずに何もしない** (自プロセスの要素は捕捉しない仕様)。
         /// それを 20 秒のタイムアウトとして受け取ると、原因が「実体化しなかった」に見えてしまう。
         /// </remarks>
         private static void RequireThePointBelongsTo(TestTargetProcess target, int x, int y, string when)
@@ -282,7 +282,7 @@ public sealed class TreeRealisationTests
         /// </summary>
         /// <remarks>
         /// チェーンの各段は既に「表示のために」開かれているので、そのまま開いても何も起きない。
-        /// <b>閉じてから開く</b>ことで初めて「ユーザーが開いた」ことになり、子の全列挙が走る。
+        /// **閉じてから開く**ことで初めて「ユーザーが開いた」ことになり、子の全列挙が走る。
         /// 行はツリー順に並ぶので (WinUI は平坦・WPF は入れ子だが順序は同じ)、
         /// 捕捉直後は末尾が対象要素、その 1 つ前が親である。
         /// </remarks>

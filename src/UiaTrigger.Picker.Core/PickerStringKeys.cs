@@ -1,16 +1,16 @@
 // ピッカーのリソースキー表 (docs/DESIGN.md L3 / docs/LOCALIZATION.md §4)。
 //
-// 「1 つのキー表・2 つの供給経路」の<b>キー表</b>のほうである。値の供給は
+// 「1 つのキー表・2 つの供給経路」の**キー表**のほうである。値の供給は
 //   ・WinUI          … Strings/<culture>/Resources.resw + MRT Core (x:Uid で XAML から)
 //   ・WPF / WinForms … Resources/Strings.resx + ResourceManager (コードで代入)
 // と分かれるが、キーはここが唯一の出所になる。
 //
-// キーを文字列リテラルで書かないのは、綴り違いが<b>例外にならない</b>ためである
+// キーを文字列リテラルで書かないのは、綴り違いが**例外にならない**ためである
 // (IPickerStrings.GetString はキー名をそのまま返す = 画面にキー名が出る)。
 // 定数にしておけば綴り違いはコンパイルエラーになり、Uid 側との突き合わせも
 // PickerStringTests が All を起点に回せる。
 //
-// resx の厳密に型指定されたコード生成 (StronglyTypedLanguage) は<b>使わない</b>。
+// resx の厳密に型指定されたコード生成 (StronglyTypedLanguage) は**使わない**。
 // 生成される識別子は '.' を '_' に潰すので "AutoSelectToggle.Header" が
 // AutoSelectToggle_Header になり、キー名とは別の名前空間が黙って 1 つ増えてしまう。
 namespace UiaTrigger.Picker;

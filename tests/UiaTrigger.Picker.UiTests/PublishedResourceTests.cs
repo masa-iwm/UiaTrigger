@@ -3,8 +3,8 @@
 // ここでしか見られないものが 2 つある:
 //   - WinUI / MRT 経路。resources.pri が発行に含まれ、ResourceMap 名が合っていること。
 //     T1 が見ているのは MrtPickerStrings.cs のソース正規表現 1 本だけで、
-//     .pri が落ちても map 名が間違っても<b>T1 は全件緑のまま</b>である
-//   - WPF / resx 経路の<b>サテライト</b> (ja/)。実行時解決そのものは T1 の
+//     .pri が落ちても map 名が間違っても**T1 は全件緑のまま**である
+//   - WPF / resx 経路の**サテライト** (ja/)。実行時解決そのものは T1 の
 //     PickerStringTests が見ているが、発行時に ja/ が落ちないことは見ていない
 //     (Directory.Build.props の SatelliteResourceLanguages)
 //
@@ -23,21 +23,21 @@ namespace UiaTrigger.Picker.UiTests;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>assert は「キー名と一致しない」ではなく「リソースファイルの値と一致する」で書く。</b>
+/// **assert は「キー名と一致しない」ではなく「リソースファイルの値と一致する」で書く。**
 /// 失敗形が 2 つあり症状が違うためである:
 /// </para>
 /// <list type="bullet">
 /// <item><description>
-/// <c>GetString</c> が解決できない (<c>.pri</c> 欠落 / map 名の誤り) → <b>キー名がそのまま返る</b>
+/// <c>GetString</c> が解決できない (<c>.pri</c> 欠落 / map 名の誤り) → **キー名がそのまま返る**
 /// </description></item>
 /// <item><description>
-/// <c>x:Uid</c> が XAML ロード時に解決できない → <b>ラベルが空になる</b>
+/// <c>x:Uid</c> が XAML ロード時に解決できない → **ラベルが空になる**
 /// (XAML ローダーにキーへのフォールバックが無い)
 /// </description></item>
 /// </list>
 /// <para>
 /// 「どのラベルもキー名と一致しない」は後者を捕まえず、「どのラベルも空でない」は
-/// 正当に空の要素が多すぎて使えない。値と比べれば<b>空・キー名・カルチャ違いの 3 つ</b>を
+/// 正当に空の要素が多すぎて使えない。値と比べれば**空・キー名・カルチャ違いの 3 つ**を
 /// 1 つの assert が捕まえ、期待文字列をソースに書かないので drift もしない。
 /// </para>
 /// </remarks>
@@ -49,13 +49,13 @@ public sealed class PublishedResourceTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>規則から導かずに表で持つ。</b>接尾辞から機械的に決めようとすると、
+    /// **規則から導かずに表で持つ。**接尾辞から機械的に決めようとすると、
     /// 変種ごとの例外 (WPF の <c>AutoSelectToggle.Header</c> → <c>AutoSelectLabel</c>、
     /// WinUI のトグルが Header と OnContent を 1 つの Name に混ぜること) を
     /// どのみち書くことになり、規則と例外の両方を読まないと何を見ているのか分からなくなる。
     /// </para>
     /// <para>
-    /// 対応は<b>実測して作った</b>。WinUI では
+    /// 対応は**実測して作った**。WinUI では
     /// <c>x:Uid</c> の対象そのものが値を Name に載せる (<c>.Header</c> も含めて) が、
     /// WPF では <c>.Header</c> だけが別の <c>*Label</c> テキストに出る。
     /// </para>
@@ -77,7 +77,7 @@ public sealed class PublishedResourceTests
                 ["HintText.Text"] = "HintText",
                 ["ConditionHeading.Text"] = "ConditionHeading",
                 ["ConfirmedText.Text"] = "ConfirmedText",
-                // 区切り。<b>attached property のキーが MRT に効くかどうか</b>を
+                // 区切り。**attached property のキーが MRT に効くかどうか**を
                 // 実際に見ている唯一の場所である — 綴りや形式が違えば x:Uid は黙って解決せず、
                 // Name が空になるだけで例外は出ない
                 ["TreeSplitter.AutomationProperties.Name"] = "TreeSplitter",
@@ -105,7 +105,7 @@ public sealed class PublishedResourceTests
             };
 
     /// <summary>
-    /// UIA には構造的に出ないので、<b>永久に</b>ここでは見られないキー。
+    /// UIA には構造的に出ないので、**永久に**ここでは見られないキー。
     /// </summary>
     private static readonly string[] NeverVisibleInUia =
     [
@@ -114,15 +114,15 @@ public sealed class PublishedResourceTests
     ];
 
     /// <summary>
-    /// <b>操作しないと出ない</b>キーと、それを出すための操作。
+    /// **操作しないと出ない**キーと、それを出すための操作。
     /// </summary>
     /// <remarks>
     /// <para>
     /// 比較演算子のコンボはウィンドウを作るときに埋まっており
     /// (<c>CondCombo.ItemsSource = Enum.GetValues&lt;ComparisonOp&gt;()</c>)、
     /// <c>ConditionShapeChanged</c> は確定済みの要素を要求しない。
-    /// つまり<b>捕捉も対象アプリも座標も無しで出せる</b>ので、
-    /// S4 と同じ<b>発行レイアウト</b>のまま検査できる。
+    /// つまり**捕捉も対象アプリも座標も無しで出せる**ので、
+    /// S4 と同じ**発行レイアウト**のまま検査できる。
     /// </para>
     /// <para>
     /// キーは 6 つとも「見る」側にあり、除外リストには入っていない。
@@ -138,13 +138,13 @@ public sealed class PublishedResourceTests
     ];
 
     /// <summary>
-    /// 対応表ではなく<b>専用の assert</b> で見ているキー。
+    /// 対応表ではなく**専用の assert** で見ているキー。
     /// </summary>
     /// <remarks>
     /// 変種で載り方が違うため、1 つの表に収まらない。WinUI の <c>ToggleSwitch</c> は
     /// Header と現在の内容を 1 つの Name に混ぜる ('Follow the mouse On') が、
     /// WPF の <c>CheckBox</c> は内容だけを Name に出す ('On')。
-    /// <b>ここに挙げておかないと被覆の勘定から漏れる</b> — 実際、最初に書いたときは
+    /// **ここに挙げておかないと被覆の勘定から漏れる** — 実際、最初に書いたときは
     /// 専用 assert があるのに表のどこにも無く、被覆テストがそれを捕まえた。
     /// </remarks>
     private static readonly string[] CheckedSeparately =
@@ -156,17 +156,17 @@ public sealed class PublishedResourceTests
     ];
 
     /// <summary>
-    /// <b>発行レイアウトではなく開発ビルドで</b>見ているキー (<c>CommitTests</c>)。
+    /// **発行レイアウトではなく開発ビルドで**見ているキー (<c>CommitTests</c>)。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// どれも<b>要素を確定していないと出ない</b>ので、捕捉が要る =
+    /// どれも**要素を確定していないと出ない**ので、捕捉が要る =
     /// 対象アプリと座標が要る。S4 の起動口 (<see cref="PickerHostProcess.StartForLabels"/>) は
     /// まさにそれを避けるために在るので、ここへは持ち込まない。
     /// </para>
     /// <para>
-    /// <b>弱いことは書いておく。</b>これらは「解決できる」ことしか言えず、
-    /// 「<b>発行したもので</b>解決できる」は言えない。<c>.pri</c> が落ちる類の失敗は
+    /// **弱いことは書いておく。**これらは「解決できる」ことしか言えず、
+    /// 「**発行したもので**解決できる」は言えない。<c>.pri</c> が落ちる類の失敗は
     /// 発行のときにしか起きないので、そこは S4 の 13 キーが代表して見ていることに頼っている。
     /// </para>
     /// </remarks>
@@ -187,28 +187,28 @@ public sealed class PublishedResourceTests
     /// 「いつか誰かが」の袋になり、二度と見直されない。
     /// </para>
     /// <para>
-    /// <b>「起こせそうだが測っていない」ものは、理由付きでこのリストに置くこと。</b>
+    /// **「起こせそうだが測っていない」ものは、理由付きでこのリストに置くこと。**
     /// 実際に <c>ConfirmFailedElementGone</c> がその形で置かれ、測ったら起こせた —
     /// 対象アプリから <c>remove</c> してから確定すると <c>BuildDefinitionAsync</c> が
-    /// <b>例外ではなく null を返し</b>、このメッセージが出る (docs/DESIGN.md §3)。
+    /// **例外ではなく null を返し**、このメッセージが出る (docs/DESIGN.md §3)。
     /// いまは「見る」側 (<c>CommitTests</c>) が引き取っている。
     /// 理由を書かずに落とすと、こうした回収の機会ごと消える。
     /// </para>
     /// <list type="bullet">
     /// <item><description>
     /// <c>OverlapPosition</c> — ←/→ の重なり切替でしか出ない。低レベルフックは
-    /// <b>実キー入力でしか起こせない</b>ので、擬似入力を解禁している T5 の担当である。
+    /// **実キー入力でしか起こせない**ので、擬似入力を解禁している T5 の担当である。
     /// </description></item>
     /// <item><description>
-    /// <c>SelectTriggerShape</c> — <b>UI からは到達できない。</b><c>Commit()</c> が
+    /// <c>SelectTriggerShape</c> — **UI からは到達できない。**<c>Commit()</c> が
     /// これを出すのは <c>ReadDraft()</c> が null のときだが、コミットのボタンは確定するまで
     /// 無効で、確定すると 3 つのコンボが必ず埋まる。防御的な分岐であって、
-    /// 現在の View では通らない。<b>「まだやっていない」ではなく「通せない」</b>。
+    /// 現在の View では通らない。**「まだやっていない」ではなく「通せない」**。
     /// </description></item>
     /// <item><description>
     /// 残り 4 つ (<c>CaptureFailed</c> / <c>ViewSwitchFailed</c> / <c>OverlapFailed</c> /
     /// <c>ConfirmFailed</c>) — いずれも <c>catch (Exception ex)</c> の中で、
-    /// メッセージに例外の文言を挟む。UIA の往復を<b>決定的に</b>失敗させる手立てが無い。
+    /// メッセージに例外の文言を挟む。UIA の往復を**決定的に**失敗させる手立てが無い。
     /// </description></item>
     /// </list>
     /// </remarks>
@@ -219,16 +219,16 @@ public sealed class PublishedResourceTests
     ];
 
     /// <summary>
-    /// <b>別の窓</b>のキー — トリガ一覧エディタのものである (docs/DESIGN.md §4)。
+    /// **別の窓**のキー — トリガ一覧エディタのものである (docs/DESIGN.md §4)。
     /// </summary>
     /// <remarks>
     /// <para>
     /// S4 が起こすのはピッカーの窓だけ (<see cref="PickerHostProcess.StartForLabels"/>) で、
-    /// エディタはそこから開かない別のウィンドウなので、この経路では<b>構造的に出せない</b>。
+    /// エディタはそこから開かない別のウィンドウなので、この経路では**構造的に出せない**。
     /// 供給経路 (resx / resw) は 2 つの窓で共有しているため、キーだけがここに現れる。
     /// </para>
     /// <para>
-    /// <b>ここは「まだやっていない」ではなく「この起動口では出せない」である。</b>
+    /// **ここは「まだやっていない」ではなく「この起動口では出せない」である。**
     /// エディタのラベルを実物で見るのは、ホストから開く T4
     /// (<c>EditorShowcaseTests</c>) の担当になる。キー集合が 2 経路で揃っていること自体は
     /// T1 の <c>PickerStringTests</c> が見ている。
@@ -237,23 +237,23 @@ public sealed class PublishedResourceTests
     private static readonly string[] TheOtherWindowsKeys = [.. EditorStringKeys.All];
 
     /// <summary>
-    /// リソースのキーが<b>1 つ残らず</b>「見る」か「理由付きで見ない」に振り分けられていること。
+    /// リソースのキーが**1 つ残らず**「見る」か「理由付きで見ない」に振り分けられていること。
     /// </summary>
     /// <remarks>
-    /// <b>これが被覆の要である。</b>新しいキーを足した人が対応表に載せ忘れると、
-    /// そのキーは<b>どの表にも載っていないので緑のまま</b>被覆から消える —
+    /// **これが被覆の要である。**新しいキーを足した人が対応表に載せ忘れると、
+    /// そのキーは**どの表にも載っていないので緑のまま**被覆から消える —
     /// 計画が「表に無い接尾辞が現れたら落ちるようにする」と書いたのはこの形のことである。
     /// ここで落とせば、載せるか除外するかを必ず選ぶことになる。
     ///
     /// <para>
-    /// <b>2 つのカルチャの和を見る。</b>片方だけを読むと、ja にしか無いキーが
+    /// **2 つのカルチャの和を見る。**片方だけを読むと、ja にしか無いキーが
     /// この検査を素通りし、そのぶんの照合は
     /// <see cref="EveryStaticLabelResolvesToItsResourceValue"/> の
     /// <c>expected[key]</c> で <c>KeyNotFoundException</c> になる — つまり
-    /// <b>診断ではなくクラッシュ</b>で出る。
+    /// **診断ではなくクラッシュ**で出る。
     /// en と ja のキーが一致すること自体は T1 の
     /// <c>XamlLocalizationTests.EnglishAndJapaneseResourcesHaveTheSameKeys</c> が
-    /// 見ているが、<b>それに依存していることをここに書いておかないと見えない</b>。
+    /// 見ているが、**それに依存していることをここに書いておかないと見えない**。
     /// </para>
     /// </remarks>
     [Theory]
@@ -291,7 +291,7 @@ public sealed class PublishedResourceTests
     }
 
     /// <summary>
-    /// 発行レイアウトのホストを起動し、各ラベルが<b>リソースファイルの値と一致する</b>こと。
+    /// 発行レイアウトのホストを起動し、各ラベルが**リソースファイルの値と一致する**こと。
     /// </summary>
     /// <remarks>
     /// カルチャを 2 つ回すのは、<c>ja-JP</c> でしか落ちない失敗形があるからである —
@@ -332,7 +332,7 @@ public sealed class PublishedResourceTests
             // WinUI の ToggleSwitch は Header と現在の内容を 1 つの Name に混ぜる
             // ('Follow the mouse On')。区切り文字はテンプレートの都合なので、
             // 一致ではなく前後で見る — ここを "{Header} {OnContent}" で書くと、
-            // テンプレートが変わっただけで<b>リソースと無関係な理由で</b>落ちる
+            // テンプレートが変わっただけで**リソースと無関係な理由で**落ちる
             bool ok = profile == PickerHostProfile.WinUI && automationId == "AutoSelectToggle"
                 ? actual.StartsWith(want, StringComparison.Ordinal)
                 : string.Equals(actual, want, StringComparison.Ordinal);
@@ -371,14 +371,14 @@ public sealed class PublishedResourceTests
     }
 
     /// <summary>
-    /// <b>操作してからでないと出ない</b>ラベルも、発行レイアウトで解決できること。
+    /// **操作してからでないと出ない**ラベルも、発行レイアウトで解決できること。
     /// </summary>
     /// <remarks>
     /// <para>
     /// トグルの OFF 表示と、比較演算子を選ぶまで <c>Collapsed</c> な 5 つのオペランド見出し。
     /// </para>
     /// <para>
-    /// <b>欄の出入りそのものも見る。</b><c>Always</c> を選ぶと 5 つとも消えること —
+    /// **欄の出入りそのものも見る。**<c>Always</c> を選ぶと 5 つとも消えること —
     /// これが無いと「全部出しっぱなし」の実装でもラベルの照合は通る。
     /// 「条件の演算子を変えると値の欄の出入りが追随する」ことの一次の網はこれである。
     /// </para>
@@ -466,24 +466,24 @@ public sealed class PublishedResourceTests
     }
 
     /// <summary>
-    /// <b>コードから引く経路</b> (<c>IPickerStrings.GetString</c>) も発行レイアウトで解決できること。
+    /// **コードから引く経路** (<c>IPickerStrings.GetString</c>) も発行レイアウトで解決できること。
     /// </summary>
     /// <remarks>
     /// <para>
     /// 上のラベルのテストが見ているのはほとんどが <c>x:Uid</c> 経路 =
-    /// <b>XAML ローダー自身の</b> MRT 参照であって、<c>MrtPickerStrings</c> を通らない。
+    /// **XAML ローダー自身の** MRT 参照であって、<c>MrtPickerStrings</c> を通らない。
     /// 2 つは別の解決経路である。
     /// </para>
     /// <para>
-    /// <b>ただし「上は空振りする」と書くのは誤りである</b> (退行確認で実測済み)。
+    /// **ただし「上は空振りする」と書くのは誤りである** (退行確認で実測済み)。
     /// <c>WindowTitle</c> だけは <c>Window</c> が <c>FrameworkElement</c> でなく
-    /// <c>x:Uid</c> が効かないため<b>コードから引いている</b>ので、
+    /// <c>x:Uid</c> が効かないため**コードから引いている**ので、
     /// <c>ResourceMap</c> をリネームすると上のテストも落ちる (タイトルがキー名になる)。
-    /// それでもこのテストを別に置くのは、上の被覆が<b>たまたま 1 キーに乗っている</b>ためである —
+    /// それでもこのテストを別に置くのは、上の被覆が**たまたま 1 キーに乗っている**ためである —
     /// <c>WindowTitle</c> の実装が変われば、上は GetString 経路を 1 つも見なくなる。
     /// </para>
     /// <para>
-    /// 駆動は<b>空のツリーに対する検索</b>で行う。捕捉も対象アプリも座標も要らず、
+    /// 駆動は**空のツリーに対する検索**で行う。捕捉も対象アプリも座標も要らず、
     /// プレゼンターが <c>SearchNoMatch</c> をヒントへ出す経路だけが動く。
     /// </para>
     /// </remarks>
@@ -521,13 +521,13 @@ public sealed class PublishedResourceTests
     }
 
     /// <summary>
-    /// そのカルチャで期待されるラベル。<b>リポジトリのリソースファイルから読む</b>ので、
+    /// そのカルチャで期待されるラベル。**リポジトリのリソースファイルから読む**ので、
     /// 期待文字列がテストにハードコードされず drift しない。
     /// </summary>
     /// <remarks>
     /// 供給元が変種で違う: WinUI は自分の <c>.resw</c> (MRT)、WPF / WinForms は
     /// <c>Picker.Core</c> の <c>.resx</c> (<c>ResxPickerStrings</c>)。
-    /// <b>キーの集合は同じ</b> (<c>PickerStringKeys</c>) だが、値の出所と解決経路が違う —
+    /// **キーの集合は同じ** (<c>PickerStringKeys</c>) だが、値の出所と解決経路が違う —
     /// S4 が見ているのはまさにそこである。
     /// </remarks>
     private static Dictionary<string, string> ExpectedLabels(PickerHostProfile profile, string culture)

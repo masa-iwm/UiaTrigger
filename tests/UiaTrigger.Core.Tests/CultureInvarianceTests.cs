@@ -9,7 +9,7 @@ namespace UiaTrigger.Tests;
 ///
 /// 比較用と表示用は型で分離してある。ここで固定するのは 2 つ:
 /// (a) <see cref="ComparisonString"/> はどのカルチャでも同じ値になること、
-/// (b) 表示用は現在カルチャに従うこと — つまり <b>分離が実際に効いている</b>こと。
+/// (b) 表示用は現在カルチャに従うこと — つまり **分離が実際に効いている**こと。
 /// (b) が無いと「両方とも invariant なので、たまたま壊れていないだけ」の状態に逆戻りする。
 /// </summary>
 public sealed class CultureInvarianceTests

@@ -1,14 +1,14 @@
 // 対象アプリ + サンプルホスト + n 枚のピッカーを組み立て、オーバーレイを外から観測する
 // 舞台 (docs/DESIGN.md §10)。
 //
-// <b>T4 と T5 の両方が使う。</b>T5 (合成入力) は同じ舞台の上でキーを撃ち、枠が動くかを見る
+// **T4 と T5 の両方が使う。**T5 (合成入力) は同じ舞台の上でキーを撃ち、枠が動くかを見る
 // (docs/TESTING.md §3)。写しを作らないのは意図である — 片方だけ直された状態ができると、
 // 「T4 では通るのに T5 では通らない」の原因がハーネスの差になる。
 //
-// 座標はすべて<b>物理ピクセル</b>である。3 者とも PerMonitorV2 を宣言しているので突き合わせが
+// 座標はすべて**物理ピクセル**である。3 者とも PerMonitorV2 を宣言しているので突き合わせが
 // 成立する: テストプロセスは RequireCoordinateSafeProcess、サンプルホストは app.manifest、
 // 対象アプリは Program.Main の SetHighDpiMode。どれか 1 つが非認識だと座標が仮想化され、
-// <b>100% スケールの機械では一致して見えるのに拡大時だけ静かにずれる</b>
+// **100% スケールの機械では一致して見えるのに拡大時だけ静かにずれる**
 // (docs/DESIGN.md A19 / docs/TESTING.md §4)。
 using System.Globalization;
 using System.Windows.Automation;
@@ -24,7 +24,7 @@ internal sealed class OverlayScenario : IDisposable
 {
     private static readonly TimeSpan Settle = TimeSpan.FromSeconds(20);
 
-    /// <summary>捕捉させる対象アプリのボタン。<b>n 枚目のピッカーが n 番目</b>を捕捉する。</summary>
+    /// <summary>捕捉させる対象アプリのボタン。**n 枚目のピッカーが n 番目**を捕捉する。</summary>
     private static readonly string[] Buttons = ["OverlayA", "OverlayB"];
 
     private readonly TestTargetProcess _target;
@@ -32,7 +32,7 @@ internal sealed class OverlayScenario : IDisposable
 
     public PickerHostProcess Host { get; }
 
-    /// <summary>対象アプリ。<b>塞ぐ・前へ出すなど、舞台を動かすときだけ触る。</b></summary>
+    /// <summary>対象アプリ。**塞ぐ・前へ出すなど、舞台を動かすときだけ触る。**</summary>
     public TestTargetProcess Target => _target;
 
     private OverlayScenario(TestTargetProcess target, PickerHostProcess host)
@@ -120,10 +120,10 @@ internal sealed class OverlayScenario : IDisposable
     }
 
     /// <summary>
-    /// 枠とアイコンが <paramref name="count"/> 個ずつになるまで待ち、<b>枠の</b>矩形を返す。
+    /// 枠とアイコンが <paramref name="count"/> 個ずつになるまで待ち、**枠の**矩形を返す。
     /// </summary>
     /// <remarks>
-    /// <b>両方を待つ。</b>1 枚のピッカーは窓を 2 つ出す (docs/DESIGN.md §10) ので、片方だけ見て先へ進むと
+    /// **両方を待つ。**1 枚のピッカーは窓を 2 つ出す (docs/DESIGN.md §10) ので、片方だけ見て先へ進むと
     /// 「アイコンがまだ出ていない」状態を掴む。どちらが先に UIA に現れるかは決まっていない。
     /// </remarks>
     public List<System.Windows.Rect> WaitForOverlays(int count) => Ui.Until(
@@ -143,7 +143,7 @@ internal sealed class OverlayScenario : IDisposable
         $"枠とアイコンが {count} 個ずつになること",
         Describe);
 
-    /// <summary>ピッカーを 1 枚閉じる。<b>どちらが閉じるかは決められない</b>。</summary>
+    /// <summary>ピッカーを 1 枚閉じる。**どちらが閉じるかは決められない**。</summary>
     public void CloseOnePicker()
     {
         AutomationElement picker = Host.PickerWindow();
@@ -161,7 +161,7 @@ internal sealed class OverlayScenario : IDisposable
     /// 枠を描き直させる。ツリーの別の行を選ぶと <c>ShowRect</c> が呼ばれる。
     /// </summary>
     /// <remarks>
-    /// UIA のコントロールパターンだけで駆動できる。<b>枠の位置が変わるまで待つ</b> —
+    /// UIA のコントロールパターンだけで駆動できる。**枠の位置が変わるまで待つ** —
     /// 「選んだ」ことと「描き直された」ことは別なので、待たずに次へ進むと
     /// 直しが効いているかどうかと無関係に落ちうる。
     /// </remarks>
@@ -187,7 +187,7 @@ internal sealed class OverlayScenario : IDisposable
             : throw new InvalidOperationException("確定アイコンの窓がありません。" + Describe()));
 
     /// <summary>
-    /// 確定アイコンの点が<b>対象アプリの窓の中</b>にあること。
+    /// 確定アイコンの点が**対象アプリの窓の中**にあること。
     /// </summary>
     /// <remarks>
     /// これが成り立っていないと「オーバーレイと対象アプリのどちらが上か」という問い自体が
@@ -209,12 +209,12 @@ internal sealed class OverlayScenario : IDisposable
     }
 
     /// <summary>
-    /// 確定アイコンの中心 (スクリーン座標) = <b>アイコンの窓の矩形の中心</b>。
+    /// 確定アイコンの中心 (スクリーン座標) = **アイコンの窓の矩形の中心**。
     /// </summary>
     /// <remarks>
     /// アイコンは独立した窓である (docs/DESIGN.md §10) ので、その矩形の中心が
     /// そのまま答えになる — <c>OverlayGeometry</c> の実寸を写した式は要らず、
-    /// <b>写した式が製品とずれる余地が無い</b>。
+    /// **写した式が製品とずれる余地が無い**。
     /// 引数は <see cref="IconHwnd"/> の <c>RectOf</c> であること (枠の矩形ではない)。
     /// </remarks>
     public static (int X, int Y) IconCentre((int Left, int Top, int Right, int Bottom) icon)

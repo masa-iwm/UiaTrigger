@@ -1,6 +1,6 @@
 // ピッカーが使う UIA サービス。
 //
-// <b>Core の公開 API (UiaSession) だけで書いてある</b> (docs/DESIGN.md §12)。
+// **Core の公開 API (UiaSession) だけで書いてある** (docs/DESIGN.md §12)。
 // Core の internal な IUIAutomationElement を直接掴む形に戻すと、要素の捕捉・祖先チェーン・
 // 重なりスタック・簡易ヒットテスト (本来 Core の公開機能) をここが自前で持つことになり、
 // 「第三者は自前のピッカーを作れない」「製品アセンブリ間に InternalsVisibleTo が要る」
@@ -36,7 +36,7 @@ internal sealed class ElementStack
 /// <summary>子要素列挙の結果。ChainChildIndex は既存チェーン子と同一の要素の位置 (-1: なし)。</summary>
 /// <remarks>
 /// 運び屋であって持ち主ではない。<see cref="Children"/> の要素は受け取った側のものになる —
-/// <see cref="ChainChildIndex"/> の 1 個を<b>使わなかった場合も含めて</b>である。
+/// <see cref="ChainChildIndex"/> の 1 個を**使わなかった場合も含めて**である。
 /// </remarks>
 internal sealed class ChildrenResult
 {
@@ -46,12 +46,12 @@ internal sealed class ChildrenResult
 
 /// <summary>プレゼンターから見た UIA。製品の実装は <see cref="PickerServices"/> 1 つだけである。</summary>
 /// <remarks>
-/// <b>返った結果から到達できる要素はすべて呼び出し元のものになる。</b>
+/// **返った結果から到達できる要素はすべて呼び出し元のものになる。**
 /// 7 つのうち 5 つが要素を配る (<see cref="CaptureAtAsync"/> / <see cref="GetChainAsync"/> /
 /// <see cref="GetChainForOverlapAsync"/> / <see cref="GetChildrenAsync"/> /
 /// <see cref="GetStackAsync"/>)。保持しないものは解放する責任が呼び出し元にある
 /// (<see cref="IPickerElement"/> / <see cref="TriggerPickerPresenter"/> の掃き出し)。
-/// 逆に<b>引数で渡した要素の所有権は移らない</b> — こちらは借りて読むだけである。
+/// 逆に**引数で渡した要素の所有権は移らない** — こちらは借りて読むだけである。
 /// </remarks>
 internal interface IPickerServices : IAsyncDisposable
 {
@@ -78,7 +78,7 @@ internal sealed class UiaPickerElement(UiaElement element) : IPickerElement
 {
     /// <summary>包んでいる要素。UiaSession に渡し返すときだけ取り出す。</summary>
     /// <remarks>
-    /// ラッパーを <see cref="Dispose"/> するとこれも解放される。<b>別に解放しないこと。</b>
+    /// ラッパーを <see cref="Dispose"/> するとこれも解放される。**別に解放しないこと。**
     /// </remarks>
     public UiaElement Inner { get; } = element;
 

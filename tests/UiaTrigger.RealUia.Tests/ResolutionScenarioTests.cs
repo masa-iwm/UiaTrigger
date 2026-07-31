@@ -9,16 +9,16 @@ namespace UiaTrigger.RealUia.Tests;
 /// 実 UIA での経路解決の回帰 (docs/TESTING.md §1 の T3)。
 ///
 /// 擬似ツリーに対する <c>BeamSearchTests</c> と違い、ここでは
-/// <b>記録側 (DefinitionBuilder) と解決側 (ElementResolver) を実物で突き合わせる</b>。
+/// **記録側 (DefinitionBuilder) と解決側 (ElementResolver) を実物で突き合わせる**。
 /// 片方だけが正しい状態は擬似ツリーでは検出できない。
 ///
 /// 各シナリオには「わざと壊した条件では解決できないこと」を示す対を置く
 /// (検出力を証明できないハーネスは信頼しない — docs/TESTING.md §2)。
 ///
 /// <para>
-/// <b>[Theory] にしてあるのは「プロバイダーの挙動が論点」のものだけ</b>である
+/// **[Theory] にしてあるのは「プロバイダーの挙動が論点」のものだけ**である
 /// (型変化・ゾンビ検出・ウィンドウ張り替え)。A3 の兄弟挿入と A4 のクラス名 token は
-/// <b>探索アルゴリズムが論点</b>であり、対象アプリを変えても同じ道を通るだけなので
+/// **探索アルゴリズムが論点**であり、対象アプリを変えても同じ道を通るだけなので
 /// WinForms 側にとどめてある — 実行時間と flake を倍にするだけの [Theory] は入れない。
 /// A4 に至っては WinForms 固有の <c>_ad1</c> token が題材そのものである。
 /// </para>
@@ -32,9 +32,9 @@ public sealed class ResolutionScenarioTests
     /// <summary>
     /// 「要素を作り直さずに ControlType だけを変える」手段があるプロファイルでだけ走らせる。
     ///
-    /// 黙って落とさず<b>理由付きでスキップ</b>する。代替機構 (要素を作り直す等) で
+    /// 黙って落とさず**理由付きでスキップ**する。代替機構 (要素を作り直す等) で
     /// 誤魔化すと「要素消滅」の経路を通ってしまい、A5/A8 とは別のものを確認したまま
-    /// <b>間違った理由で緑になる</b> (docs/TESTING.md §1)。
+    /// **間違った理由で緑になる** (docs/TESTING.md §1)。
     /// </summary>
     private static void RequireRoleSwitch(string profile) => Assert.SkipUnless(
         TargetProfile.ByName(profile).SupportsRoleSwitch,

@@ -6,7 +6,7 @@ namespace UiaTrigger.RealUia.Tests;
 /// <summary>
 /// 実 UIA でのトリガー定義の記録。
 ///
-/// 定義は <b>手で組み立てず、ユーザーと同じ経路 (座標からの記録) で作る</b>。
+/// 定義は **手で組み立てず、ユーザーと同じ経路 (座標からの記録) で作る**。
 /// 手で組むと「解決側は正しいが記録側が壊れている」組み合わせを永久に見逃す —
 /// 記録と解決の突き合わせこそが T3 の主眼である。
 /// </summary>
@@ -44,7 +44,7 @@ internal static class Recording
     /// <para>
     /// <see cref="RecordAsync"/> は「狙ったコントロールを掴めたか」を <c>AutomationId</c> で
     /// 確かめるが、AutomationId が無い要素ではそれができない。代わりに UIA の <c>Name</c> で
-    /// 同じ検証を行い、<b>AutomationId が本当に空であること</b>もここで固定する —
+    /// 同じ検証を行い、**AutomationId が本当に空であること**もここで固定する —
     /// そうでないと「Search 方式に落ちなかった」ことを確かめるテストの前提が崩れる。
     /// </para>
     /// </summary>
@@ -86,7 +86,7 @@ internal static class Recording
     /// <summary>
     /// Search 方式 (一意な <c>AutomationId</c> による FindAll 1 発) を外し、経路方式だけを使わせる。
     ///
-    /// <b>経路解決そのものを見るテストは必ずこれを通すこと。</b> WinForms は UIA の
+    /// **経路解決そのものを見るテストは必ずこれを通すこと。** WinForms は UIA の
     /// <c>AutomationId</c> にコントロールの <c>Name</c> を出すため、外さないと T3 のほぼ全部が
     /// Search 方式で通ってしまい、経路側の回帰 (A3 の兄弟挿入・A5 の型変化) を検出できなくなる。
     /// あわせて「記録側が Search を作れていること」もここで見る。

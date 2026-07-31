@@ -208,7 +208,7 @@ public sealed class ElementPathStep
 
 /// <summary>Finds the target element directly, without walking the path level by level.</summary>
 /// <remarks>
-/// Recorded only when the target's automation id was <b>unique inside its window</b> at record
+/// Recorded only when the target's automation id was **unique inside its window** at record
 /// time. Resolution then takes one <c>FindAll</c> over the window's subtree instead of one call per
 /// level, and is unaffected by anything that changes above the target. Uniqueness is re-checked at
 /// resolve time: if the id has since become ambiguous, or matches nothing, resolution silently
@@ -428,7 +428,7 @@ public sealed class TriggerDefinition
     /// cadence, so a change is noticed even though nothing announced it.
     /// </para>
     /// <para>
-    /// <b>It is a cost you are asking for, not one the library takes on its own.</b> Each round
+    /// **It is a cost you are asking for, not one the library takes on its own.** Each round
     /// costs one cross-process read per element this trigger resolves, on the automation thread
     /// shared with everything else on the session. Set it on the triggers that need it rather than
     /// on all of them, prefer the longest interval that still catches the change in time, and read

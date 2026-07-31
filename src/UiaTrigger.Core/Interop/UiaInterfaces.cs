@@ -79,7 +79,7 @@ internal partial interface IUIAutomation
 /// <summary>
 /// IUIAutomation2 (CUIAutomation8 が実装する)。IUIAutomation の 55 メソッド
 /// (IUnknown 込み 58 slot) の直後に 6 slot 続く。
-/// <b>上の IUIAutomation の宣言数がずれると、ここのメソッドが別のスロットを呼ぶ</b>
+/// **上の IUIAutomation の宣言数がずれると、ここのメソッドが別のスロットを呼ぶ**
 /// (InteropShapeTests で数と順序を固定してある)。
 ///
 /// これを QI できないと put_TransactionTimeout に到達できず、応答しないアプリが 1 つあるだけで

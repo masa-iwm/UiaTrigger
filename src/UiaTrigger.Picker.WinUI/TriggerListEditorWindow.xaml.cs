@@ -34,7 +34,7 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     /// <param name="triggers">The triggers to edit. Neither the list nor its items are modified.</param>
     /// <returns>The edited triggers, or null when the user closed the window without accepting.</returns>
     /// <remarks>
-    /// <b>The window is modeless.</b> WinUI has no window-modal dialog, so the caller stays usable
+    /// **The window is modeless.** WinUI has no window-modal dialog, so the caller stays usable
     /// while the editor is open; keep the user from opening a second one — disabling whatever opened
     /// it until the task completes is enough. The asynchronous shape is what the three variants have
     /// in common, and this is the variant that forces it.
@@ -77,7 +77,7 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     private void OnClosed(object sender, WindowEventArgs args)
     {
         // 子ピッカーを取り残さない (オーバーレイの低レベルキーボードフックが残る)。
-        // 結果を伝えるのはその<b>後</b>である — 呼び出し元が結果を受けて次を始めたときに、
+        // 結果を伝えるのはその**後**である — 呼び出し元が結果を受けて次を始めたときに、
         // まだ生きているピッカーが残っていない形にする
         if (_picker is { } picker)
         {
@@ -116,7 +116,7 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
     string ITriggerListEditorView.UnwatchedText => UnwatchedBox.Text ?? string.Empty;
 
-    // <b>具体型へ明示的にキャストする</b> (docs/DESIGN.md §12)。
+    // **具体型へ明示的にキャストする** (docs/DESIGN.md §12)。
     // IReadOnlyList<int> を狙ったコレクション式は具体型が決まらず、
     // WinRT 経路では trim / AOT で壊れる (CsWinRT1032)。
     IReadOnlyList<int> ITriggerListEditorView.SelectedIndices =>

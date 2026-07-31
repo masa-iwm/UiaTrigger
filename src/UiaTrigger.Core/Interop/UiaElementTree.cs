@@ -14,16 +14,16 @@ namespace UiaTrigger.Interop;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>この型にファイナライザーが無く <see cref="IDisposable"/> も実装していないことは、
-/// 設計であって手抜きではない</b> (docs/DESIGN.md §7)。use-after-free (同 §7) は
+/// **この型にファイナライザーが無く <see cref="IDisposable"/> も実装していないことは、
+/// 設計であって手抜きではない** (docs/DESIGN.md §7)。use-after-free (同 §7) は
 /// 「GC のファイナライザースレッドが、UIA スレッドの呼び出し中に RCW を解放する」ことで起きる。
-/// ここには<b>非同期に回収する主体が存在しない</b>ので、<see cref="Unwrap"/> が生ポインターを
+/// ここには**非同期に回収する主体が存在しない**ので、<see cref="Unwrap"/> が生ポインターを
 /// 返す形が同じでも危険は同じでない。解放を呼ぶ主体は <see cref="UiaElementTree.Release"/>
 /// 経由の解決ループだけであり、それは同期に走る。
 /// </para>
 /// <para>
 /// 足すなら <see cref="Unwrap"/> を借用スコープへ変える必要がある —
-/// <see cref="UiaElement.Borrow"/> と同じ形である。この<b>不在</b>は
+/// <see cref="UiaElement.Borrow"/> と同じ形である。この**不在**は
 /// <c>ElementBorrowTests</c> が固定している。
 /// </para>
 /// </remarks>
@@ -80,20 +80,20 @@ internal sealed class UiaElementNode : IElementNode
     /// <summary>解決結果から COM 要素を取り出す (イベント購読・プロパティ読取に使う)。</summary>
     public static IUIAutomationElement Unwrap(IElementNode node) => ((UiaElementNode)node).Element;
 
-    /// <summary>一意 RCW を解放する。<b>2 度呼んでも安全</b>。</summary>
+    /// <summary>一意 RCW を解放する。**2 度呼んでも安全**。</summary>
     /// <remarks>
     /// <para>
-    /// <b>この冪等化は保険であり、二重解放の証拠があって入れたものではない</b>
+    /// **この冪等化は保険であり、二重解放の証拠があって入れたものではない**
     /// (docs/DESIGN.md §7)。今それを防いでいるのは
     /// <c>ElementResolver.ReleaseLevels</c> の生き残り走査だけだが、あれは冪等化とは
-    /// 別に要る — 段の候補は<b>子を組み立てる前に</b> <c>levels</c> へ登録してあり
+    /// 別に要る — 段の候補は**子を組み立てる前に** <c>levels</c> へ登録してあり
     /// (途中で落ちても、その段で既に採った分が解放されるように)、勝ち残った経路を
     /// 「負け」として解放しないために生き残り集合が要る。段ごとにその場で解放する形へ
     /// 単純化できないのは、ビームが経路の前半を共有するからである
     /// (<c>ElementResolver.cs:257-259</c>)。
     /// </para>
     /// <para>
-    /// <see cref="UiaElement"/> と違い<b>参照をヌル化しないのは意図である</b>。
+    /// <see cref="UiaElement"/> と違い**参照をヌル化しないのは意図である**。
     /// あちらは解放後の <c>Borrow()</c> を失敗させる必要がある (ファイナライザーが
     /// 非同期に解放するので、掴んだ後の失敗を見せないと静かに壊れる)。こちらには
     /// その回収者が居ないので、ヌル化しても捕まえられる誤りが増えない。
@@ -101,7 +101,7 @@ internal sealed class UiaElementNode : IElementNode
     /// <see cref="ObjectDisposedException"/> を投げるようになると、
     /// <c>TriggerMonitor</c> の 7 箇所がそれを捕まえられない — あそこは
     /// <c>COMException</c> しか捕まえず、しかもディスパッチャーへ post された仕事の中なので
-    /// <b>誰も観測しない faulted Task</b> になる。この失敗形は実際に起きて catch を
+    /// **誰も観測しない faulted Task** になる。この失敗形は実際に起きて catch を
     /// 足して塞いだ実績があり、証拠の無い変更で新しく作ってよいものではない。
     /// </para>
     /// </remarks>

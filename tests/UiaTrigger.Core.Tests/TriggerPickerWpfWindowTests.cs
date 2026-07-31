@@ -1,10 +1,10 @@
 // WPF View (継ぎ目の向こう側) の回帰テスト (docs/DESIGN.md §12)。
 //
-// 「View は T1 から触れない」は<b>WinUI3 / x64 / WindowsAppSDK</b> の制約であって
+// 「View は T1 から触れない」は**WinUI3 / x64 / WindowsAppSDK** の制約であって
 // View 一般の話ではない (docs/DESIGN.md §12)。
 // net10.0-windows / AnyCPU の WPF View はここで直接組み立てて検査できる。
 //
-// ただし<b>コンテナの実体化にはウィンドウの表示が要る</b> (実測):
+// ただし**コンテナの実体化にはウィンドウの表示が要る** (実測):
 //   Measure/Arrange だけ         → ItemContainerGenerator は何も返さない
 //   Window.Measure/Arrange + pump → 同上
 //   Window.Show()                → TreeViewItem が生成され、展開も選択も効く
@@ -39,16 +39,16 @@ public sealed class TriggerPickerWpfWindowTests
             new FakeDpiSource()));
 
     /// <summary>
-    /// <c>StopAutoSelect</c> がホバー捕捉を<b>プレゼンターまで</b>止めること
+    /// <c>StopAutoSelect</c> がホバー捕捉を**プレゼンターまで**止めること
     /// (docs/DESIGN.md §12)。
     ///
     /// <para>
-    /// チェックが外れたことだけを見ても足りない — <b>見るのはオーバーレイのフックである</b>。
+    /// チェックが外れたことだけを見ても足りない — **見るのはオーバーレイのフックである**。
     /// 代入だけしてハンドラーを経由しない書き方に変えると、画面は「OFF」と出るのに捕捉は生きたままになり、
     /// 症状 (2 枚目のマウスに 1 枚目が追随する) は何も変わらない。
     /// </para>
     /// <para>
-    /// 開いた直後が ON であることを先に見るのは、<b>この検査に検出力があることを示すため</b>である。
+    /// 開いた直後が ON であることを先に見るのは、**この検査に検出力があることを示すため**である。
     /// </para>
     /// </summary>
     [Fact]
@@ -79,7 +79,7 @@ public sealed class TriggerPickerWpfWindowTests
     }
 
     /// <summary>
-    /// View が<b>すべての</b>コントロール用キーを要求すること。
+    /// View が**すべての**コントロール用キーを要求すること。
     ///
     /// <para>
     /// コントロールを 1 つ足してラベルの代入を忘れる、というのがこの層で最も起きやすい壊れ方で、
@@ -174,7 +174,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// 読めない入力は 0 ではなく「値なし」になること。
     ///
     /// <para>
-    /// 0 は<b>正当な値</b>である。打ち間違いを 0 に丸めると「0 という条件」が黙って保存され、
+    /// 0 は**正当な値**である。打ち間違いを 0 に丸めると「0 という条件」が黙って保存され、
     /// 監視は誰も書いていない条件で動き続ける。null なら <c>TriggerDraftValidator</c> が
     /// 欠落として弾き、ユーザーにメッセージが出る。
     /// </para>
@@ -229,7 +229,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// <summary>
     /// <c>ShowDraft</c> → <c>ReadDraft</c> の往復で値が変わらないこと (docs/DESIGN.md §4)。
     ///
-    /// これが崩れると<b>読み込んだ条件をそのまま確定するだけで条件が変わる</b>。
+    /// これが崩れると**読み込んだ条件をそのまま確定するだけで条件が変わる**。
     /// 書式の差なので例外にはならず、保存されたファイルを見るまで分からない。
     /// </summary>
     [Fact]
@@ -325,7 +325,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// 既存トリガーの読み込みでホバー捕捉が止まること。
     ///
     /// 止めないと、マウスがどこかの要素の上に静止しているだけで
-    /// <b>編集対象が別の要素へ差し替わる</b>。
+    /// **編集対象が別の要素へ差し替わる**。
     /// </summary>
     [Fact]
     public void LoadDefinition_TurnsHoverCaptureOff()
@@ -362,7 +362,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// <summary>
     /// 出す欄と出さない欄が <see cref="OperandVisibility"/> のとおりであること。
     ///
-    /// ここがずれると<b>ユーザーに見えない欄の値が条件に入る</b>。
+    /// ここがずれると**ユーザーに見えない欄の値が条件に入る**。
     /// 出し分けの規則そのものはプレゼンター側 (T1 で別途固定) の担当で、
     /// ここで見るのは「言われたとおりに出し入れしているか」である。
     /// </summary>
@@ -395,7 +395,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// 確定後に、監視できるプロパティが実際にコンボへ入り、先頭が選ばれること。
     ///
     /// WinUI ではここが <c>E_INVALIDARG</c> で落ちる罠が実機で出た (docs/DESIGN.md §12 の ABI の罠)。
-    /// WPF に CCW の制約は無いが、<b>同じ経路が同じように働くこと</b>は変種ごとに確かめる。
+    /// WPF に CCW の制約は無いが、**同じ経路が同じように働くこと**は変種ごとに確かめる。
     /// </summary>
     [Fact]
     public void ShowTriggerShape_FillsTheCombosAndPreselects()
@@ -445,7 +445,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// 経路上の全段が兄弟を取りに行く (深さ 17 段の Chromium なら 17 往復)。
     /// </para>
     /// <para>
-    /// プレゼンター側では固定済みだが、<b>View が本当に ExpandForDisplay を呼んでいるか</b>は
+    /// プレゼンター側では固定済みだが、**View が本当に ExpandForDisplay を呼んでいるか**は
     /// View ごとに確かめないと分からない。IsExpanded = true と書くだけの実装でも
     /// 見た目は同じだからである。
     /// </para>
@@ -468,16 +468,16 @@ public sealed class TriggerPickerWpfWindowTests
     }
 
     /// <summary>
-    /// ツリーと右側の境界を、ユーザーが動かせるように<b>正しく繋いである</b>こと。
+    /// ツリーと右側の境界を、ユーザーが動かせるように**正しく繋いである**こと。
     ///
     /// <para>
-    /// GridSplitter は置き場所を間違えても<b>例外にならず、動かないだけ</b>である —
+    /// GridSplitter は置き場所を間違えても**例外にならず、動かないだけ**である —
     /// 列を取り違えれば隣の列を押し合うし、ResizeDirection の推測が外れれば掴んでも何も起きない。
     /// 「置いたのに効かない」は目で見るまで分からない類なので、繋ぎのほうを T1 で固定する。
     /// 実際に掴んで動くかどうかは docs/MANUAL-CHECKS.md §4.3.1 に置いた (合成入力は T5 の担当である)。
     /// </para>
     /// <para>
-    /// MinWidth を見るのは、これが無いと<b>片側を 0 まで引き切れて戻せなくなる</b>ためである
+    /// MinWidth を見るのは、これが無いと**片側を 0 まで引き切れて戻せなくなる**ためである
     /// (掴み代ごと畳めてしまう)。
     /// </para>
     /// </summary>
@@ -498,25 +498,25 @@ public sealed class TriggerPickerWpfWindowTests
             Assert.True(grid.ColumnDefinitions[2].MinWidth > 0, "右側に MinWidth がありません。");
 
             // キーボードだけで寸法を変えられる唯一の手段である。行の確定ボタンとは逆に、
-            // ここは停留点を<b>残す</b>のが正しい (XAML の注記を参照)
+            // ここは停留点を**残す**のが正しい (XAML の注記を参照)
             Assert.True(splitter.Focusable);
             Assert.True(splitter.IsTabStop);
         });
     }
 
     /// <summary>
-    /// プロパティ一覧と条件欄の境界も動かせること。<b>ただし既定の高さは変えないこと。</b>
+    /// プロパティ一覧と条件欄の境界も動かせること。**ただし既定の高さは変えないこと。**
     /// </summary>
     /// <remarks>
     /// <para>
     /// 条件欄の行を <c>Auto</c> のままにしてあるのが要点である。掴まれるまでは今日と同じ
     /// 「内容ぶんの高さ」で、掴んだ時点で <c>GridSplitter</c> が固定 px に変える。
-    /// <b>ここを <c>*</c> にすると既定の見た目が変わり</b>、T4 / S4 が条件欄の中の
+    /// **ここを <c>*</c> にすると既定の見た目が変わり**、T4 / S4 が条件欄の中の
     /// コントロールを AutomationId で駆動している経路にそのまま効く。
     /// </para>
     /// <para>
     /// 固定 px になった後は中身がはみ出しうる (窓を狭めると <c>WrapPanel</c> が折り返して
-    /// さらに伸びる) ので、<c>ScrollViewer</c> で包んである。<b>無いと黙って切れる。</b>
+    /// さらに伸びる) ので、<c>ScrollViewer</c> で包んである。**無いと黙って切れる。**
     /// </para>
     /// </remarks>
     [Fact]
@@ -545,22 +545,22 @@ public sealed class TriggerPickerWpfWindowTests
     }
 
     /// <summary>
-    /// 条件欄に<b>「区画にある高さ」が上限として渡っている</b>こと
+    /// 条件欄に**「区画にある高さ」が上限として渡っている**こと
     /// (docs/DESIGN.md §12)。
     /// </summary>
     /// <remarks>
     /// <para>
     /// <see cref="ThePropertiesAndTheConditionFields_AreSeparatedByAWorkingSplitter"/> は
-    /// <c>ScrollViewer</c> が<b>在ること</b>しか見ていない。ところが条件欄の行は
-    /// <c>Auto</c> で、<b><c>Auto</c> の行は子に「欲しいだけ」与える</b> —
-    /// ビューポートが中身と同じ高さになるので、包んでいても<b>スクロールは一生起きない</b>。
+    /// <c>ScrollViewer</c> が**在ること**しか見ていない。ところが条件欄の行は
+    /// <c>Auto</c> で、**<c>Auto</c> の行は子に「欲しいだけ」与える** —
+    /// ビューポートが中身と同じ高さになるので、包んでいても**スクロールは一生起きない**。
     /// 窓を縮めると <c>Grid</c> が下を黙って切り落とし、[トリガーを追加] へ到達できなくなる。
-    /// <b>「在ること」の検査はこの壊れ方をまったく覆わない。</b>
+    /// **「在ること」の検査はこの壊れ方をまったく覆わない。**
     /// </para>
     /// <para>
-    /// 見るのは<b>上限の値そのもの</b>である。「縮めたらスクロールできること」を見たかったが、
-    /// <b>表示していない <c>Window</c> ではレイアウトを狙った高さで回せない</b> —
-    /// <c>UpdateLayout()</c> は <c>Window</c> から<b>無制約で</b>回り直すので、
+    /// 見るのは**上限の値そのもの**である。「縮めたらスクロールできること」を見たかったが、
+    /// **表示していない <c>Window</c> ではレイアウトを狙った高さで回せない** —
+    /// <c>UpdateLayout()</c> は <c>Window</c> から**無制約で**回り直すので、
     /// <c>Measure</c> / <c>Arrange</c> に渡した高さが効かない (実測: 200px を渡しても
     /// 区画は中身ぶんの 237.72px になった)。上限が入っていれば
     /// 「中身より小さい上限 → スクロールできる」は <c>ScrollViewer</c> の仕様であり、
@@ -598,7 +598,7 @@ public sealed class TriggerPickerWpfWindowTests
 
     /// <summary>窓を出さずにレイアウトを走らせる。</summary>
     /// <remarks>
-    /// <b>2 周回す。</b>WPF は <c>SizeChanged</c> をレイアウト 1 周の<b>終わりに</b>上げるので、
+    /// **2 周回す。**WPF は <c>SizeChanged</c> をレイアウト 1 周の**終わりに**上げるので、
     /// その中で寸法を変えるハンドラー (条件欄の上限) の結果は次の周でしか出ない。
     /// 実アプリではディスパッチャーが次の周を回すが、ここは手で回しているので自分で回す。
     /// </remarks>
@@ -618,7 +618,7 @@ public sealed class TriggerPickerWpfWindowTests
     /// <remarks>
     /// 表示文字列を持たないコントロールなので、名前が無いと WPF の GridSplitter は
     /// 「Thumb」としか名乗らない。<see cref="TheViewAsksForEveryLabelInTheKeyTable"/> は
-    /// 「キーを引いたか」までしか見ないので、<b>代入先</b>のほうをここで押さえる。
+    /// 「キーを引いたか」までしか見ないので、**代入先**のほうをここで押さえる。
     /// </remarks>
     [Fact]
     public void TheSplitterCarriesAnAccessibleName()

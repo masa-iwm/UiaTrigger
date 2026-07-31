@@ -1,12 +1,12 @@
 // K1: 選択モード中の ←/→ で重なり切替が起きること (docs/TESTING.md §3)。
 // MANUAL-CHECKS §2 / §4.3.1 / §6 の一次の網。
 //
-// <b>ここでしか見られない。</b>重なり切替の入口は WH_KEYBOARD_LL だけである
+// **ここでしか見られない。**重なり切替の入口は WH_KEYBOARD_LL だけである
 // (OverlayController.HookProc → ArrowKeyPressed → MoveStackAsync)。UIA の
-// コントロールパターンはこの経路を<b>一度も通らない</b>ので、T1 も T4 も
+// コントロールパターンはこの経路を**一度も通らない**ので、T1 も T4 も
 // MoveStackAsync を直接呼ぶことしかできない — 「キーがフックに届く」ことは主張できない。
 //
-// <b>座標の検算は要らない</b> (docs/TESTING.md §3 の解禁条件 1)。低レベルフックはグローバルで、
+// **座標の検算は要らない** (docs/TESTING.md §3 の解禁条件 1)。低レベルフックはグローバルで、
 // フォアグラウンドがどこであっても発火する。狙いが要るのは対象アプリへ届けるとき
 // (K2) と、ピクセルを押すとき (M1/M2) である。
 using System.Globalization;
@@ -25,8 +25,8 @@ public sealed class ArrowKeyTests
     /// ネガティブコントロールで「起きないこと」を確かめる窓。
     /// </summary>
     /// <remarks>
-    /// 上の <see cref="Settle"/> より<b>短くてよい</b>。効いているときは実測で
-    /// <b>2 秒待つ前に</b>移り終えていた。<b>正確な往復時間は測っていない</b> —
+    /// 上の <see cref="Settle"/> より**短くてよい**。効いているときは実測で
+    /// **2 秒待つ前に**移り終えていた。**正確な往復時間は測っていない** —
     /// 実測は 2 秒の固定待ちで観測したため、言えるのは上限だけである。
     /// その倍を待って動かなければ結論してよい、という見積もりで置いてある。
     /// 長くするとネガティブコントロールだけで数十秒かかるようになる。
@@ -34,23 +34,23 @@ public sealed class ArrowKeyTests
     private static readonly TimeSpan NothingHappens = TimeSpan.FromSeconds(5);
 
     /// <summary>
-    /// ← で重なりの 1 つ外へ移り、→ で<b>戻ってくる</b>こと。
+    /// ← で重なりの 1 つ外へ移り、→ で**戻ってくる**こと。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>往復で見るのは意図である。</b>「押したら何かが変わった」だけだと、
+    /// **往復で見るのは意図である。**「押したら何かが変わった」だけだと、
     /// 変わった先が正しいかを言えない。戻ってきた矩形は
     /// <c>OverlayGeometry</c> (純関数) から計算した期待値と一致するので、
-    /// <b>行きと帰りの両方が正しい</b>ことまで言える。マジックナンバーも書かない。
+    /// **行きと帰りの両方が正しい**ことまで言える。マジックナンバーも書かない。
     /// </para>
     /// <para>
-    /// <b>← から始めるのは、捕捉直後の位置がスタックの終端だからである</b>
+    /// **← から始めるのは、捕捉直後の位置がスタックの終端だからである**
     /// (実測では 32 個中 32 個目だった)。<c>MoveStackAsync</c> は端で clamp して
-    /// <b>何もせずに返る</b>ので、→ から始めると「フックが効いていない」と
+    /// **何もせずに返る**ので、→ から始めると「フックが効いていない」と
     /// 区別のつかない緑ではない赤になる。順序はこの事実に依存している。
     /// </para>
     /// <para>
-    /// <b>文字列は見ない。</b>ヒント欄には重なりの位置が出る (<c>OverlapPosition</c>) が、
+    /// **文字列は見ない。**ヒント欄には重なりの位置が出る (<c>OverlapPosition</c>) が、
     /// あれはローカライズされているので、assert に使うと OS の表示言語で結果が変わる。
     /// 矩形なら言語に依らない。
     /// </para>
@@ -77,7 +77,7 @@ public sealed class ArrowKeyTests
         SyntheticInput.TapKey(SyntheticInput.VkRight);
         _ = WaitForFrame(scenario, r => r == start, "→ で枠が元の要素へ戻ること");
 
-        // 移った先が<b>実体のある矩形</b>であること。「別の矩形になった」だけだと、
+        // 移った先が**実体のある矩形**であること。「別の矩形になった」だけだと、
         // 潰れた矩形 (幅か高さが 0) も条件を満たしてしまう
         Assert.True(
             stepped.Width > 0 && stepped.Height > 0,
@@ -85,17 +85,17 @@ public sealed class ArrowKeyTests
     }
 
     /// <summary>
-    /// 自動選択が OFF のとき、←/→ で<b>何も起きない</b>こと。
+    /// 自動選択が OFF のとき、←/→ で**何も起きない**こと。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b><see cref="ArrowKeys_StepOutThroughTheOverlappedElementsAndBack"/> の
-    /// ネガティブコントロールである。</b><c>SetHookEnabled</c> に検出力があることを
+    /// **<see cref="ArrowKeys_StepOutThroughTheOverlappedElementsAndBack"/> の
+    /// ネガティブコントロールである。**<c>SetHookEnabled</c> に検出力があることを
     /// ここで示さないと、あちらの緑は「フックが効いている」ではなく
     /// 「何か別のものが枠を動かした」と区別できない。
     /// </para>
     /// <para>
-    /// <b>OFF にする前に、同じキーで実際に動くことを確かめる。</b>これを飛ばすと、
+    /// **OFF にする前に、同じキーで実際に動くことを確かめる。**これを飛ばすと、
     /// スタックの端に居るせいで動かなかった場合と見分けがつかない —
     /// 実測でまさにその形 (捕捉直後に → を撃つと clamp されて何も起きない) を踏んだ。
     /// 「起きなかった」と「そもそも起こしようがなかった」を分けるための手順である。
@@ -123,7 +123,7 @@ public sealed class ArrowKeyTests
 
         SyntheticInput.TapKey(SyntheticInput.VkLeft);
         Ui.Never(
-            // 枠が<b>読めなかった</b>ことを「動いた」と読まない。UIA の列挙が一時的に空を
+            // 枠が**読めなかった**ことを「動いた」と読まない。UIA の列挙が一時的に空を
             // 返しうるので、そこを動きとして数えると OFF でも赤くなる。
             // 消えたまま戻らない場合は下の assert が捕まえる
             () => CurrentFrame(scenario) is { } now && now != moved,
@@ -139,21 +139,21 @@ public sealed class ArrowKeyTests
     }
 
     /// <summary>
-    /// いま出ている枠。<b>オーバーレイが無ければ null</b>。
+    /// いま出ている枠。**オーバーレイが無ければ null**。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>「無い」を既定の矩形 (0,0,0,0) に潰してはいけない。</b>潰すと
-    /// <see cref="WaitForFrame"/> の述語 <c>r != start</c> が<b>1 回の空読み</b>で成立し、
+    /// **「無い」を既定の矩形 (0,0,0,0) に潰してはいけない。**潰すと
+    /// <see cref="WaitForFrame"/> の述語 <c>r != start</c> が**1 回の空読み**で成立し、
     /// 枠が一度も動いていないのに「← で移った」と結論する — このテストが主張している
     /// ことそのものに、偽の緑の経路ができる。
     /// </para>
     /// <para>
     /// <c>Ui.Until</c> が握り潰すのは <c>ElementNotAvailableException</c> であって、
-    /// <b>空のコレクションは例外ではない</b>ので素通りする。だから型で分ける。
+    /// **空のコレクションは例外ではない**ので素通りする。だから型で分ける。
     /// </para>
     /// <para>
-    /// オーバーレイは捕捉が起きるまで<b>可視にならない</b>ので、存在の有無だけで
+    /// オーバーレイは捕捉が起きるまで**可視にならない**ので、存在の有無だけで
     /// 合否を決めないこと (docs/DESIGN.md §12)。要素はキャッシュせず取り直す。
     /// </para>
     /// </remarks>
@@ -166,7 +166,7 @@ public sealed class ArrowKeyTests
     /// 枠が <paramref name="predicate"/> を満たすまで待つ。
     /// </summary>
     /// <remarks>
-    /// <b>述語を評価するのは枠が読めたときだけ</b>である。読めないあいだは
+    /// **述語を評価するのは枠が読めたときだけ**である。読めないあいだは
     /// 「まだ成立していない」として待ち続ける (最終的には期限で落ちるので、
     /// 本当に出てこない場合を見逃すことはない)。
     /// </remarks>
@@ -179,7 +179,7 @@ public sealed class ArrowKeyTests
             scenario.Describe);
 
     /// <summary>
-    /// 自動選択のトグルを切り替える。<b>切り替わったことを確かめてから返る。</b>
+    /// 自動選択のトグルを切り替える。**切り替わったことを確かめてから返る。**
     /// </summary>
     /// <remarks>
     /// <c>Toggle()</c> が返ることと、プレゼンターが <c>SetAutoSelect</c> を受け取ったことは

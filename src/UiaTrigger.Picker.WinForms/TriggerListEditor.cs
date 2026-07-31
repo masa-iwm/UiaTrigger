@@ -80,7 +80,7 @@ public sealed class TriggerListEditor : UITypeEditor
             _ = form.ShowDialog();
         }
 
-        // キャンセルは<b>元の value をそのまま返す</b>。UITypeEditor の規約であり、
+        // キャンセルは**元の value をそのまま返す**。UITypeEditor の規約であり、
         // 新しいリストを返すと「変更なし」がプロパティの差し替えとして扱われる
         return form.Result is { } edited ? new List<TriggerDefinition>(edited) : value;
     }

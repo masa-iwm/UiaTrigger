@@ -631,7 +631,7 @@ public sealed class TriggerPickerPresenterTests
     /// 既に開いている段の子は、検索で通り抜けても列挙しないこと。
     ///
     /// 捕捉したチェーンの各段は「開いているが子は未列挙」である。ここに手を出すと
-    /// <b>検索 1 回で経路の全段が兄弟を取りに行く</b> (深さ 17 段の Chromium なら 17 往復)。
+    /// **検索 1 回で経路の全段が兄弟を取りに行く** (深さ 17 段の Chromium なら 17 往復)。
     /// <see cref="Capture_ExpandingTheChainDoesNotEnumerateAnyChildren"/> が守っているものを
     /// 検索経路から破らないための対である。
     /// </summary>
@@ -711,7 +711,7 @@ public sealed class TriggerPickerPresenterTests
     // ---------- 重なり要素の切替 ----------
 
     /// <summary>
-    /// 重なり切替では<b>正規化しない</b>チェーン構築を使うこと (docs/DESIGN.md §2)。
+    /// 重なり切替では**正規化しない**チェーン構築を使うこと (docs/DESIGN.md §2)。
     ///
     /// 正規化すると、表示ビューの条件を満たさない重なり要素が同じ近傍祖先へ丸められ、
     /// 「別の要素へ切り替えたつもりが同じ要素のまま」になる。実際に一度これで壊れている。
@@ -760,11 +760,11 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
-    /// <b>ツリーに</b>キーボードフォーカスがあるあいだだけ ←/→ を重なり切替に使わないこと。
+    /// **ツリーに**キーボードフォーカスがあるあいだだけ ←/→ を重なり切替に使わないこと。
     ///
     /// ツリーのキーボード操作を奪ってしまうため。逆に、ホバーしているだけのときは
     /// フォーカスはツリーに無いので切り替えられる — ここをウィンドウ単位 (アクティブか) で見ると、
-    /// ホバー中は常にアクティブなので<b>機能そのものが使えなくなる</b> (docs/DESIGN.md §11)。
+    /// ホバー中は常にアクティブなので**機能そのものが使えなくなる** (docs/DESIGN.md §11)。
     /// </summary>
     [Fact]
     public async Task Overlap_WhileTheTreeHasTheKeyboardFocus_TheArrowKeysAreLeftToTheTree()
@@ -845,8 +845,8 @@ public sealed class TriggerPickerPresenterTests
     /// <summary>
     /// 続けて別の要素を確定したら、既定 id もその要素のものに作り直すこと。
     ///
-    /// 「空のときだけ入れる」にすると前の id が残り、コミットで<b>前のトリガーを
-    /// 黙って置き換える</b> (ホストは Id で上書きするため)。追加したつもりが差し替えになる、
+    /// 「空のときだけ入れる」にすると前の id が残り、コミットで**前のトリガーを
+    /// 黙って置き換える** (ホストは Id で上書きするため)。追加したつもりが差し替えになる、
     /// 例外も警告も出ない壊れ方である。
     /// </summary>
     [Fact]
@@ -1139,7 +1139,7 @@ public sealed class TriggerPickerPresenterTests
     /// いま入っているプロパティが必ず選択肢に載ること。
     ///
     /// 要素を読み直さないのでパターン対応を見るものが無い。一覧に無ければコンボは
-    /// 選択なしになり、確定で<b>別のプロパティの条件に化ける</b>。
+    /// 選択なしになり、確定で**別のプロパティの条件に化ける**。
     /// </summary>
     [Fact]
     public void LoadDefinition_OffersThePropertyTheConditionAlreadyUses()
@@ -1206,7 +1206,7 @@ public sealed class TriggerPickerPresenterTests
     /// <summary>
     /// 読み込んだあと要素を捕まえ直しても、id が黙って提案 id に置き換わらないこと。
     ///
-    /// 置き換わると<b>編集したつもりで別のトリガーが増える</b> (元のほうは残る)。
+    /// 置き換わると**編集したつもりで別のトリガーが増える** (元のほうは残る)。
     /// </summary>
     [Fact]
     public async Task LoadDefinition_ThenReconfirming_KeepsTheId()
@@ -1244,7 +1244,7 @@ public sealed class TriggerPickerPresenterTests
         Assert.Throws<ArgumentException>("definition", () => h.Presenter.LoadDefinition(custom));
 
         // 句が自前の要素を持つ形 (docs/DESIGN.md §4 の多要素は句 1 つでも作れる) →
-        // 落ちるとトリガーの既定の要素に化け、<b>別の要素を監視し始める</b>
+        // 落ちるとトリガーの既定の要素に化け、**別の要素を監視し始める**
         TriggerDefinition ownElement = Recorded();
         ownElement.Clauses[0].Window = new WindowIdentity { ProcessName = "other.exe" };
         Assert.Throws<ArgumentException>("definition", () => h.Presenter.LoadDefinition(ownElement));
@@ -1260,11 +1260,11 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
-    /// 編集を通ったものは、<b>何も変えずに確定しても</b>句が変わらないこと。
+    /// 編集を通ったものは、**何も変えずに確定しても**句が変わらないこと。
     ///
     /// <para>
     /// <see cref="CanEdit_AgreesWithWhatLoadDefinitionAccepts"/> の対である。あちらは
-    /// 「断るものを断る」を見るが、断り漏れは<b>通ってしまう側</b>に出る —
+    /// 「断るものを断る」を見るが、断り漏れは**通ってしまう側**に出る —
     /// 確定は下書きから句を作り直すので、下書きが運べないものを持った句が通ると黙って落ちる。
     /// ここでは往復そのものを突き合わせるので、<see cref="TriggerDraft"/> に運べない
     /// フィールドが将来増えても、<see cref="TriggerPickerPresenter.CanEdit"/> を
@@ -1290,10 +1290,10 @@ public sealed class TriggerPickerPresenterTests
         definition, UiaTrigger.Serialization.TriggerJsonContext.Default.TriggerDefinition);
 
     /// <summary>
-    /// 句のフィールドが 1 つ残らず<b>どれかに分類されている</b>こと。
+    /// 句のフィールドが 1 つ残らず**どれかに分類されている**こと。
     ///
     /// <para>
-    /// 上の 2 件は「いま分かっている形」を固定するが、危ないのは<b>これから増えるフィールド</b>である。
+    /// 上の 2 件は「いま分かっている形」を固定するが、危ないのは**これから増えるフィールド**である。
     /// <see cref="PropertyClause"/> に何か足して <see cref="TriggerDraft"/> に運ぶ場所を作らないと、
     /// 編集を通ったトリガーからそれが黙って落ちる — そして
     /// <see cref="TriggerPickerPresenter.CanEdit"/> は何も知らないまま true を返し続ける。
@@ -1424,7 +1424,7 @@ public sealed class TriggerPickerPresenterTests
     /// <summary>
     /// 枠はスナップショットの矩形へ追随すること。
     ///
-    /// <see cref="IPickerElement.BoundingRectangle"/> は<b>ハンドルを作った時点</b>の値なので、
+    /// <see cref="IPickerElement.BoundingRectangle"/> は**ハンドルを作った時点**の値なので、
     /// 対象ウィンドウを動かしたあとに別の行を選ぶと、枠だけが前の位置に残る。
     /// プロパティ一覧のためにスナップショットは既に読んでいるので、往復は増えない。
     /// </summary>
@@ -1473,7 +1473,7 @@ public sealed class TriggerPickerPresenterTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>プレゼンターが DPI を無視していないことの検査である。</b>
+    /// **プレゼンターが DPI を無視していないことの検査である。**
     /// <c>OverlayGeometry</c> 側をいくら固めても、呼ぶ側が 96 を渡していれば
     /// 175% では「絵は大きいのに、除外領域だけ 96 のまま」になる —
     /// アイコンの上にカーソルを置いたのに捕捉が走り、選択が変わってしまう。
@@ -1532,10 +1532,10 @@ public sealed class TriggerPickerPresenterTests
     //
     // ここだけは Harness.Dispose の台帳では見られない。台帳が見るのは
     // 「終わったときに漏れていないか」であり、終了時にすべて手放すので
-    // <b>途中の掃き出しが 1 つも無くても緑になる</b>。世代の切り替わりで解放されることは
+    // **途中の掃き出しが 1 つも無くても緑になる**。世代の切り替わりで解放されることは
     // 個別に見るしかない。
     //
-    // 偽の要素は<b>世代ごとに別インスタンス</b>で作る。本番の UIA は同じ要素に対しても
+    // 偽の要素は**世代ごとに別インスタンス**で作る。本番の UIA は同じ要素に対しても
     // 毎回別のハンドルを返すので、同じインスタンスを使い回すと
     // 「エイリアスだから生き残った」のか「世代の判定が効いた」のか区別できない。
 
@@ -1563,7 +1563,7 @@ public sealed class TriggerPickerPresenterTests
     /// <summary>
     /// 新しい木が古い木と共有しているハンドルは、解放しないこと。
     ///
-    /// 掃き出しを「新しい木を入れる<b>前</b>」に動かすとここが壊れる。共有しているハンドルが
+    /// 掃き出しを「新しい木を入れる**前**」に動かすとここが壊れる。共有しているハンドルが
     /// いったん到達不能になるためで、そのあと新しい木から参照されても解放済みである。
     /// </summary>
     [Fact]
@@ -1591,7 +1591,7 @@ public sealed class TriggerPickerPresenterTests
     /// <summary>
     /// ビュー切替の起点は、木から消えても解放しないこと。
     ///
-    /// <c>_selectionOrigin</c> は木のエイリアスではなく<b>独立した所有根</b>である。
+    /// <c>_selectionOrigin</c> は木のエイリアスではなく**独立した所有根**である。
     /// 所有根から外すと、正規化で丸められた次の切替でここを渡した瞬間に例外になる。
     /// </summary>
     [Fact]
@@ -1617,7 +1617,7 @@ public sealed class TriggerPickerPresenterTests
     /// <summary>
     /// 再列挙がチェーン子の位置に返したハンドルを手放すこと。
     ///
-    /// 差し込みループはその位置を<b>意図的に飛ばす</b> (木にある同一要素のノードを
+    /// 差し込みループはその位置を**意図的に飛ばす** (木にある同一要素のノードを
     /// 部分木ごと残すため)。飛ばされたハンドルはどのノードにも包まれないので、
     /// 所有下に置いていないと列挙のたびに 1 個ずつ漏れる。
     /// </summary>
@@ -1709,7 +1709,7 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
-    /// 起点が別の要素へ移ったら、<b>その場で</b>古い起点を手放すこと。
+    /// 起点が別の要素へ移ったら、**その場で**古い起点を手放すこと。
     ///
     /// <para>
     /// 重なり切替の移動先は、切替のあと<c>_selectionOrigin</c> からしか到達できない
@@ -1717,9 +1717,9 @@ public sealed class TriggerPickerPresenterTests
     /// だから起点が動いた瞬間に掃かないと、そのハンドルは終了まで残る。
     /// </para>
     /// <para>
-    /// <b>掃き出しを消しても、他のテストはすべて緑のままである</b> —
+    /// **掃き出しを消しても、他のテストはすべて緑のままである** —
     /// 終了時の一括解放 (<c>ReleaseAllElements</c>) が「終わったときには漏れていない」を
-    /// 成立させてしまうためで、<b>途中で解放されること</b>を名指しで見るのはここだけである。
+    /// 成立させてしまうためで、**途中で解放されること**を名指しで見るのはここだけである。
     /// </para>
     /// </summary>
     [Theory]
@@ -1786,8 +1786,8 @@ public sealed class TriggerPickerPresenterTests
     /// プロパティを読んでいる在庫中に木が入れ替わっても、生き延びること。
     ///
     /// この経路は fire-and-forget で <c>try</c> が無い。掃き出しがハンドルを解放すると
-    /// 借用スコープが <see cref="ObjectDisposedException"/> を投げ、<b>誰も観測しない
-    /// faulted Task</b> になる。この失敗形は掃き出し (起点が動いた瞬間にハンドルを
+    /// 借用スコープが <see cref="ObjectDisposedException"/> を投げ、**誰も観測しない
+    /// faulted Task** になる。この失敗形は掃き出し (起点が動いた瞬間にハンドルを
     /// 解放すること) が作るものなので、ここで閉じる。
     /// </summary>
     [Fact]
@@ -1813,11 +1813,11 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
-    /// <b>相手から読めなくなったら、プロパティ一覧が空になること</b> (docs/DESIGN.md §12 の決定)。
+    /// **相手から読めなくなったら、プロパティ一覧が空になること** (docs/DESIGN.md §12 の決定)。
     ///
     /// 塞がれたアプリへの読み取りは <see cref="System.Runtime.InteropServices.COMException"/>
     /// (「Operation timed out」— 実測) になる。この経路が fire-and-forget の faulted Task に
-    /// なると、一覧は<b>古い値のまま</b>残る — hang が明けても更新されず、
+    /// なると、一覧は**古い値のまま**残る — hang が明けても更新されず、
     /// 「読めている」ようにしか見えない。
     /// </summary>
     [Fact]
@@ -1837,7 +1837,7 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
-    /// <b>読めるようになったら一覧が追いつくこと</b> (空のまま行き止まりにならないこと)。
+    /// **読めるようになったら一覧が追いつくこと** (空のまま行き止まりにならないこと)。
     /// 実機では「次の選択・捕捉・重なり切替」が新しい読み取りを起こす。
     /// </summary>
     [Fact]
@@ -1859,7 +1859,7 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
-    /// <b>現在の行でない読み取りの失敗は、いま出ている一覧に触らないこと。</b>
+    /// **現在の行でない読み取りの失敗は、いま出ている一覧に触らないこと。**
     /// 在庫中に木が入れ替わった古い読み取りが、新しい行の一覧を消してはいけない。
     /// </summary>
     [Fact]
@@ -1871,7 +1871,7 @@ public sealed class TriggerPickerPresenterTests
         await h.CaptureOnceAtAsync(100, 100);
         PickerTreeNode stale = h.Presenter.Roots[0].Children[0].Children[0];
 
-        // <b>同じ木の中で</b>選択を移して current を入れ替える。木を差し替えると
+        // **同じ木の中で**選択を移して current を入れ替える。木を差し替えると
         // 古いハンドルが解放され、失敗が ObjectDisposedException 側 (別のテストが担当) に化ける
         h.Presenter.NotifyTreeSelectionChanged(h.Presenter.Roots[0].Children[0]);
         Assert.NotEmpty(h.View.PropertyRows);
@@ -1997,22 +1997,22 @@ public sealed class TriggerPickerPresenterTests
         }
 
         /// <summary>
-        /// プレゼンターを畳み、<b>そのうえで</b>ハンドルの台帳を検める。
+        /// プレゼンターを畳み、**そのうえで**ハンドルの台帳を検める。
         /// </summary>
         /// <remarks>
         /// <para>
-        /// これがあるおかげで、要素を扱う既存テスト 40 件以上が<b>本文を 1 行も変えずに</b>
+        /// これがあるおかげで、要素を扱う既存テスト 40 件以上が**本文を 1 行も変えずに**
         /// 「ハンドルを漏らしていないか」「解放済みを使い回していないか」の検査を兼ねる。
         /// 掃き出しは <see cref="FakePickerServices"/> が配ったものだけを対象にできる —
         /// プレゼンターが要素を受け取る先はそこしか無いからである。
         /// </para>
         /// <para>
-        /// <see cref="TriggerPickerPresenter.Dispose"/> の<b>後</b>に見るのは、
+        /// <see cref="TriggerPickerPresenter.Dispose"/> の**後**に見るのは、
         /// 「選択したまま終わる」テストでも成立させるためである (終了時にすべて手放すので、
         /// 選択状態に関係なく <see cref="FakePickerServices.Retained"/> は空になる)。
         /// </para>
         /// <para>
-        /// <b>注意</b>: unwinding 中の <c>Dispose</c> で投げると、元の失敗が置き換わる。
+        /// **注意**: unwinding 中の <c>Dispose</c> で投げると、元の失敗が置き換わる。
         /// メッセージは台帳のものだと一目で分かる文言にしてある。
         /// </para>
         /// </remarks>

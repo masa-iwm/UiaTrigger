@@ -1,12 +1,12 @@
 // サンプルホストの子プロセスと、その中のピッカーウィンドウ (docs/TESTING.md §1 T4)。
 //
-// <b>このファイル自身は入力を 1 つも起こさない。</b>駆動は UIA のコントロールパターンだけで行う。
+// **このファイル自身は入力を 1 つも起こさない。**駆動は UIA のコントロールパターンだけで行う。
 // T5 (tests/UiaTrigger.Input.Tests) はこれをリンク共有したうえで、舞台が整ってから
 // 検査対象そのもの (キー・クリック) だけを最下層から撃つ — 撃つ口はあちらにしか無い
 // (docs/TESTING.md §3)。
 //
 // ホバー捕捉は T4 でも T5 でも --pick-at / FixedCursorSource のままである。
-// 差し替えているのは入力<b>イベント</b>ではなくカーソルの<b>取得元</b> (ICursorSource) であり、
+// 差し替えているのは入力**イベント**ではなくカーソルの**取得元** (ICursorSource) であり、
 // 入力経路そのものは検証対象ではない (滞留の算術は T1 の TriggerPickerPresenterTests が見ている)。
 // 実カーソルを動かして捕捉させないのは、座標の円環が戻るからである (docs/TESTING.md §4)。
 using System.Diagnostics;
@@ -33,13 +33,13 @@ internal sealed class PickerHostProcess : IDisposable
     private bool _disposed;
 
     /// <summary>
-    /// このホストが読み書きするトリガーファイル。<b>ホストごとに別の一時ファイル</b>である。
+    /// このホストが読み書きするトリガーファイル。**ホストごとに別の一時ファイル**である。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>--triggers</c> を<b>どの起動口からも必ず渡す</b>。既定は
+    /// <c>--triggers</c> を**どの起動口からも必ず渡す**。既定は
     /// <c>%LOCALAPPDATA%\UiaTrigger\triggers.json</c> という実ファイルなので、
-    /// 省くと<b>自動テストが開発機のトリガーを書き換える</b> (docs/DESIGN.md §12)。
+    /// 省くと**自動テストが開発機のトリガーを書き換える** (docs/DESIGN.md §12)。
     /// </para>
     /// <para>
     /// 起動口ごとに渡すかどうかを決める形にはしない。「このテストはコミットしないから要らない」は
@@ -54,7 +54,7 @@ internal sealed class PickerHostProcess : IDisposable
     public AutomationElement MainWindow { get; }
 
     /// <summary>
-    /// ホストのプロセス ID。オーバーレイのウィンドウを<b>外から</b>数えるのに要る
+    /// ホストのプロセス ID。オーバーレイのウィンドウを**外から**数えるのに要る
     /// (docs/DESIGN.md §10)。
     /// </summary>
     /// <remarks>
@@ -83,7 +83,7 @@ internal sealed class PickerHostProcess : IDisposable
 
     /// <summary>ホストの窓を置く矩形。既定は <see cref="DesktopLayout.Host"/>。</summary>
     /// <remarks>
-    /// 差し替えられるようにしてあるのは、<b>表示域の広さそのものが検査対象</b>になる
+    /// 差し替えられるようにしてあるのは、**表示域の広さそのものが検査対象**になる
     /// テストがあるためである (<see cref="DesktopLayout.NarrowHost"/>)。
     /// </remarks>
     private readonly (int Left, int Top, int Width, int Height) _hostRect;
@@ -113,7 +113,7 @@ internal sealed class PickerHostProcess : IDisposable
     }
 
     /// <summary>
-    /// 複数の pick 点を渡してホストを起動する。<b>n 枚目のピッカーが n 番目</b>を受け取る。
+    /// 複数の pick 点を渡してホストを起動する。**n 枚目のピッカーが n 番目**を受け取る。
     /// </summary>
     /// <remarks>
     /// S1 (2 枚のピッカーがそれぞれ独立に追従すること) の前提である。
@@ -125,11 +125,11 @@ internal sealed class PickerHostProcess : IDisposable
         => Start(profile, culture: null, pickPoints);
 
     /// <summary>
-    /// 表示カルチャを固定して起動する。<b>画面に出た文字列を検査するときはこちらを使う。</b>
+    /// 表示カルチャを固定して起動する。**画面に出た文字列を検査するときはこちらを使う。**
     /// </summary>
     /// <remarks>
     /// 固定しないとホストは OS の表示言語に従う。開発機が日本語で CI が英語だと、
-    /// <b>同じ assert が機械によって別の文字列と比べられる</b> — 通るほうの機械では
+    /// **同じ assert が機械によって別の文字列と比べられる** — 通るほうの機械では
     /// 気づかないまま、もう一方だけが赤くなる。
     /// </remarks>
     public static PickerHostProcess Start(
@@ -158,23 +158,23 @@ internal sealed class PickerHostProcess : IDisposable
     }
 
     /// <summary>
-    /// 「もう 1 つ開く」を押して<b>2 枚目</b>のピッカーを開く。
+    /// 「もう 1 つ開く」を押して**2 枚目**のピッカーを開く。
     /// </summary>
     /// <remarks>
     /// 「ピッカーで追加」は既に開いていれば前面に出すだけなので、2 枚目はこちらでしか開かない。
     /// <see cref="OpenPicker"/> と違ってツリーは待たない — 2 枚目のツリーを 1 枚目と区別する
     /// 手段が AutomationId には無いためである。数えるのは呼び出し側の仕事。
-    /// <b>窓が出るのは待つ</b> (退かさなければならないため)。
+    /// **窓が出るのは待つ** (退かさなければならないため)。
     /// </remarks>
     public void OpenAnotherPicker()
     {
         OpenAndPlace("OpenAnotherPickerButton");
-        // 2 枚目こそ確かめる。カスケードは 1 枚目の<b>あと</b>なので、より右下へ出る
+        // 2 枚目こそ確かめる。カスケードは 1 枚目の**あと**なので、より右下へ出る
         RequireThePickPointsAreNotCoveredByTheHost();
     }
 
     /// <summary>
-    /// 静的なラベルだけを読むために、<b>座標も対象アプリも無しで</b>ホストを起動する。
+    /// 静的なラベルだけを読むために、**座標も対象アプリも無しで**ホストを起動する。
     /// </summary>
     /// <param name="profile">起動するホストの種別。</param>
     /// <param name="culture">表示カルチャ (<c>--culture</c>)。</param>
@@ -182,30 +182,30 @@ internal sealed class PickerHostProcess : IDisposable
     /// <para>
     /// S4 (発行レイアウトでのリソース解決) はホバー捕捉も pick 点も要らない。
     /// それでも <see cref="Start"/> を使うと <see cref="RequireCoordinateSafeProcess"/> と
-    /// <c>--pick-at</c> が付いてきて、<b>座標と無関係なテストが座標由来の flake を継承する</b> —
+    /// <c>--pick-at</c> が付いてきて、**座標と無関係なテストが座標由来の flake を継承する** —
     /// T4 で実際に落ちるのは毎回その系統である。
     /// </para>
     /// <para>
-    /// <b>それでも <c>--pick-at</c> は渡す。画面の外を指すためである。</b>
-    /// 省くとピッカーは <c>Win32CursorSource</c> に落ち、<b>実マウスの下にあるものを
-    /// 1 秒の滞留で本当に捕捉しはじめる</b> — 相手が大きなツリーだと数秒かかり
+    /// **それでも <c>--pick-at</c> は渡す。画面の外を指すためである。**
+    /// 省くとピッカーは <c>Win32CursorSource</c> に落ち、**実マウスの下にあるものを
+    /// 1 秒の滞留で本当に捕捉しはじめる** — 相手が大きなツリーだと数秒かかり
     /// (実測で 567 ノード / 2965ms)、その間ピッカーは UIA の問い合わせに答えない。
-    /// <b>「対象アプリを使わない」と「捕捉が起きない」は別のことである。</b>
+    /// **「対象アプリを使わない」と「捕捉が起きない」は別のことである。**
     /// </para>
     /// <para>
-    /// <b>画面外を指しても捕捉の経路には入る</b> — 実測では <c>(-30000,-30000)</c> でも
-    /// <c>ElementFromPoint</c> は<b>デスクトップ (<c>class='#32769'</c>) を返す</b>。
+    /// **画面外を指しても捕捉の経路には入る** — 実測では <c>(-30000,-30000)</c> でも
+    /// <c>ElementFromPoint</c> は**デスクトップ (<c>class='#32769'</c>) を返す**。
     /// ピッカーはそれを普通に捕捉し、画面いっぱいの枠を出す。
     /// </para>
     /// <para>
-    /// それでも<b>この起動口の目的は果たしている</b>。狙いは「捕捉を起こさないこと」ではなく
-    /// 「<b>結果がカーソルの置き場所で変わらないこと</b>」であり、
+    /// それでも**この起動口の目的は果たしている**。狙いは「捕捉を起こさないこと」ではなく
+    /// 「**結果がカーソルの置き場所で変わらないこと**」であり、
     /// デスクトップは常にそこに在って中身も安定しているので、そちらは成立している。
     /// 捕捉そのものも軽い (子を数千個持つツリーを歩くわけではない)。
     /// </para>
     /// <para>
-    /// <b>これは観測された失敗を直したものではなく、構造からの予防である。</b>
-    /// 実マウスに追随する経路は<b>カーソルがどこに在るかで結果が変わる</b>ので、
+    /// **これは観測された失敗を直したものではなく、構造からの予防である。**
+    /// 実マウスに追随する経路は**カーソルがどこに在るかで結果が変わる**ので、
     /// 通るとしてもたまたまでしかない。だから経路ごと消してある。
     /// </para>
     /// </remarks>
@@ -217,13 +217,13 @@ internal sealed class PickerHostProcess : IDisposable
             preferPublished: true);
 
     /// <summary>
-    /// 対象アプリも座標も使わずに起動する。<b>見るのはビルド成果物であって発行物ではない。</b>
+    /// 対象アプリも座標も使わずに起動する。**見るのはビルド成果物であって発行物ではない。**
     /// </summary>
     /// <remarks>
     /// <see cref="StartForLabels"/> と起動口は同じで、違うのは <c>preferPublished</c> だけである。
-    /// 発行物を見てよいのは<b>「発行物を検査する」と主張しているテスト (S4) だけ</b>で、
+    /// 発行物を見てよいのは**「発行物を検査する」と主張しているテスト (S4) だけ**で、
     /// <c>publish/</c> は一度作ると古いまま残るので、そうでないテストがそちらを見ると
-    /// <b>古い発行物を黙って検査しつづける</b>ことになる (<see cref="ExecutablePathFor"/> の注記)。
+    /// **古い発行物を黙って検査しつづける**ことになる (<see cref="ExecutablePathFor"/> の注記)。
     /// 配置を見るテスト (<c>SplitterTests</c>) はまさにそれで、
     /// XAML を直しても発行し直すまで古い配置を通し続けてしまう。
     /// </remarks>
@@ -304,7 +304,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// 「ピッカーで追加」を押してピッカーを開き、ツリーが出るまで待つ。
     /// </summary>
     /// <remarks>
-    /// ボタンは <b>AutomationId</b> で探す。表示名で探すと OS の表示言語に依存し、
+    /// ボタンは **AutomationId** で探す。表示名で探すと OS の表示言語に依存し、
     /// 「英語環境で全部落ちる」形の壊れ方をする。
     /// </remarks>
     public void OpenPicker()
@@ -324,9 +324,9 @@ internal sealed class PickerHostProcess : IDisposable
     /// (docs/DESIGN.md §4)。
     /// </summary>
     /// <remarks>
-    /// <b>WinUI ホストでしか使えない。</b>WPF / Windows Forms のエディタは
+    /// **WinUI ホストでしか使えない。**WPF / Windows Forms のエディタは
     /// <c>ShowDialog</c> による本物のモーダルなので、UIA の <c>Invoke()</c> が
-    /// <b>ダイアログが閉じるまで返らない</b>おそれがある。あちらの確認は MANUAL-CHECKS に置く。
+    /// **ダイアログが閉じるまで返らない**おそれがある。あちらの確認は MANUAL-CHECKS に置く。
     /// </remarks>
     public void OpenEditor()
         => OpenAndPlace(
@@ -338,10 +338,10 @@ internal sealed class PickerHostProcess : IDisposable
                 Diagnostics));
 
     /// <summary>
-    /// トリガ一覧エディタの<b>ウィンドウ</b>。呼ぶたびに探し直す。
+    /// トリガ一覧エディタの**ウィンドウ**。呼ぶたびに探し直す。
     /// </summary>
     /// <remarks>
-    /// 手掛かりは<b>トリガー一覧を持っていること</b>である。タイトルでは探さない —
+    /// 手掛かりは**トリガー一覧を持っていること**である。タイトルでは探さない —
     /// ローカライズされているので、探す条件に使うと翻訳の検査と循環する
     /// (<see cref="PickerWindow"/> と同じ理由)。
     /// </remarks>
@@ -358,7 +358,7 @@ internal sealed class PickerHostProcess : IDisposable
     public bool EditorWindowIsShowing() => FindEditor() is not null;
 
     /// <summary>
-    /// エディタのボタンを押して子ピッカーを開き、<b>出た窓を pick 点から退かす</b>。
+    /// エディタのボタンを押して子ピッカーを開き、**出た窓を pick 点から退かす**。
     /// </summary>
     /// <param name="buttonId">押すボタン (<c>AddTriggerButton</c> / <c>EditTriggerButton</c>)。</param>
     /// <returns>開いた子ピッカーのウィンドウ。</returns>
@@ -382,34 +382,34 @@ internal sealed class PickerHostProcess : IDisposable
     }
 
     /// <summary>
-    /// ボタンを押し、そこで出てくるホストの窓を<b>出た瞬間に</b>退かす。
+    /// ボタンを押し、そこで出てくるホストの窓を**出た瞬間に**退かす。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>これが T4 の非決定性への対処である</b> (docs/TESTING.md §1)。
+    /// **これが T4 の非決定性への対処である** (docs/TESTING.md §1)。
     /// ピッカーの窓はカスケードして開くので、pick 点を覆うかどうかが実行ごとに変わる。
     /// 覆ったまま滞留 1 秒が明けると、ピッカーは自プロセスを掴んで捕捉を飛ばし、
-    /// <c>TickAsync</c> の「同じ点は再捕捉しない」により<b>二度と捕捉しない</b>。
+    /// <c>TickAsync</c> の「同じ点は再捕捉しない」により**二度と捕捉しない**。
     /// </para>
     /// <para>
-    /// <b>見張りを別スレッドに置くのは意図である。</b><c>Invoke()</c> はホストの UI スレッドが
+    /// **見張りを別スレッドに置くのは意図である。**<c>Invoke()</c> はホストの UI スレッドが
     /// 窓を組み立てるあいだ返らない (実測で WinUI は 652ms)。呼び出しスレッドで待ってから
     /// 探しはじめると、その 652ms がまるごと猶予から引かれる。
     /// </para>
     /// <para>
-    /// <b>数えるのは「窓が出たか」ではなく「退かし終えたか」である。</b>
-    /// 最初はウィンドウの数で待っていたが、それだと<b>現れた瞬間に見張りを止めて</b>
+    /// **数えるのは「窓が出たか」ではなく「退かし終えたか」である。**
+    /// 最初はウィンドウの数で待っていたが、それだと**現れた瞬間に見張りを止めて**
     /// しまい、退かす前のものが残った。実際にそれで落ちている
     /// ((182,182)-(1382,800) がそのまま残り、pick 点を覆っていた)。
     /// 見張りが止まってよいのは、退かした結果がこちらから見えたときである。
     /// </para>
     /// <para>
     /// 見張りを <paramref name="thenWaitFor"/> のあいだも走らせ続けるのは、
-    /// フレームワークが自前の配置を<b>あとから</b>当てることがあるためである。
+    /// フレームワークが自前の配置を**あとから**当てることがあるためである。
     /// ツリーが出るころには窓の組み立てが終わっているので、そこまで持たせれば足りる。
     /// </para>
     /// <para>
-    /// <b>正直に書く: これは競争であって、構造的な保証ではない。</b>実測の余裕は
+    /// **正直に書く: これは競争であって、構造的な保証ではない。**実測の余裕は
     /// 「窓が現れてから退かし終えるまで」が WinUI 21ms / WPF 139ms で、滞留の 1000ms に対して
     /// 桁がひとつ違う。それでも保証ではないので、もし将来ここが揺れたら、
     /// ホスト側に窓の位置を渡す口を足して競争ごと消すこと
@@ -420,17 +420,17 @@ internal sealed class PickerHostProcess : IDisposable
         => OpenAndPlace(() => MainWindow, buttonId, thenWaitFor);
 
     /// <summary>
-    /// 同じことを、<b>メインウィンドウ以外</b>の窓のボタンに対して行う。
+    /// 同じことを、**メインウィンドウ以外**の窓のボタンに対して行う。
     /// </summary>
     /// <remarks>
     /// エディタの [追加] / [条件を編集] から子ピッカーを開く経路がこれである。
-    /// <b>ここを素の <c>Invoke()</c> にするとカスケードの非決定性がそのまま戻る</b> —
+    /// **ここを素の <c>Invoke()</c> にするとカスケードの非決定性がそのまま戻る** —
     /// 実測で 1 度踏んだ (子ピッカーがカスケードして pick 点を覆い、
     /// 滞留が明けた瞬間にピッカーが自分の
     /// <c>DesktopChildSiteBridge</c> を掴んで、以後 <c>TickAsync</c> の
     /// 「同じ点は再捕捉しない」で二度と捕捉しなかった)。
     /// 根 (<paramref name="root"/>) を遅延で受けるのは、退かした直後の WinUI では
-    /// <b>既に在る窓の要素が一時的に UIA から消える</b>ため、掴み直せるようにするためである。
+    /// **既に在る窓の要素が一時的に UIA から消える**ため、掴み直せるようにするためである。
     /// </remarks>
     private void OpenAndPlace(Func<AutomationElement> root, string buttonId, Action? thenWaitFor = null)
     {
@@ -453,10 +453,10 @@ internal sealed class PickerHostProcess : IDisposable
         watcher.Start();
         try
         {
-            // <b>待つこと。</b>素の RequireById (一発の FindFirst) にすると、フル実行のとき
+            // **待つこと。**素の RequireById (一発の FindFirst) にすると、フル実行のとき
             // だけ「AutomationId 'OpenPickerButton' の要素が見つかりません」という顔で
-            // 間欠に落ちる。<b>WinUI では、レイアウトが動いた直後に既に在る要素が
-            // 一時的に UIA から消える</b>ためで、実際には<b>まだ出ていないだけ</b>である。
+            // 間欠に落ちる。**WinUI では、レイアウトが動いた直後に既に在る要素が
+            // 一時的に UIA から消える**ためで、実際には**まだ出ていないだけ**である。
             // 待っても出てこなければ結局落ちるので、本当に無い場合を見逃すことはない。
             root().RequireByIdEventually(buttonId, Diagnostics).Invoke();
             // Invoke が返っても窓はまだ無いことがある (実測で WPF は 47ms で返り、窓は 381ms)
@@ -478,7 +478,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// ホストのトップレベルウィンドウを、割り付けで決めた場所へ退かす。
     /// </summary>
     /// <remarks>
-    /// <b>オーバーレイは動かさない。</b>あれは選択された要素の上に出るのが仕事であり、
+    /// **オーバーレイは動かさない。**あれは選択された要素の上に出るのが仕事であり、
     /// 退かしたら検査対象そのものを壊す。
     /// 既にその場所に在る窓は触らない — 5ms ごとに呼ばれるので、
     /// 毎回動かすとホストの UI スレッドに <c>WM_WINDOWPOSCHANGING</c> を撒き続けることになる。
@@ -527,7 +527,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// </summary>
     /// <remarks>
     /// ハーネス自身の検証である (docs/TESTING.md §4 の教訓 (b))。覆われていると捕捉は
-    /// <b>例外も診断も出さずに</b>起きないので、20 秒のタイムアウトとして受け取ると
+    /// **例外も診断も出さずに**起きないので、20 秒のタイムアウトとして受け取ると
     /// 原因が「実体化しなかった」に見える。ここで落とせば理由が残る。
     /// オーバーレイは対象要素の上に出るのが仕事なので数えない。
     /// </remarks>
@@ -553,11 +553,11 @@ internal sealed class PickerHostProcess : IDisposable
     }
 
     /// <summary>
-    /// ピッカーの要素ツリー。<b>呼ぶたびに探し直す</b>。
+    /// ピッカーの要素ツリー。**呼ぶたびに探し直す**。
     /// </summary>
     /// <remarks>
     /// 要素をキャッシュしないのは実 UIA のテストの基本規律である。UIA の要素は
-    /// 相手プロセスの状態への参照であり、掴んだまま使い続けると<b>古い答えを返し続ける</b>
+    /// 相手プロセスの状態への参照であり、掴んだまま使い続けると**古い答えを返し続ける**
     /// (実際にそうなった — WPF で選択が反映されているのに、掴んでおいた
     /// <c>TreeView</c> の要素からは永遠に「未選択」に見えた)。
     /// </remarks>
@@ -568,10 +568,10 @@ internal sealed class PickerHostProcess : IDisposable
         Diagnostics);
 
     /// <summary>
-    /// ピッカーの<b>ウィンドウ</b>。<c>Tree()</c> と同じく呼ぶたびに探し直す。
+    /// ピッカーの**ウィンドウ**。<c>Tree()</c> と同じく呼ぶたびに探し直す。
     /// </summary>
     /// <remarks>
-    /// メインウィンドウと区別する手掛かりは<b>要素ツリーを持っていること</b>である。
+    /// メインウィンドウと区別する手掛かりは**要素ツリーを持っていること**である。
     /// タイトルでは探さない — ローカライズされており、S4 はまさにその翻訳を
     /// 検査対象にしているので、探す条件に使うと循環する。
     /// </remarks>
@@ -582,7 +582,7 @@ internal sealed class PickerHostProcess : IDisposable
         Diagnostics);
 
     /// <summary>
-    /// 開いているピッカーのウィンドウ<b>すべて</b>。
+    /// 開いているピッカーのウィンドウ**すべて**。
     /// </summary>
     /// <remarks>
     /// <para>
@@ -590,44 +590,44 @@ internal sealed class PickerHostProcess : IDisposable
     /// ピッカーだけに ←/→ が届くこと) は 2 枚を別々に操作するので、全部要る。
     /// </para>
     /// <para>
-    /// <b>どれがどのオーバーレイのものかは、ここでも言えない。</b>ピッカーの窓と
+    /// **どれがどのオーバーレイのものかは、ここでも言えない。**ピッカーの窓と
     /// オーバーレイを対応づける手段が無いのは <see cref="Overlays"/> と同じ理由である。
     /// 言えるのは「n 枚ある」ことと「そのうち 1 枚を操作した」ことまでで、
-    /// assert は<b>集合か個数</b>で書く。
+    /// assert は**集合か個数**で書く。
     /// </para>
     /// </remarks>
     public IReadOnlyList<AutomationElement> PickerWindows()
         => [.. TopLevelWindows().Where(w => w.ById(Profile.TreeAutomationId) is not null)];
 
     /// <summary>
-    /// このホストが出している<b>枠</b>のウィンドウ (docs/DESIGN.md §10)。
+    /// このホストが出している**枠**のウィンドウ (docs/DESIGN.md §10)。
     /// </summary>
     /// <remarks>
     /// <para>
     /// オーバーレイはトップレベルウィンドウで、ピッカーのウィンドウの子ではない。
-    /// 所有関係は辿れないので <b>pid + クラス名</b>で絞る。
+    /// 所有関係は辿れないので **pid + クラス名**で絞る。
     /// </para>
     /// <para>
-    /// <b>1 枚のピッカーはウィンドウを 2 つ出す</b> (docs/DESIGN.md §10)。枠と確定アイコンは別の窓で、
-    /// クラス名だけが唯一の見分ける手掛かりである。ここが返すのは<b>枠だけ</b>で、
+    /// **1 枚のピッカーはウィンドウを 2 つ出す** (docs/DESIGN.md §10)。枠と確定アイコンは別の窓で、
+    /// クラス名だけが唯一の見分ける手掛かりである。ここが返すのは**枠だけ**で、
     /// アイコンは <see cref="IconOverlays"/> が返す。
-    /// <b>どちらを数えているのかを呼ぶ側に明示させる</b>のが狙いである —
+    /// **どちらを数えているのかを呼ぶ側に明示させる**のが狙いである —
     /// 1 つの関数で両方返すと「オーバーレイが 2 つある」がピッカー 2 枚なのか
     /// 枠 + アイコンなのか区別できなくなり、A18 の退行検査が意味を失う。
     /// </para>
     /// <para>
-    /// <b>どのオーバーレイがどのピッカーのものかは言えない。</b>タイトルも AutomationId も
-    /// 持たず、同じ種類の窓どうしではクラス名も共通なので、<b>矩形以外に見分ける手段が無い</b>。
-    /// だから S1 の assert は「対応付け」ではなく<b>集合の一致</b>で書く。
+    /// **どのオーバーレイがどのピッカーのものかは言えない。**タイトルも AutomationId も
+    /// 持たず、同じ種類の窓どうしではクラス名も共通なので、**矩形以外に見分ける手段が無い**。
+    /// だから S1 の assert は「対応付け」ではなく**集合の一致**で書く。
     /// </para>
     /// </remarks>
     public IReadOnlyList<AutomationElement> Overlays() => WindowsOfClass(OverlayClassName);
 
     /// <summary>
-    /// このホストが出している<b>確定アイコン</b>のウィンドウ (docs/DESIGN.md §10)。
+    /// このホストが出している**確定アイコン**のウィンドウ (docs/DESIGN.md §10)。
     /// </summary>
     /// <remarks>
-    /// <b>クリックを受け取るのはこちらだけである。</b>枠の窓は <c>WS_EX_TRANSPARENT</c> で
+    /// **クリックを受け取るのはこちらだけである。**枠の窓は <c>WS_EX_TRANSPARENT</c> で
     /// ヒットテストから外れているので、押せるかどうかを見る検査はこちらを見る。
     /// </remarks>
     public IReadOnlyList<AutomationElement> IconOverlays() => WindowsOfClass(IconOverlayClassName);
@@ -657,7 +657,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// アイコンのウィンドウクラス (<c>OverlayController.IconWindowClassName</c> と同じ綴り)。
     /// </summary>
     /// <remarks>
-    /// 上と同じ理由で綴りを写している。<b>枠のクラス名の前方一致では絞れない</b> —
+    /// 上と同じ理由で綴りを写している。**枠のクラス名の前方一致では絞れない** —
     /// <c>"UiaTriggerOverlay"</c> は <c>"UiaTriggerOverlayIcon"</c> の接頭辞なので、
     /// 前方一致にすると枠を数えるつもりでアイコンまで数える。完全一致で絞ること。
     /// </remarks>
@@ -701,7 +701,7 @@ internal sealed class PickerHostProcess : IDisposable
         var lines = new List<string>
         {
             FormattableString.Invariant($"ホスト: {Profile.Name} (pid {_process.Id})"),
-            // 「捕捉が起きなかった」の原因はほぼ常に<b>指した先に何が居たか</b>である。
+            // 「捕捉が起きなかった」の原因はほぼ常に**指した先に何が居たか**である。
             // ピッカー自身 (= 自プロセス) を指してしまうと、例外も診断も出ずに何も起きない
             DescribePickPoint(),
         };
@@ -770,19 +770,19 @@ internal sealed class PickerHostProcess : IDisposable
     }
 
     /// <summary>
-    /// ホストの未処理例外ログだけを読む。<b>UIA を一切触らない</b>。
+    /// ホストの未処理例外ログだけを読む。**UIA を一切触らない**。
     /// </summary>
     /// <remarks>
     /// <see cref="Diagnostics"/> は使えない場面がある。あれはデスクトップの子を列挙するので、
-    /// <b>応答しない窓が 1 つでも在ると一緒に詰まる</b> (実測で 12 秒。しかも
+    /// **応答しない窓が 1 つでも在ると一緒に詰まる** (実測で 12 秒。しかも
     /// <c>Win32Exception</c> を投げることがあり、<c>Ui.Until</c> の診断収集はそれを捕まえないので
-    /// <b>本当の失敗を置き換えて消す</b> — docs/TESTING.md §1)。
+    /// **本当の失敗を置き換えて消す** — docs/TESTING.md §1)。
     /// 塞がれたアプリを相手にするテストは、こちらとあらかじめ掴んだ HWND だけで診断を組む。
     /// </remarks>
     public string HostLog() => ReadLog();
 
     /// <summary>
-    /// ホストの未処理例外ログ。<b>空であることに意味がある</b> — WinUI の
+    /// ホストの未処理例外ログ。**空であることに意味がある** — WinUI の
     /// 「黙って失敗する層」はここにしか痕跡を残さないことがある (docs/DESIGN.md §12)。
     /// </summary>
     private string ReadLog()
@@ -840,7 +840,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// テストプロセスを PerMonitorV2 にする。
     ///
     /// DPI 非認識のままだと Windows が座標を仮想化するため、<c>--pick-at</c> に渡した座標が
-    /// 狙った要素の外を指し、<b>例外にならずに別の要素を捕捉する</b> (docs/DESIGN.md A19)。
+    /// 狙った要素の外を指し、**例外にならずに別の要素を捕捉する** (docs/DESIGN.md A19)。
     /// T3 の <c>TestTargetProcess.RequireCoordinateSafeProcess</c> と同じ理由・同じ形である。
     /// </summary>
     private static void RequireCoordinateSafeProcess()
@@ -864,26 +864,26 @@ internal sealed class PickerHostProcess : IDisposable
     /// <list type="number">
     /// <item><description>
     /// <c>bin/**/native/</c> を除く。これは Native AOT の中間生成物で、隣に
-    /// WindowsAppSDK ランタイムも <c>resources.pri</c> も無く<b>起動しない</b>。
+    /// WindowsAppSDK ランタイムも <c>resources.pri</c> も無く**起動しない**。
     /// </description></item>
     /// <item><description>
-    /// 候補が無ければ「1 つ目」で妥協せず<b>落ちる</b>。妥協すると、別構成の古いビルドを
+    /// 候補が無ければ「1 つ目」で妥協せず**落ちる**。妥協すると、別構成の古いビルドを
     /// 黙って起動して「なぜか動かない」だけが残る。
     /// </description></item>
     /// </list>
     /// <para>
-    /// <b>候補が複数あるときは、いちばん新しいものを採る。</b>
+    /// **候補が複数あるときは、いちばん新しいものを採る。**
     /// 同じ Release 構成でも出力先は 1 つではない — ソリューションからビルドすると
     /// <c>bin/x64/Release/…</c> に、プロジェクト単体でビルドすると <c>bin/Release/…</c> に出る。
-    /// <b>列挙順で先に来たほう</b>を採ると、一度でも単体ビルドをしたあとは
-    /// T4 が<b>古いバイナリを黙って起動しつづけ</b>、「直したはずの挙動が直っていない」
+    /// **列挙順で先に来たほう**を採ると、一度でも単体ビルドをしたあとは
+    /// T4 が**古いバイナリを黙って起動しつづけ**、「直したはずの挙動が直っていない」
     /// という誤った観測になる (実際に踏んだ)。
-    /// これは T4 全体を<b>間違った理由で緑</b>にしうる形なので、時刻で選ぶ。
+    /// これは T4 全体を**間違った理由で緑**にしうる形なので、時刻で選ぶ。
     /// </para>
     /// </remarks>
     private static string ExecutablePathFor(PickerHostProfile profile, bool preferPublished)
     {
-        // 発行レイアウトを見るのは<b>それを主張しているテストだけ</b>である (S4)。
+        // 発行レイアウトを見るのは**それを主張しているテストだけ**である (S4)。
         //
         // 全体の既定にはしない。publish/ は一度作ると古いまま残るので、既定にすると
         // 他の T4 が「古い発行物を黙って検査しつづける」ことになる (実際に踏んだ)。
@@ -938,7 +938,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// <remarks>
     /// CI の <c>aot</c> ジョブがここへ発行し、S4 がそれを起動する。
     /// <c>RequiredSiblingFile</c> (WinUI なら <c>.pri</c>) の判定は発行レイアウトにもそのまま効く —
-    /// <b>むしろここが本番である</b>。<c>.pri</c> が落ちるのは発行のときだからで、
+    /// **むしろここが本番である**。<c>.pri</c> が落ちるのは発行のときだからで、
     /// <c>bin/</c> ではまず起きない。
     /// </remarks>
     internal static string? PublishedExecutable(PickerHostProfile profile)

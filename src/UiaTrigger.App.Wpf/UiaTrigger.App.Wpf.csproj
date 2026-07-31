@@ -7,7 +7,7 @@
     D9 (ピッカー → 監視の E2E ショーケース) は WinUI 版だけに置く — 3 重化しても
     得るものが無い。この非対称は README に書いてある。
 
-    PublishAot は<b>付けない</b>。WPF は Native AOT に対応していない。
+    PublishAot は**付けない**。WPF は Native AOT に対応していない。
     AOT 発行の対象は TestHost と WinUI ホストのままである。
   -->
   <PropertyGroup>

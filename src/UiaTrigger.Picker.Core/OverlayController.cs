@@ -1,16 +1,16 @@
 ﻿// 選択要素に枠を重ねるクリックスルーのレイヤードウィンドウ + 低レベルキーボードフック。
-// 専用スレッドで<b>ウィンドウを 2 つ</b>作成しメッセージループを回す。
+// 専用スレッドで**ウィンドウを 2 つ**作成しメッセージループを回す。
 //
-// <b>枠とアイコンは別のウィンドウである (docs/DESIGN.md §10)。</b>
-//   ・枠     … WS_EX_TRANSPARENT。<b>窓ごと</b>ヒットテストから外れるので常にクリックスルー
+// **枠とアイコンは別のウィンドウである (docs/DESIGN.md §10)。**
+//   ・枠     … WS_EX_TRANSPARENT。**窓ごと**ヒットテストから外れるので常にクリックスルー
 //   ・アイコン … 全ピクセル不透明。窓の矩形がそのまま当たり判定で、WM_LBUTTONDOWN を受け取る
 //
-// <b>WM_NCHITTEST では直せない。</b>UpdateLayeredWindow のレイヤードウィンドウでは
+// **WM_NCHITTEST では直せない。**UpdateLayeredWindow のレイヤードウィンドウでは
 // ヒットテストがピクセルごとのアルファで決まり、不透明なピクセルはそのウィンドウのものになる。
-// そこで HTTRANSPARENT を返してもクリックは下へ渡されず<b>落ちる</b>
+// そこで HTTRANSPARENT を返してもクリックは下へ渡されず**落ちる**
 // (実測: 全点 HTTRANSPARENT の較正でも枠線のクリックは下のアプリに届かない — docs/DESIGN.md §10)。
 // クリックスルーするのはアルファ 0 のピクセルだけである。
-// <b>2 つの窓を 1 つに戻すとこの不具合が再発する。</b>
+// **2 つの窓を 1 つに戻すとこの不具合が再発する。**
 //
 // スレッドは 1 本のままである — 2 つの窓は同じオーバーレイスレッド / 同じメッセージループに
 // 載せる (docs/DESIGN.md §3 の「スレッドを増やさない」決定を守る)。
@@ -34,7 +34,7 @@ internal sealed class OverlayController : IOverlay
 
     private const string WindowClassName = "UiaTriggerOverlay";
 
-    /// <summary>アイコンの窓のクラス名。<b>枠と別にしてある</b>。</summary>
+    /// <summary>アイコンの窓のクラス名。**枠と別にしてある**。</summary>
     /// <remarks>
     /// 外から数えるとき (T4 の <c>PickerHostProcess.Overlays()</c>) に、枠とアイコンを
     /// 区別できないと「1 枚のピッカーにオーバーレイ 1 つ」が言えなくなる。
@@ -98,7 +98,7 @@ internal sealed class OverlayController : IOverlay
     /// <summary>枠の窓。アイコンは <see cref="IconHwnd"/> の別の窓である (docs/DESIGN.md §10)。</summary>
     public nint OverlayHwnd => _hwnd;
 
-    /// <summary>確定アイコンの窓。<b>クリックを受け取るのはこちらだけである。</b></summary>
+    /// <summary>確定アイコンの窓。**クリックを受け取るのはこちらだけである。**</summary>
     public nint IconHwnd => _iconHwnd;
 
     /// <summary>指定スクリーン矩形に枠+確定アイコンを表示する。</summary>
@@ -176,7 +176,7 @@ internal sealed class OverlayController : IOverlay
                 // その結果「直前に居たウィンドウが出していた形のまま」になり、
                 // 待ち カーソルを出しているアプリの上から確定アイコンへ移すと
                 // 砂時計のまま張り付く。矢印を明示しておく。
-                // <b>効くのはアイコンの窓のほうである</b> — 枠は WS_EX_TRANSPARENT で
+                // **効くのはアイコンの窓のほうである** — 枠は WS_EX_TRANSPARENT で
                 // ヒットテストから外れており、カーソルがその上に「乗る」ことがない。
                 // 枠にも付けておくのは、外して非対称にする理由が無いためである
                 hCursor = PInvoke.LoadCursor(default, PInvoke.IDC_ARROW),
@@ -210,17 +210,17 @@ internal sealed class OverlayController : IOverlay
         HMODULE module = PInvoke.GetModuleHandle(default(PCWSTR));
         EnsureWindowClassesRegistered(module);
 
-        // 枠の窓。WS_EX_TRANSPARENT が<b>この直しの本体</b>である —
+        // 枠の窓。WS_EX_TRANSPARENT が**この直しの本体**である —
         // これが付いた窓はヒットテストから丸ごと外れ、クリックは必ず下のウィンドウへ渡る。
         // ピクセルのアルファに左右されないので、不透明な枠線の上でも抜ける (docs/DESIGN.md §10)
         _hwnd = CreateOverlayWindow(module, WindowClassName, CommonExStyle | WINDOW_EX_STYLE.WS_EX_TRANSPARENT);
 
-        // アイコンの窓。<b>WS_EX_TRANSPARENT を付けてはいけない</b> — 付けると確定アイコンが
+        // アイコンの窓。**WS_EX_TRANSPARENT を付けてはいけない** — 付けると確定アイコンが
         // 押せなくなる。全ピクセルが不透明なので、窓の矩形がそのまま当たり判定になる
         _iconHwnd = CreateOverlayWindow(module, IconWindowClassName, CommonExStyle);
 
         // WndProc がこのインスタンスを引けるようにする (メッセージループ開始前に登録)。
-        // <b>2 つとも同じインスタンスを指す</b>
+        // **2 つとも同じインスタンスを指す**
         if (_hwnd != default)
         {
             _instancesByHwnd[_hwnd] = this;
@@ -263,14 +263,14 @@ internal sealed class OverlayController : IOverlay
         }
         switch (msg)
         {
-            // <b>WM_DESTROY はこの引き (登録表の索引) の後ろに置いてある。</b>どちらの窓かを
+            // **WM_DESTROY はこの引き (登録表の索引) の後ろに置いてある。**どちらの窓かを
             // 知らないと WM_QUIT を投げてよいか決められないためである。引き換えに、Dispose が
-            // 3 秒で諦めて Unregister した<b>後に</b>窓が壊れた場合、ここへ来ても WM_QUIT が
+            // 3 秒で諦めて Unregister した**後に**窓が壊れた場合、ここへ来ても WM_QUIT が
             // 出ず、その経路ではオーバーレイスレッドが残る。スレッドは background なので
             // プロセス終了は妨げない。意図した取引である — その状況では既にスレッドが
             // 応答していない
             case PInvoke.WM_DESTROY:
-                // <b>畳むのは枠の窓のときだけである。</b>窓が 2 つになったので、どちらの
+                // **畳むのは枠の窓のときだけである。**窓が 2 つになったので、どちらの
                 // WM_DESTROY でも WM_QUIT を投げると、片方を壊した時点でループが抜け、
                 // もう片方が壊されないまま残る
                 if (hwnd == self._hwnd)
@@ -292,14 +292,14 @@ internal sealed class OverlayController : IOverlay
                 PInvoke.DestroyWindow(self._iconHwnd);
                 PInvoke.DestroyWindow(self._hwnd);
                 return (LRESULT)0;
-            // WM_NCHITTEST はもう扱わない。枠は WS_EX_TRANSPARENT で<b>窓ごと</b>
+            // WM_NCHITTEST はもう扱わない。枠は WS_EX_TRANSPARENT で**窓ごと**
             // ヒットテストから外れており、アイコンは全ピクセルが不透明なので既定の
             // HTCLIENT でよい。HTTRANSPARENT を返す形はレイヤードウィンドウでは
             // クリックスルーにならず、クリックが落ちるだけである (docs/DESIGN.md §10 の実測)
             case PInvoke.WM_LBUTTONDOWN:
                 // 枠は WS_EX_TRANSPARENT でヒットテストから外れているので、ここへ来るのは
                 // アイコンの窓だけである。出どころを見るのは、枠から来たとしたら
-                // <b>それ自体がクリックスルーの壊れ</b>であり、確定させてはいけないからである
+                // **それ自体がクリックスルーの壊れ**であり、確定させてはいけないからである
                 if (hwnd == self._iconHwnd)
                 {
                     self.ConfirmClicked?.Invoke();
@@ -357,21 +357,21 @@ internal sealed class OverlayController : IOverlay
         UpdateLayered(_hwnd, frameWidth, frameHeight, frameX, frameY, px => OverlayGeometry.PaintFrame(rect, dpi, px));
         UpdateLayered(_iconHwnd, iconSize, iconSize, iconX, iconY, px => OverlayGeometry.PaintIcon(dpi, px));
 
-        // 最前面を<b>描くたびに主張し直す</b> (docs/DESIGN.md §10)。
+        // 最前面を**描くたびに主張し直す** (docs/DESIGN.md §10)。
         //
         // WS_EX_TOPMOST は「トップモーストの帯に入る」だけで、帯の中の順位は
         // 最後に主張したものが勝つ。既に可視なウィンドウへの ShowWindow は
         // Z を動かさないので、他のトップモーストウィンドウ (対象アプリが
         // TopMost だとまさにそれ) が一度でも順位を主張すると、
-        // <b>オーバーレイは以後ずっとその下に居続ける</b>。
+        // **オーバーレイは以後ずっとその下に居続ける**。
         //
         // 実測で再現した: 捕捉直後はアイコンの上で WindowFromPoint がオーバーレイを返すが、
         // 対象アプリを帯の先頭へ出し直すと対象アプリのボタンを返すようになる。
         // 枠は見えたまま、確定アイコンだけが押せなくなる — 例外も出ない。
         //
-        // <b>順番に意味がある。</b>枠 → アイコンの順に主張するので、アイコンが上に来る。
+        // **順番に意味がある。**枠 → アイコンの順に主張するので、アイコンが上に来る。
         // 2 つが重なるのは枠の右上の角だけで、枠はそこにも枠線を描いているため、
-        // 逆順にすると<b>アイコンの左下が枠線に隠れる</b>
+        // 逆順にすると**アイコンの左下が枠線に隠れる**
         ClaimTopmost(_hwnd);
         ClaimTopmost(_iconHwnd);
     }

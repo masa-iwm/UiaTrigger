@@ -9,7 +9,7 @@ namespace UiaTrigger.Tests;
 /// 公開 API の形を固定する (docs/DESIGN.md §3 / C7 / §12)。
 ///
 /// 「Picker が公開 API だけで書ける」「COM 型が漏れていない」は、
-/// どちらも <b>足し戻せば静かに元に戻る</b> 類の性質である。ここで縛る。
+/// どちらも **足し戻せば静かに元に戻る** 類の性質である。ここで縛る。
 /// </summary>
 public sealed class PublicApiTests
 {

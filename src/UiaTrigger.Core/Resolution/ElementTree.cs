@@ -10,7 +10,7 @@ namespace UiaTrigger.Resolution;
 
 /// <summary>
 /// 解決ループから見た「要素 1 個」。
-/// 識別に使うプロパティは生成時に <b>1 往復で</b> まとめて読んである (docs/DESIGN.md B1) ため、
+/// 識別に使うプロパティは生成時に **1 往復で** まとめて読んである (docs/DESIGN.md B1) ため、
 /// これらの取得は追加のクロスプロセス呼び出しを起こさない。
 /// </summary>
 internal interface IElementNode
@@ -52,7 +52,7 @@ internal interface IElementTree
     IElementNode? GetWindow(nint hwnd);
 
     /// <summary>
-    /// 指定ビューでの子要素を <b>1 往復で</b> 取得する。
+    /// 指定ビューでの子要素を **1 往復で** 取得する。
     /// 返ったノードのうち保持しないものは <see cref="Release"/> すること。
     /// </summary>
     /// <param name="parent">親要素。</param>
@@ -74,7 +74,7 @@ internal interface IElementTree
 
     /// <summary>
     /// <paramref name="scope"/> の部分木から、指定ビューで <paramref name="automationId"/> が
-    /// 一致する要素を最大 <paramref name="max"/> 件 <b>1 往復で</b> 取得する
+    /// 一致する要素を最大 <paramref name="max"/> 件 **1 往復で** 取得する
     /// (<see cref="ElementSearch"/> の Search 方式)。
     /// </summary>
     /// <remarks>

@@ -164,7 +164,7 @@ public sealed class WindowCandidateCacheTests
     /// 記録時と違うクラス名になっていても候補として残ること。
     ///
     /// ClassName 一致を実質必須にすると、不一致だけでそのアプリのトリガーは
-    /// <b>恒久的に</b>解決不能になる (docs/DESIGN.md A4)。
+    /// **恒久的に**解決不能になる (docs/DESIGN.md A4)。
     /// </summary>
     [Fact]
     public void GetCandidates_StillMatchesWhenAWinFormsClassNameTokenChanged()

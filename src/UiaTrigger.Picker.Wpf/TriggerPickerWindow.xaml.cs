@@ -64,19 +64,19 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// <remarks>
     /// <para>
     /// 条件欄の行は <c>Auto</c> である — 掴まれるまでは内容ぶんの高さにするという決定
-    /// (docs/DESIGN.md §12) を守るためで、そこは変えない。ところが <b><c>Auto</c> の行は子に
-    /// 「欲しいだけ」与える</b>ので、包んである <c>ScrollViewer</c> のビューポートが中身と
-    /// 同じ高さになり、<b>スクロールが一生起きない</b>。窓を縮めると <c>Grid</c> が
+    /// (docs/DESIGN.md §12) を守るためで、そこは変えない。ところが **<c>Auto</c> の行は子に
+    /// 「欲しいだけ」与える**ので、包んである <c>ScrollViewer</c> のビューポートが中身と
+    /// 同じ高さになり、**スクロールが一生起きない**。窓を縮めると <c>Grid</c> が
     /// 下を黙って切り落とすだけになる。
     /// </para>
     /// <para>
-    /// <c>ScrollViewer</c> を置いてあることは T1 が見ていたが、<b>置いてあることは
-    /// スクロールできることを意味しない</b> — 上限を渡さない限りビューポートは伸び続ける。
+    /// <c>ScrollViewer</c> を置いてあることは T1 が見ていたが、**置いてあることは
+    /// スクロールできることを意味しない** — 上限を渡さない限りビューポートは伸び続ける。
     /// </para>
     /// <para>
     /// Windows Forms 側は <c>SizeTheConditionPane</c> で同じことをしている。あちらは
     /// <c>SplitContainer</c> が区画を境界で切るので上限が要らず、代わりに
-    /// <c>AutoScroll</c> が効く。<b>ここだけが上限を自分で渡す必要がある。</b>
+    /// <c>AutoScroll</c> が効く。**ここだけが上限を自分で渡す必要がある。**
     /// </para>
     /// <para>
     /// 引く 2 つ (プロパティ一覧の最小高さ・区切りの実寸) はどちらも XAML 側が正である。
@@ -122,7 +122,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         _strings = strings;
         ApplyStrings();
 
-        // プレゼンターは<b>コントロールに初期値を入れる前に</b>作る。
+        // プレゼンターは**コントロールに初期値を入れる前に**作る。
         // ViewCombo.SelectedIndex / AutoSelectToggle.IsChecked への代入はその場で
         // SelectionChanged / Checked を上げ、ハンドラーが _presenter を触るためである
         // (逆順にすると、ピッカーを開いた瞬間に NullReferenceException になる)
@@ -136,8 +136,8 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         OnCombo.ItemsSource = Enum.GetValues<TriggerOn>();
         CondCombo.ItemsSource = Enum.GetValues<ComparisonOp>();
 
-        // 見るのはウィンドウのアクティブ状態ではなく<b>ツリーがキーボードフォーカスを
-        // 持っているか</b>である。ホバー中はフォーカスがピッカーに残るので、
+        // 見るのはウィンドウのアクティブ状態ではなく**ツリーがキーボードフォーカスを
+        // 持っているか**である。ホバー中はフォーカスがピッカーに残るので、
         // ウィンドウ単位だと重なり切替 (←/→) が一度他アプリをクリックするまで使えない
         ElementTree.IsKeyboardFocusWithinChanged += (_, e) =>
             _presenter.SetTreeHasFocus(e.NewValue is true);
@@ -201,7 +201,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     public void LoadDefinition(TriggerDefinition definition)
     {
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
-        // 静止しているだけで<b>編集対象が別の要素に差し替わる</b>
+        // 静止しているだけで**編集対象が別の要素に差し替わる**
         AutoSelectToggle.IsChecked = false;
         _presenter.LoadDefinition(definition);
     }
@@ -428,8 +428,8 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
 
     /// <summary>数値欄に書く。null は空欄 (= 値なし)。</summary>
     /// <remarks>
-    /// <see cref="ReadNumber"/> と同じカルチャで書くこと。ずれると<b>読み込んだ値を
-    /// そのまま確定するだけで条件が変わる</b> — 書式の差なので例外にもならない。
+    /// <see cref="ReadNumber"/> と同じカルチャで書くこと。ずれると**読み込んだ値を
+    /// そのまま確定するだけで条件が変わる** — 書式の差なので例外にもならない。
     /// </remarks>
     internal static void WriteNumber(TextBox box, double? value)
         => box.Text = value?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;
@@ -443,7 +443,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// 「表示された値をそのまま打ち直すと通らない」ことになる (docs/DESIGN.md L7)。
     /// </para>
     /// <para>
-    /// 読めないときに 0 を返さないこと。0 は<b>正当な値</b>なので、打ち間違いが
+    /// 読めないときに 0 を返さないこと。0 は**正当な値**なので、打ち間違いが
     /// 「0 という条件」として静かに保存されてしまう。null なら検証が欠落として弾く。
     /// </para>
     /// </remarks>
@@ -544,7 +544,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// <remarks>
     /// <see cref="PickerTreeNode"/> は親を持たないので経路を辿れない。生成済みのコンテナだけを
     /// 深さ優先で降りて同一性で突き合わせる。閉じた段のコンテナは生成されていないため、
-    /// 呼び出し側は<b>先に祖先を開いてから</b>ここへ来る必要がある。
+    /// 呼び出し側は**先に祖先を開いてから**ここへ来る必要がある。
     /// </remarks>
     private TreeViewItem? FindContainer(PickerTreeNode node)
     {

@@ -9,11 +9,11 @@ namespace UiaTrigger.Tests;
 ///
 /// <para>
 /// <see cref="SweepDebouncer"/> と同じく <c>TimeProvider</c> を差し替えるので、
-/// <b>実時間を一切待たない</b>。間隔と backoff は待って確かめると
+/// **実時間を一切待たない**。間隔と backoff は待って確かめると
 /// 「待ち時間を延ばしただけのテスト」になり、値そのものを固定できない。
 /// </para>
 /// <para>
-/// ここで見ているのは<b>ペース配分</b>だけである。「購読が失われたら実際に張り直る」ほうは、
+/// ここで見ているのは**ペース配分**だけである。「購読が失われたら実際に張り直る」ほうは、
 /// 相手が応答しない状況を注入する継ぎ目が無いので T1 では書けない。
 /// </para>
 /// </summary>
@@ -31,7 +31,7 @@ public sealed class SubscriptionRepairTests
     }
 
     /// <summary>
-    /// <b>予約しなければ何も起きないこと。</b>
+    /// **予約しなければ何も起きないこと。**
     ///
     /// これが「ポーリングしない」の中身である。時間だけ進めても鳴ってはいけない。
     /// </summary>
@@ -72,7 +72,7 @@ public sealed class SubscriptionRepairTests
     ///
     /// <para>
     /// 再試行 1 回は掃引 1 回で、掃引はピッカーと共有している UIA スレッドの上で
-    /// 相手ごとに待たされうる。<b>塞がったままの相手を 2 秒ごとに叩き続けない</b>ための
+    /// 相手ごとに待たされうる。**塞がったままの相手を 2 秒ごとに叩き続けない**ための
     /// 性質なので、間隔そのものを固定する。
     /// </para>
     /// </summary>
@@ -105,7 +105,7 @@ public sealed class SubscriptionRepairTests
     /// <summary>
     /// 復旧したら間隔が最初へ戻ること。
     ///
-    /// 戻さないと、一度長く塞がれたあとは<b>次に壊れたときの復旧まで 30 秒待つ</b>ことになる。
+    /// 戻さないと、一度長く塞がれたあとは**次に壊れたときの復旧まで 30 秒待つ**ことになる。
     /// </summary>
     [Fact]
     public void Recovered_PutsTheIntervalBackToTheStart()

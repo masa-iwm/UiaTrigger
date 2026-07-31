@@ -44,13 +44,13 @@
         <!--
             要素ツリー。
 
-            深い階層のインデントで行が右へはみ出すと、既定では<b>スクロールできずに消える</b>。
+            深い階層のインデントで行が右へはみ出すと、既定では**スクロールできずに消える**。
             実測した VS Code の経路は 17 段あり、この道具の主用途そのものである。
 
             条件が 2 つあり、片方だけでは効かない:
 
             (1) 内部 ScrollViewer の HorizontalScrollMode を有効にする。
-                <b>ここに ScrollViewer.HorizontalScrollMode を書いても効かない。</b>
+                **ここに ScrollViewer.HorizontalScrollMode を書いても効かない。**
                 ListView は自分に付いた添付プロパティをテンプレート内の ScrollViewer へ
                 TemplateBinding で流すが、TreeView のテンプレートは内側の TreeViewList を
                 置くだけでその中継をしない。コードビハインドの OnElementTreeLoaded で
@@ -97,13 +97,13 @@
             ツリーと右側の境界。窓を縮めるとどちらも狭くなるので、どちらを優先するかを
             ユーザーが決められるようにする。
 
-            <b>WinUI3 には標準の GridSplitter が無い</b> — WPF (System.Windows.Controls) にも
+            **WinUI3 には標準の GridSplitter が無い** — WPF (System.Windows.Controls) にも
             Windows Forms (SplitContainer) にもあるのに、ここだけが無い。自作すると
             掴み代・カーソルの切り替え・キーボードでの寸法変更・テーマ追従を全部自分で持つ
             ことになるので、CommunityToolkit の Sizers を足した (Directory.Packages.props に理由)。
 
-            ResizeDirection / ResizeBehavior は<b>明示する</b>。既定の Auto / BasedOnAlignment は
-            配置から向きを推測するが、推測が外れても例外にはならず<b>動かないだけ</b>である。
+            ResizeDirection / ResizeBehavior は**明示する**。既定の Auto / BasedOnAlignment は
+            配置から向きを推測するが、推測が外れても例外にはならず**動かないだけ**である。
 
             名前は x:Uid から入れる。無名だと SizerAutomationPeer が x:Name ("TreeSplitter") を
             そのまま読み上げるので、名前が無いのと大差ない。
@@ -129,7 +129,7 @@
                 プロパティ一覧も水平スクロールできるようにする。長い値
                 (BoundingRectangle / HelpText 等) が右で切れると読めない。
 
-                こちらは素の ListView なので添付プロパティが<b>そのまま効く</b> —
+                こちらは素の ListView なので添付プロパティが**そのまま効く** —
                 自分に付いた ScrollViewer.* をテンプレート内の ScrollViewer へ
                 TemplateBinding で流すためである。中継が無いのは TreeView だけで、
                 そちらはコードビハインドで内側の ListControl に付けている。
@@ -155,7 +155,7 @@
                 下の ScrollViewer が無いと黙って切れる。
 
                 ここに BorderThickness="0,1,0,0" の区切り線を足さないこと —
-                <b>GridSplitter 自体が線を兼ねる</b>ので、足すと線が 2 本出る。
+                **GridSplitter 自体が線を兼ねる**ので、足すと線が 2 本出る。
             -->
             <controls:GridSplitter x:Name="ConditionSplitter" x:Uid="ConditionSplitter" Grid.Row="1"
                                    HorizontalAlignment="Stretch" VerticalAlignment="Center"
@@ -164,14 +164,14 @@
             <!--
                 横スクロール (docs/DESIGN.md §12)。
 
-                条件欄の行は Orientation="Horizontal" の StackPanel で<b>折り返さない</b>。
+                条件欄の行は Orientation="Horizontal" の StackPanel で**折り返さない**。
                 いちばん広い行は 180+180+180+160 に間隔 24 で 724px あり、
                 横スクロールが無いと窓を狭めたときに右が黙って切れる。
 
-                <b>WPF / Windows Forms は同じ形の不具合を持たない。</b>あちらの行は
+                **WPF / Windows Forms は同じ形の不具合を持たない。**あちらの行は
                 WrapPanel なので折り返して縦に伸び (= この ScrollViewer に相当する
                 縦スクロールが受け止める)、WinForms は AutoScroll が横バーも出す。
-                <b>ここだけが自分で有効にする必要がある。</b>
+                **ここだけが自分で有効にする必要がある。**
 
                 有効にすると測りの使える幅が無限になり、TextWrapping="Wrap" が効かなくなる。
                 ConfirmedText の折り返し幅は OnRightPaneSizeChanged が渡す。

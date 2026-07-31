@@ -10,11 +10,11 @@ namespace UiaTrigger.Tests;
 /// この欠陥は実機でプロセスごと落とす。<c>FindAllBuildCache</c> の中でアクセス違反
 /// (0xc0000005) になり、例外ではないのでアプリのハンドラーには何も届かない
 /// (イベントログにしか残らない)。原因は <see cref="UiaElement"/> の
-/// <b>use-after-free</b> である: 生の COM ポインターを取り出した後、JIT は持ち主を
-/// 到達不能とみなしてよく、そうなるとファイナライザーが<b>別スレッドで</b> RCW を解放する。
+/// **use-after-free** である: 生の COM ポインターを取り出した後、JIT は持ち主を
+/// 到達不能とみなしてよく、そうなるとファイナライザーが**別スレッドで** RCW を解放する。
 /// </para>
 /// <para>
-/// <b>ここが源泉テストである理由</b>: 再現には GC のタイミングが要る。意図的に退行を入れて
+/// **ここが源泉テストである理由**: 再現には GC のタイミングが要る。意図的に退行を入れて
 /// 「確実に落ちるテスト」は書けない — 落ちるかどうかが GC 次第だからである。そこで
 /// 「危険な書き方ができないこと」自体を固定する。
 /// </para>
@@ -27,7 +27,7 @@ public sealed class ElementBorrowTests
     /// 借用スコープが閉じるときに <c>GC.KeepAlive</c> していること。
     ///
     /// <para>
-    /// この 1 行が<b>この仕組みの全部</b>である。消してもビルドは通り、テストも
+    /// この 1 行が**この仕組みの全部**である。消してもビルドは通り、テストも
     /// (これ以外は) 通り、ほとんどの場合は動く。GC がたまたま走ったときにだけ
     /// プロセスが落ちるようになる — つまり消えたことに気づく手段が他に無い。
     /// </para>
@@ -56,13 +56,13 @@ public sealed class ElementBorrowTests
     /// <para>
     /// <c>Unwrap()</c> のような「取り出して使う」形である限り、
     /// 呼び出しのあいだ持ち主が生きている保証はどこにも無い。可視性 (private) でも塞げるが、
-    /// <b>internal に戻すだけで元に戻る</b>ので、この型が生ポインターを返さないこと自体を見る。
+    /// **internal に戻すだけで元に戻る**ので、この型が生ポインターを返さないこと自体を見る。
     /// </para>
     /// <para>
     /// 見るのは <c>UiaElement.cs</c> だけである。解決層には別物の
     /// <c>UiaElementNode.Unwrap(IElementNode)</c> があり、そちらは寿命の管理が違う
     /// (解決ループが明示的に解放する)。名前だけで一律に禁じると、関係の無いものを巻き込む。
-    /// <b>解決層が無防備なわけではない</b> — そちらの安全性は
+    /// **解決層が無防備なわけではない** — そちらの安全性は
     /// <see cref="TheResolutionLayerNodeHasNoAsynchronousReclaimer"/> が別の形で固定している
     /// (docs/DESIGN.md §7)。
     /// </para>
@@ -88,12 +88,12 @@ public sealed class ElementBorrowTests
     }
 
     /// <summary>
-    /// 借用が<b>必ず <c>using</c> スコープに入っている</b>こと。
+    /// 借用が**必ず <c>using</c> スコープに入っている**こと。
     ///
     /// <para>
     /// 個数を数えるだけでは足りない。<c>a.Borrow().Element</c> のようにその場で使うと、
     /// 一時的な構造体は <c>Dispose</c> されないので <c>GC.KeepAlive</c> が走らず、
-    /// <b>借用スコープを使っているように見えて元の欠陥のまま</b>になる。
+    /// **借用スコープを使っているように見えて元の欠陥のまま**になる。
     /// (個数だけを見る検査では、実際にこの書き方が素通りした。)
     /// </para>
     /// </summary>
@@ -120,12 +120,12 @@ public sealed class ElementBorrowTests
     }
 
     /// <summary>
-    /// ピッカー側のラッパーが、包んでいるハンドルへ解放を<b>転送している</b>こと
+    /// ピッカー側のラッパーが、包んでいるハンドルへ解放を**転送している**こと
     /// (docs/DESIGN.md §7)。
     ///
     /// <para>
-    /// <b>ここも源泉テストである。</b>この 1 行を消すと、ピッカーの決定的解放 (掃き出し) は
-    /// 本番で丸ごと無効になるのに <b>T1 は 488 件すべて緑のまま</b>になる —
+    /// **ここも源泉テストである。**この 1 行を消すと、ピッカーの決定的解放 (掃き出し) は
+    /// 本番で丸ごと無効になるのに **T1 は 488 件すべて緑のまま**になる —
     /// プレゼンターのテストが動かすのは <c>FakePickerElement</c> という別の実装であり、
     /// <c>UiaPickerElement</c> は T1 から作れない (<see cref="UiaElement"/> の
     /// コンストラクタが private で、引数が internal な COM 型だから)。
@@ -154,25 +154,25 @@ public sealed class ElementBorrowTests
     }
 
     /// <summary>
-    /// 解決層の <c>UiaElementNode</c> に、<b>非同期に要素を回収する主体が無い</b>こと
+    /// 解決層の <c>UiaElementNode</c> に、**非同期に要素を回収する主体が無い**こと
     /// (docs/DESIGN.md §7)。
     ///
     /// <para>
-    /// <b>ここで固定しているのは「不在」そのものが安全性の根拠であることである。</b>
+    /// **ここで固定しているのは「不在」そのものが安全性の根拠であることである。**
     /// この use-after-free (docs/DESIGN.md §7) は「GC のファイナライザースレッドが、UIA スレッドの
     /// 呼び出し中に RCW を解放する」ことで起きた。<c>UiaElementNode</c> は
     /// <c>Unwrap</c> で生ポインターを返す形が <c>UiaElement.Unwrap</c> と同じだが、
-    /// ファイナライザーも <see cref="IDisposable"/> も持たないので<b>回収者が居ない</b> —
+    /// ファイナライザーも <see cref="IDisposable"/> も持たないので**回収者が居ない** —
     /// 危険は同じでない。ファイナライザーか <see cref="IDisposable"/> を足した時点で
     /// この根拠は消え、<c>Unwrap</c> を借用スコープへ変える必要が生じる。
     /// </para>
     /// <para>
-    /// <b>「無いこと」の主張なので、探し損ねても緑になる。</b>そこで先に宣言と
-    /// <c>Release()</c> の存在を assert して、<b>実際にその型を読めていること</b>を固定する
+    /// **「無いこと」の主張なので、探し損ねても緑になる。**そこで先に宣言と
+    /// <c>Release()</c> の存在を assert して、**実際にその型を読めていること**を固定する
     /// (<see cref="EveryBorrowIsHeldByAUsingScope"/> が借用の下限を先に見るのと同じ形)。
     /// </para>
     /// <para>
-    /// <b>塞げていない穴を書いておく</b>: この検査は 2 ファイルしか読まない。
+    /// **塞げていない穴を書いておく**: この検査は 2 ファイルしか読まない。
     /// 型が別ファイルへ移れば宣言の anchor が落ちるので気づけるが、
     /// <c>partial</c> にして別ファイルでファイナライザーを足す形は宣言行が変わるため
     /// これも落ちる。残るのは「<see cref="IDisposable"/> を <c>IElementNode</c> の
@@ -220,20 +220,20 @@ public sealed class ElementBorrowTests
     }
 
     /// <summary>
-    /// <c>UiaElementNode.Release()</c> が<b>2 度呼ばれても 1 度しか解放しない</b>こと。
+    /// <c>UiaElementNode.Release()</c> が**2 度呼ばれても 1 度しか解放しない**こと。
     ///
     /// <para>
-    /// <b>これは実行時テストにできない。</b><c>UiaElementNode</c> の構築には internal な
+    /// **これは実行時テストにできない。**<c>UiaElementNode</c> の構築には internal な
     /// COM 型 (<c>IUIAutomationElement</c>) が要り、手で書いた偽物を渡しても
     /// <c>UiaFactory.ReleaseUnique</c> は <c>rcw is ComObject</c> で弾くので
-    /// <b>2 度目の解放に観測可能な差が出ない</b>。つまりこの不変条件を見られるのは
+    /// **2 度目の解放に観測可能な差が出ない**。つまりこの不変条件を見られるのは
     /// ソースの形だけである — <see cref="ThePickerWrapperForwardsDisposalToTheHandleItWraps"/>
     /// と同じ壁で、退行確認もソース正規表現に留まる (docs/DESIGN.md §7)。
     /// </para>
     /// <para>
-    /// なお冪等化は<b>保険</b>であって、二重解放の証拠があって入れたものではない。
+    /// なお冪等化は**保険**であって、二重解放の証拠があって入れたものではない。
     /// <c>ElementResolver.ReleaseLevels</c> の生き残り走査と
-    /// <c>FakeElementTree.Release</c> の二重解放検出は、これが入っても<b>残す</b>。
+    /// <c>FakeElementTree.Release</c> の二重解放検出は、これが入っても**残す**。
     /// </para>
     /// </summary>
     [Fact]
@@ -259,7 +259,7 @@ public sealed class ElementBorrowTests
     ///
     /// <para>
     /// <c>UiaElementTree.cs</c> には <c>UiaElementTree</c> も居る。切り出さずに
-    /// ファイル全体へ掛けると、<b>別の型</b>に足されたファイナライザーで落ちて
+    /// ファイル全体へ掛けると、**別の型**に足されたファイナライザーで落ちて
     /// 失敗メッセージが嘘になる。
     /// </para>
     /// </summary>

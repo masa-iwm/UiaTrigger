@@ -6,8 +6,8 @@
 //
 // ここでは「下書き (TriggerDraft) → 検証結果 → PropertyClause」だけを扱う。
 // TriggerMonitor.CreateRuntime の検証と重なる部分はあるが、目的が違う:
-//   ・ここは <b>入力中のユーザー</b>に対して、確定前に理由を返す
-//   ・CreateRuntime は <b>呼び出し元のプログラム</b>に対して、開始時に例外を投げる
+//   ・ここは **入力中のユーザー**に対して、確定前に理由を返す
+//   ・CreateRuntime は **呼び出し元のプログラム**に対して、開始時に例外を投げる
 // 二重にしても害が無く、片方だけだと「確定できたのに開始できない定義」が作れてしまう。
 using UiaTrigger.Monitoring;
 using UiaTrigger.Resources;
@@ -75,7 +75,7 @@ public readonly record struct TriggerDraftResult(string? Error, PropertyClause? 
 /// pattern accepted here also compiles in the monitor.
 /// </para>
 /// <para>
-/// Deciding which input fields to <b>show</b> from the same predicates
+/// Deciding which input fields to **show** from the same predicates
 /// (<see cref="UsesText"/> and friends) matters more than it looks: a picker that instead decides
 /// what to store from what happens to be visible ends up persisting whatever was left in a hidden
 /// field.
@@ -308,7 +308,7 @@ public static class TriggerDraftValidator
         // (Window / Locator と同じ扱いで、これ自体は望ましい — 利用者が入れた設定を
         // 録り直しで黙って捨てない)。だが On だけは上書きされるので、
         // 「PollInterval > 0 のまま On が ElementAppeared になった定義」が作れてしまう。
-        // <b>それは CreateRuntime が弾く組み合わせである</b> = 確定できたのに監視開始で落ちる。
+        // **それは CreateRuntime が弾く組み合わせである** = 確定できたのに監視開始で落ちる。
         // しかもホストの録り直しは RemoveAsync → AddAsync の投げっぱなしなので、
         // 画面には何も出ないままトリガーが消える (監視中の録り直しが壊れやすい理由は
         // docs/TESTING.md §2 の assert 規律に書いてある)

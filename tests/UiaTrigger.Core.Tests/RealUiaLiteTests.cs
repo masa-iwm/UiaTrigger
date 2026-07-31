@@ -3,7 +3,7 @@ using Xunit;
 namespace UiaTrigger.Tests;
 
 /// <summary>
-/// T1 のうち <b>実際に UI Automation を生成する</b> テストをまとめる。
+/// T1 のうち **実際に UI Automation を生成する** テストをまとめる。
 ///
 /// これらは可視のデスクトップも対象アプリも要らない (定義の検証・トリガーの増減・診断だけを見る)
 /// ため T3 には置かない。ただし <c>CUIAutomation8</c> の生成と <c>GetRootElement</c> は

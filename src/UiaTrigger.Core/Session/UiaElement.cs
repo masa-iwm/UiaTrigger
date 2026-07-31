@@ -16,7 +16,7 @@ namespace UiaTrigger;
 /// <para>
 /// Obtained from a <see cref="UiaSession"/>. The values on this type were all read in a single
 /// cross-process call when the handle was created, so reading them is free — but they are a
-/// <b>snapshot</b>: an element whose name changes afterwards still reports the old one. Call
+/// **snapshot**: an element whose name changes afterwards still reports the old one. Call
 /// <see cref="UiaSession.ReadSnapshotAsync"/> for current values.
 /// </para>
 /// <para>
@@ -86,8 +86,8 @@ public sealed class UiaElement : IDisposable
 
     /// <summary>The control type as UI Automation localizes it, for example <c>button</c>.</summary>
     /// <remarks>
-    /// The display form, and never an identity: the provider supplies it in <b>the target
-    /// application's</b> language, not the caller's, and the same control can report a different
+    /// The display form, and never an identity: the provider supplies it in **the target
+    /// application's** language, not the caller's, and the same control can report a different
     /// string after the target is restarted in another language. Falls back to
     /// <see cref="ControlTypeName"/> when the provider supplies nothing. Never persist this — see
     /// <see cref="ControlTypeName"/>.
@@ -173,12 +173,12 @@ public sealed class UiaElement : IDisposable
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>生のポインターを裸で持ち出してはならない。</b>取り出しただけでは、その直後から
+    /// **生のポインターを裸で持ち出してはならない。**取り出しただけでは、その直後から
     /// <see cref="UiaElement"/> 自身が到達不能とみなされうる — JIT は「最後に使った後」で
     /// 生存を打ち切ってよく、そうなると <see cref="Finalize"/> が
-    /// <b>GC のファイナライザースレッド</b>で RCW を解放する。呼び出しているのは UIA スレッドなので、
+    /// **GC のファイナライザースレッド**で RCW を解放する。呼び出しているのは UIA スレッドなので、
     /// 解放済みの COM オブジェクトを呼ぶことになり、例外ではなく
-    /// <b>アクセス違反でプロセスごと落ちる</b>。
+    /// **アクセス違反でプロセスごと落ちる**。
     /// </para>
     /// <para>
     /// 実際に落ちた実績がある (<c>FindAllBuildCache</c> の中で 0xc0000005)。
@@ -206,7 +206,7 @@ public sealed class UiaElement : IDisposable
         /// 持ち主の生存をここまで引き延ばす。
         /// </summary>
         /// <remarks>
-        /// これが<b>この型の存在理由そのもの</b>である。スタック上の構造体が持ち主への参照を
+        /// これが**この型の存在理由そのもの**である。スタック上の構造体が持ち主への参照を
         /// 持つので GC のルートになるが、それも「最後に使うまで」でしかない。
         /// ここで明示的に触ることで、その最後をスコープの終わりに固定する。
         /// </remarks>

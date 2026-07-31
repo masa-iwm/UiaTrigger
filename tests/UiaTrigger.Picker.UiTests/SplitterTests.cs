@@ -1,23 +1,23 @@
-// T4: 区切りが<b>実際に分けたい 2 つの間に立っている</b>こと (docs/DESIGN.md §12)。
+// T4: 区切りが**実際に分けたい 2 つの間に立っている**こと (docs/DESIGN.md §12)。
 //
-// <b>ここでしか見られないもの:</b> WinUI3 の GridSplitter の繋ぎ。
+// **ここでしか見られないもの:** WinUI3 の GridSplitter の繋ぎ。
 // WPF 側は T1 (TriggerPickerWpfWindowTests) が Grid.Column / ResizeDirection を直接見られるが、
 // WinUI3 の View は x64 / WindowsAppSDK のため T1 から組み立てられない。つまり
-// 「Grid.Column を取り違えた」「ResizeDirection の推測が外れた」は、<b>実物を起こして
-// 位置を測る以外に見る手立てが無い</b>。どちらも例外にならず、置いたのに効かないだけである。
+// 「Grid.Column を取り違えた」「ResizeDirection の推測が外れた」は、**実物を起こして
+// 位置を測る以外に見る手立てが無い**。どちらも例外にならず、置いたのに効かないだけである。
 // ホストの区切り (ListSplitter) も同じ理由でここに在る — 加えて、ホストのリソースは
 // S4 の対象外なので、読み上げ名が実際に解決することもここでしか見ていない。
 //
-// Windows Forms は入れない。SplitContainer は<b>それ自身が両側を含む入れ物</b>として
+// Windows Forms は入れない。SplitContainer は**それ自身が両側を含む入れ物**として
 // UIA に出るので「間に立っている」という形にならず、代わりに T1 が
 // SplitterDistance / Panel*MinSize / IsSplitterFixed を直接見ている
 // (AllNames に WinForms が居ないのも同じ趣旨である)。
 //
 // 起動は StartWithoutATarget である。StartForLabels ではない —
-// あちらは発行レイアウトを優先するので、XAML を直しても<b>発行し直すまで古い配置</b>を
+// あちらは発行レイアウトを優先するので、XAML を直しても**発行し直すまで古い配置**を
 // 通し続ける。発行物を見てよいのは、それを主張しているテスト (S4) だけである。
 //
-// <b>掴んで動かせるかどうかはここでは見ない。</b>ドラッグは合成入力であり T5 の担当で、
+// **掴んで動かせるかどうかはここでは見ない。**ドラッグは合成入力であり T5 の担当で、
 // キーボードでの寸法変更も打鍵が要る。MANUAL-CHECKS §4.3.1 に項目として置いた。
 using System.Globalization;
 using System.Windows;
@@ -30,7 +30,7 @@ public sealed class SplitterTests
 {
     /// <summary>区切りとして通る幅の上限。掴み代なので細いはずである。</summary>
     /// <remarks>
-    /// <b>実測 (100% / DPI 96)</b>: WPF が <b>6px</b>、WinUI が <b>12px</b>
+    /// **実測 (100% / DPI 96)**: WPF が **6px**、WinUI が **12px**
     /// (「WinUI は Sizers の既定 (16px)」という推測は実測で外れている)。
     /// DPI でスケールするので上限には余裕を持たせる。
     /// これが緩いと「区切りのつもりが列そのもの」を通してしまうが、
@@ -42,7 +42,7 @@ public sealed class SplitterTests
     /// 掴み代として成立する下限 (docs/DESIGN.md §12)。
     /// </summary>
     /// <remarks>
-    /// <b>上限だけでは「見えているが掴めない」を通してしまう。</b><c>&gt; 0</c> だけだと
+    /// **上限だけでは「見えているが掴めない」を通してしまう。**<c>&gt; 0</c> だけだと
     /// 0.5px の区切りでも緑になる。「動かせない」という報告を受けたら、まず疑うのが
     /// この太さである (WinUI は実測 12px で、太さは原因ではないと分かっている)。
     /// 4px は 3 変種でいちばん細い Windows Forms の <c>SplitterWidth</c> の既定値である。
@@ -50,12 +50,12 @@ public sealed class SplitterTests
     private const double MinSplitterWidth = 4;
 
     /// <summary>
-    /// 区切りがツリーと右側の<b>間</b>に、縦いっぱいに立っていること。
+    /// 区切りがツリーと右側の**間**に、縦いっぱいに立っていること。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// 列を取り違えて置くと、区切りはツリーの左や右端の外に出る。<b>それでも例外は出ず、
-    /// 掴んでも隣り合っていない 2 列を押し合うだけ</b>なので、位置で見るのが直接的である。
+    /// 列を取り違えて置くと、区切りはツリーの左や右端の外に出る。**それでも例外は出ず、
+    /// 掴んでも隣り合っていない 2 列を押し合うだけ**なので、位置で見るのが直接的である。
     /// </para>
     /// <para>
     /// 退行: XAML の <c>Grid.Column</c> を 1 から 0 か 2 へ動かす → 位置の assert が落ちる。
@@ -94,11 +94,11 @@ public sealed class SplitterTests
     }
 
     /// <summary>
-    /// プロパティ一覧と条件欄の区切りが、その<b>間</b>に横いっぱいに立っていること。
+    /// プロパティ一覧と条件欄の区切りが、その**間**に横いっぱいに立っていること。
     /// </summary>
     /// <remarks>
     /// 上下の分割なので、取り違えの向きも上下である。行を間違えれば条件欄の下や
-    /// プロパティ一覧の上に出るが、<b>やはり例外にはならない</b>。
+    /// プロパティ一覧の上に出るが、**やはり例外にはならない**。
     /// </remarks>
     [Theory]
     [MemberData(nameof(PickerHostProfile.AllNames), MemberType = typeof(PickerHostProfile))]
@@ -136,12 +136,12 @@ public sealed class SplitterTests
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>ここだけホストの窓を見る。</b>ログ一覧を持つのは D9 の非対称で <c>App.WinUI</c> だけであり
+    /// **ここだけホストの窓を見る。**ログ一覧を持つのは D9 の非対称で <c>App.WinUI</c> だけであり
     /// (docs/DESIGN.md §12)、割る境界そのものが他の 2 ホストには無い。
     /// ピッカーを開く必要も無い — 一覧は最初から窓に在る。
     /// </para>
     /// <para>
-    /// これが無いと、ホスト側の区切りは<b>どのテストにも見られない</b>状態になる。
+    /// これが無いと、ホスト側の区切りは**どのテストにも見られない**状態になる。
     /// T1 は WinUI を組み立てられず、<c>HostStringTests</c> が見るのはキーの集合だけで
     /// 実行時の解決も配置も見ていない。
     /// </para>

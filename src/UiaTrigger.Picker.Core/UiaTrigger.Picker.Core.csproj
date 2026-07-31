@@ -7,7 +7,7 @@
       ・T1 (tests/UiaTrigger.Core.Tests) から普通に ProjectReference できる
       ・WinUI3 / WPF / WinForms のどの View からも参照できる
 
-    [assembly: DisableRuntimeMarshalling] は<b>アセンブリ単位</b>なので、それを宣言しない
+    [assembly: DisableRuntimeMarshalling] は**アセンブリ単位**なので、それを宣言しない
     このアセンブリは CsWin32 を保ったまま AnyCPU でいられる。ここに WindowsAppSDK を
     足すと TFM が net10.0-windows10.0.19041.0 / x64 に引きずられ、分割の意味が消える。
   -->
@@ -58,7 +58,7 @@
     <InternalsVisibleTo Include="UiaTrigger.Picker.UiTests" />
     <!--
       T5 も同じ理由で要る (docs/TESTING.md §3)。合成入力で撃つ前に、期待矩形を
-      OverlayGeometry (純関数) と UIA の BoundingRectangle (別実装) の<b>両方</b>から出して
+      OverlayGeometry (純関数) と UIA の BoundingRectangle (別実装) の**両方**から出して
       一致を確かめる — 円環を作らないための検算であり、片方をマジックナンバーにすると
       検算が成立しない (docs/TESTING.md §4)。舞台の組み立て (OverlayScenario) も T4 と共有している。
     -->
@@ -68,7 +68,7 @@
   <!--
     IntelliSense の日本語化 (docs/LOCALIZATION.md §5)。UiaTrigger.Core と同じ置き方である。
     ロールアップの単位はファイルなので、ja 側に無いメンバーは英語に落ちるのではなく
-    <b>説明が消える</b>。過不足は PublicApiDocumentationTests が見ている。
+    **説明が消える**。過不足は PublicApiDocumentationTests が見ている。
   -->
   <ItemGroup>
     <None Include="Resources\UiaTrigger.Picker.Core.ja.xml"
@@ -81,7 +81,7 @@
     ピッカーのユーザー向け文字列 — WPF / WinForms 向けの供給経路 (docs/DESIGN.md L3 / docs/LOCALIZATION.md §4)。
     Strings.resx = en-US (neutral) / Strings.ja.resx = ja サテライト。
 
-    厳密に型指定されたコード生成 (StronglyTypedLanguage) は<b>付けない</b>。キー名に '.' が
+    厳密に型指定されたコード生成 (StronglyTypedLanguage) は**付けない**。キー名に '.' が
     入っており (AutoSelectToggle.Header)、生成される識別子は '_' に潰されるので、
     キー名とは別の名前空間が黙って 1 つ増えてしまう。参照は PickerStringKeys の定数で行う。
   -->

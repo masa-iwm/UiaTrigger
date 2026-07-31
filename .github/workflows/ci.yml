@@ -69,7 +69,7 @@ jobs:
   # 生成されるのを待つ経路」で、これはウィンドウを表示しないと再現しない (docs/DESIGN.md §12)。
   # real-uia と同じく対話セッションに依存するため必須ジョブにはせず、まずは観測する。
   #
-  # real-uia とは<b>別ジョブ = 別ランナー</b>である必要がある。どちらも画面にウィンドウを出して
+  # real-uia とは**別ジョブ = 別ランナー**である必要がある。どちらも画面にウィンドウを出して
   # 座標から要素を掴むので、同じデスクトップで同時に走らせると互いの窓を掴む。
   # ---------------------------------------------------------------
   picker-ui:
@@ -95,7 +95,7 @@ jobs:
       # 捕捉を飛ばし、二度と捕捉しない = 原因を名指ししない 30 秒のタイムアウトになる。
       # TreePresentationTests の 4 件が実際にこれで落ちる (ランナーで実測)。
       #
-      # 狭い画面では<b>原理的に成立しない</b>ため、テスト側では直せない —
+      # 狭い画面では**原理的に成立しない**ため、テスト側では直せない —
       # 1024x768 で使えるホスト幅は 620px、ツリーは約 322px で、
       # 「畳んだ 1 行が収まる」下限 (346px) を下回るので対照のほうが壊れる。
       # 必要な幅は 1481px 以上 (1100 + 380 + 1)。余裕を見て 1920x1080 にする。
@@ -108,7 +108,7 @@ jobs:
           # 失敗の説明は失われない。
           #
           # 読み取りに Get-DisplayResolution / EnumDisplaySettings は使わない。
-          # <b>ランナーでは EnumDisplaySettings(ENUM_CURRENT_SETTINGS) が 0x0 を返す</b>
+          # **ランナーでは EnumDisplaySettings(ENUM_CURRENT_SETTINGS) が 0x0 を返す**
           # (実測)。GetSystemMetrics は常に生きた値を返す。
           Add-Type -Name Metrics -Namespace Win32 -MemberDefinition `
             '[DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);'
@@ -150,11 +150,11 @@ jobs:
   # ---------------------------------------------------------------
   # T5: 合成入力 (docs/TESTING.md §1 T5 / §3)
   #
-  # picker-ui と<b>別のジョブ = 別のランナー</b>である。同居させてはいけない —
+  # picker-ui と**別のジョブ = 別のランナー**である。同居させてはいけない —
   # 低レベルフックはグローバルで、撃ったキーは同じデスクトップのすべてのプロセスに届く。
   # ウィンドウを分けても分離できない。
   #
-  # <b>ブロッキングにしてある</b> — hosted runner で連続して緑になることを実測で確認済み。
+  # **ブロッキングにしてある** — hosted runner で連続して緑になることを実測で確認済み。
   # SendInput は呼び出しスレッドが入力デスクトップに居ることを追加で要求するが
   # (docs/TESTING.md §3)、ランナーはこの要件を満たす。
   # 入力を奪うテストなので、揺れ始めたら continue-on-error: true を戻してよい (1 行である)。
@@ -209,7 +209,7 @@ jobs:
         run: dotnet publish src/UiaTrigger.App.Wpf -c Release -o publish/AppWpf
 
       # WinForms ホストも同じ理由で publish する。ここに無いと、GitHub Release が
-      # 「サンプルホスト 3 つ」と称して<b>CI が一度も通していない経路の成果物</b>を配ることになる。
+      # 「サンプルホスト 3 つ」と称して**CI が一度も通していない経路の成果物**を配ることになる。
       # DpiManifestTests.EveryHostDeclaresPerMonitorV2SomeWay が塞いでいるのと同じ形
       # 「どの表にも載っていないから緑」である (docs/RELEASING.md §2)
       - name: Publish App.WinForms
@@ -249,7 +249,7 @@ jobs:
           Write-Host "OK: neutral / satellite ともに AOT 発行後も解決されました"
 
           # GitHub Actions の pwsh シェルは、最後に走ったネイティブコマンドの $LASTEXITCODE を
-          # そのままステップの結果にする。このステップは<b>意図的に</b>失敗する定義を渡すので、
+          # そのままステップの結果にする。このステップは**意図的に**失敗する定義を渡すので、
           # 明示的に 0 で終わらないと、検証が全部通っていてもステップが赤になる
           # (実際にこれで落ちる — 製品が正しくてもである)。
           exit 0
@@ -330,15 +330,15 @@ jobs:
   # ARM64 (docs/DESIGN.md D5 / docs/RELEASING.md §5)
   #
   # RuntimeIdentifier はハードコード (win-x64) ではなく Platform から導く。
-  # この導出が元へ戻っても x64 のビルドもテストも<b>すべて緑のまま</b>なので、
+  # この導出が元へ戻っても x64 のビルドもテストも**すべて緑のまま**なので、
   # このジョブを建てておかないと誰も気づかない。
   #
-  # 走らせるのは<b>ビルドだけ</b>である。windows-latest は x64 なので ARM64 の
+  # 走らせるのは**ビルドだけ**である。windows-latest は x64 なので ARM64 の
   # バイナリは実行できないし、Native AOT の ARM64 へのクロス発行には ARM64 の
   # MSVC ツールチェーンが要る (docs/RELEASING.md §5 に実測がある)。
   # 「建つこと」と「動くこと」を混同しないため、ジョブ名にも build と書いてある。
   #
-  # <b>ランナーで緑になることを確認済みなので、ブロッキングにしてある</b>
+  # **ランナーで緑になることを確認済みなので、ブロッキングにしてある**
   # (ARM64 の WinUI / Windows App SDK は windows-latest で問題なく復元できる)。
   # 画面も対話セッションも要らない決定的なビルドなので、real-uia / picker-ui / input の
   # ような非決定性は持たない。

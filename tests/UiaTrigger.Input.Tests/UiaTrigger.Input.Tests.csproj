@@ -1,21 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    T5: 合成入力で<b>最下層から</b>駆動するテスト (docs/TESTING.md §1 の T5 / §3)。
+    T5: 合成入力で**最下層から**駆動するテスト (docs/TESTING.md §1 の T5 / §3)。
 
     ここでしか見られないもの: 低レベルキーボードフック (WH_KEYBOARD_LL) と、
     実マウス入力だけが通る WM_NCHITTEST。UIA のコントロールパターンは Invoke / Select を
-    要素へ直接届けるので、どちらも<b>一度も通らない</b> — T4 がここへ来られない理由である。
+    要素へ直接届けるので、どちらも**一度も通らない** — T4 がここへ来られない理由である。
 
-    <b>T4 と別プロジェクトにしてあるのは政策の都合である</b> (docs/TESTING.md §3):
+    **T4 と別プロジェクトにしてあるのは政策の都合である** (docs/TESTING.md §3):
       (a) CI の lint (2) が「このディレクトリだけ」で切れる
       (b) 実機の入力を奪うので、どのテストとも並走させられない
       (c) 解禁の条件がソースの配置として読み取れる
 
-    <b>ローカルで T3 / T4 と同時に走らせないこと。</b>直列実行の指定 (AssemblyInfo.cs) は
+    **ローカルで T3 / T4 と同時に走らせないこと。**直列実行の指定 (AssemblyInfo.cs) は
     アセンブリ単位なので、別プロセスまでは止められない。ここは画面のウィンドウだけでなく
-    <b>キーボードとマウスそのもの</b>を奪うので、重なると相手の操作を横取りする。
-    CI でも picker-ui と<b>同じランナーに載せない</b>。
+    **キーボードとマウスそのもの**を奪うので、重なると相手の操作を横取りする。
+    CI でも picker-ui と**同じランナーに載せない**。
   -->
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
@@ -25,7 +25,7 @@
     <OutputType>Exe</OutputType>
     <InvariantGlobalization>false</InvariantGlobalization>
     <!--
-      XAML は 1 行も無いのに UseWPF を立てているのは、UIA <b>クライアント</b>
+      XAML は 1 行も無いのに UseWPF を立てているのは、UIA **クライアント**
       (System.Windows.Automation) を引くためである。T4 と同じ理由・同じ形なので揃える —
       リンク共有しているハーネス (PickerHostProcess / Ui) がこれを前提にしている。
     -->
@@ -60,7 +60,7 @@
   <ItemGroup>
     <!--
       ハーネスは T1 / T3 / T4 のものをそのまま使う (二重定義にしない)。
-      <b>ここに写しを作らないこと</b> — 写すと、片方だけが直された状態が生まれ、
+      **ここに写しを作らないこと** — 写すと、片方だけが直された状態が生まれ、
       「T4 では通るのに T5 では通らない」の原因がハーネスの差になる。
     -->
     <Compile Include="..\UiaTrigger.Core.Tests\RepoPaths.cs" Link="RepoPaths.cs" />

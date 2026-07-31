@@ -1,10 +1,10 @@
 // T4: 深い階層になったときのツリーの見え方 (docs/TESTING.md §1)。
 //
 // 「深い階層で水平スクロールする」と「確定アイコンが要素の行にだけ出る」の一次の網。
-// どちらも<b>ウィンドウを画面に出さないと成立しない</b>ので T1 の担当ではない
+// どちらも**ウィンドウを画面に出さないと成立しない**ので T1 の担当ではない
 // (docs/TESTING.md §2 / docs/MANUAL-CHECKS.md §4.3.2)。
 //
-// 2 変種とも回す。水平スクロールは<b>変種で機構が違う</b> — WinUI の TreeView は
+// 2 変種とも回す。水平スクロールは**変種で機構が違う** — WinUI の TreeView は
 // 自分に付いた ScrollViewer.* をテンプレート内へ中継しないのでコードビハインドで
 // 内側の ListControl に付けており、WPF は既定テンプレートが中継する。
 // 「同じ添付プロパティが片方では効いて片方では黙って無視される」という差そのものが
@@ -21,30 +21,30 @@ public sealed class TreePresentationTests
     private static readonly TimeSpan CaptureTimeout = TimeSpan.FromSeconds(20);
 
     /// <summary>
-    /// 水平スクロールが要るようになるまで試す深さ。<b>1 つの固定値にはしない。</b>
+    /// 水平スクロールが要るようになるまで試す深さ。**1 つの固定値にはしない。**
     /// </summary>
     /// <remarks>
     /// <para>
     /// 12 段では 2 変種とも <c>HorizontallyScrollable</c> が false だった —
     /// 行が字下げされても内容が表示域に収まっていたためである。
     /// つまり「深いチェーンを作れば水平スクロールが要る」は自明ではなく、
-    /// <b>要るところまで深くして初めて検査になる</b>。
+    /// **要るところまで深くして初めて検査になる**。
     /// </para>
     /// <para>
-    /// <b>固定値 1 つにすると、それは較正であって、測った機械でしか成り立たない</b>
+    /// **固定値 1 つにすると、それは較正であって、測った機械でしか成り立たない**
     /// (docs/DESIGN.md §9)。ホストの窓はデスクトップの大きさから決まるので、
     /// 表示域の幅は画面の解像度と表示スケールで変わる。実際 3840x2160 / 175% では
-    /// <b>30 段が収まってしまい</b> (実測: ツリー幅 1838px に対し水平表示率 100.0%)、
+    /// **30 段が収まってしまい** (実測: ツリー幅 1838px に対し水平表示率 100.0%)、
     /// 「スクロールできない」ではなく「要らない」で赤くなる。
-    /// <b>検出力を失ったまま赤い</b>という、いちばん質の悪い壊れ方である。
+    /// **検出力を失ったまま赤い**という、いちばん質の悪い壊れ方である。
     /// </para>
     /// <para>
-    /// <b>直しの本体は深さではなく表示域のほうである</b> —
-    /// <see cref="DesktopLayout.NarrowHost"/> で<b>ホストの窓を固定幅にした</b>ので、
+    /// **直しの本体は深さではなく表示域のほうである** —
+    /// <see cref="DesktopLayout.NarrowHost"/> で**ホストの窓を固定幅にした**ので、
     /// 「収まるかどうか」がデスクトップの広さで変わらなくなった。
-    /// <b>深さを増やす方向では直せない</b>ことも実測で分かっている:
-    /// 対象アプリは 1 段ごとに HWND を作るので <b>55 段でウィンドウハンドルの作成に失敗する</b>し、
-    /// そもそも行は字下げに応じて<b>縮んで収まる</b> (実測: 深さ 30 → 40 で
+    /// **深さを増やす方向では直せない**ことも実測で分かっている:
+    /// 対象アプリは 1 段ごとに HWND を作るので **55 段でウィンドウハンドルの作成に失敗する**し、
+    /// そもそも行は字下げに応じて**縮んで収まる** (実測: 深さ 30 → 40 で
     /// 行の幅が 741px → 409px になり、右端は 1868px のまま動かなかった)。
     /// </para>
     /// <para>
@@ -65,18 +65,18 @@ public sealed class TreePresentationTests
     private const string Leaf = "deep-leaf";
 
     /// <summary>
-    /// 深いチェーンを捕捉すると、ツリーが<b>水平にスクロールできる</b>ようになること。
+    /// 深いチェーンを捕捉すると、ツリーが**水平にスクロールできる**ようになること。
     /// </summary>
     /// <remarks>
     /// <para>
     /// 推測で直して外すことを 3 回繰り返した箇所である。
     /// WinUI の <c>TreeView</c> は自分に付いた <c>ScrollViewer.HorizontalScrollMode</c> を
     /// テンプレート内の <c>ScrollViewer</c> へ中継しないので、コードビハインドで
-    /// 実物を掴んで設定している。<b>中継しないことは例外にならない</b> —
+    /// 実物を掴んで設定している。**中継しないことは例外にならない** —
     /// 黙って無視されて、行が右で切れるだけである。
     /// </para>
     /// <para>
-    /// <b>対照として、チェーンを畳んだら false に戻ることも見る。</b>
+    /// **対照として、チェーンを畳んだら false に戻ることも見る。**
     /// これが無いと「常に true を返す」実装 (スクロールバーを出しっぱなしにする等) でも通る。
     /// </para>
     /// <para>
@@ -99,7 +99,7 @@ public sealed class TreePresentationTests
             {
                 // 入れ子の上限に当たった (WinForms の対象アプリは HWND を 1 段ごとに作るので
                 // 深くしすぎるとウィンドウハンドルの作成に失敗する)。
-                // <b>これ以上は深くできない</b>ので、ここまでの実測を添えて落とす
+                // **これ以上は深くできない**ので、ここまでの実測を添えて落とす
                 tried.Add($"深さ={depth}: 対象アプリが作れませんでした ({ex.Message})");
                 break;
             }
@@ -109,7 +109,7 @@ public sealed class TreePresentationTests
 
             if (!scenario.BecomesHorizontallyScrollable(ScrollSettleTimeout))
             {
-                // まだ表示域に収まっている。<b>これは失敗ではない</b> — もっと深くする
+                // まだ表示域に収まっている。**これは失敗ではない** — もっと深くする
                 tried.Add(scenario.Measurements());
                 continue;
             }
@@ -133,17 +133,17 @@ public sealed class TreePresentationTests
     }
 
     /// <summary>
-    /// 確定アイコンが<b>要素の行にだけ</b>出ること (プロセスルートの行には出ない)。
+    /// 確定アイコンが**要素の行にだけ**出ること (プロセスルートの行には出ない)。
     /// </summary>
     /// <remarks>
     /// <para>
     /// WinUI では <c>Visibility="{x:Bind local:TriggerPickerWindow.ToVisibility(CanConfirm)}"</c> の
-    /// <b>関数束縛</b>である。関数束縛が黙って解決に失敗すると
-    /// <b>全行に出る / 全行から消える</b>の形で壊れ、例外は出ない。
+    /// **関数束縛**である。関数束縛が黙って解決に失敗すると
+    /// **全行に出る / 全行から消える**の形で壊れ、例外は出ない。
     /// WPF は <c>BooleanToVisibilityConverter</c> なので機構は違うが、壊れ方の形は同じである。
     /// </para>
     /// <para>
-    /// <b>「行ごとに 1 つ」まで見る。</b>合計だけを見ると、
+    /// **「行ごとに 1 つ」まで見る。**合計だけを見ると、
     /// 1 行に 2 つ出て別の 1 行から消える壊れ方が素通りする。
     /// 数え方は <see cref="Ui.ConfirmButtonsOfItsOwn"/> を参照 (WPF は行が入れ子なので引き算が要る)。
     /// </para>
@@ -208,7 +208,7 @@ public sealed class TreePresentationTests
                 target.Send("ping");
 
                 (int x, int y) = target.CenterOf(Leaf);
-                // 表示域の広さそのものが検査対象なので、ホストの窓は<b>幅を固定した</b>ほうへ置く。
+                // 表示域の広さそのものが検査対象なので、ホストの窓は**幅を固定した**ほうへ置く。
                 // 既定の DesktopLayout.Host はデスクトップの広さで幅が変わる (docs/DESIGN.md §9)
                 PickerHostProcess host = PickerHostProcess.Start(
                     profile, x, y, DesktopLayout.NarrowHost);
@@ -233,11 +233,11 @@ public sealed class TreePresentationTests
         public AutomationElement Tree() => _host.Tree();
 
         /// <summary>
-        /// 期限内に水平スクロールが要るようになったか。<b>ならなくても例外にしない</b>。
+        /// 期限内に水平スクロールが要るようになったか。**ならなくても例外にしない**。
         /// </summary>
         /// <remarks>
         /// <see cref="Ui.Until"/> ではなく専用に書いてあるのは、ここでの false が
-        /// <b>失敗ではなく「まだ浅い」</b>だからである。例外にすると、呼ぶ側が
+        /// **失敗ではなく「まだ浅い」**だからである。例外にすると、呼ぶ側が
         /// 深さを増やして試し直せない。
         /// </remarks>
         public bool BecomesHorizontallyScrollable(TimeSpan timeout)
@@ -305,7 +305,7 @@ public sealed class TreePresentationTests
         }
 
         /// <summary>
-        /// 幅の実測。<b>「収まっているので要らない」と「スクロールが壊れている」を分けるために要る。</b>
+        /// 幅の実測。**「収まっているので要らない」と「スクロールが壊れている」を分けるために要る。**
         /// </summary>
         /// <remarks>
         /// どちらも <c>HorizontallyScrollable == false</c> になるので、状態だけ見ても区別できない。

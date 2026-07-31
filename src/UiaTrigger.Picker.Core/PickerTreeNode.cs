@@ -34,7 +34,7 @@ public sealed class PickerTreeNode : INotifyPropertyChanged
 
     /// <summary>null はプロセスルート。</summary>
     /// <remarks>
-    /// <b>ノードは借りているだけである。</b>持ち主は <see cref="TriggerPickerPresenter"/> で、
+    /// **ノードは借りているだけである。**持ち主は <see cref="TriggerPickerPresenter"/> で、
     /// ノードが木から外れると掃き出しが解放する。だからノードに <c>Dispose</c> は無い —
     /// 足すと public 型の公開メンバーが増えるうえ、View が持っている遅延処理の途中で
     /// ノードを捨てられるようになってしまう。

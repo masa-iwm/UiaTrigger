@@ -5,7 +5,7 @@
 // ずれた位置として解釈される。175% の画面では (174,149) が (304,260) として扱われ、
 // 狙った子要素の外にある親要素が返る。
 //
-// 厄介なのは <b>例外にならない</b> ことで、「別の要素を記録した定義」が静かに出来上がる。
+// 厄介なのは **例外にならない** ことで、「別の要素を記録した定義」が静かに出来上がる。
 // これは docs/TESTING.md §4 のホイールバグ (座標系の不一致で入力がコンテンツ外へ落ちる) と
 // 同じ壊れ方であり、実際にこの検査で record が対象でなく親要素を記録していたのを見つけている。
 //
@@ -21,7 +21,7 @@ namespace UiaTrigger;
 /// <para>
 /// Everything this library does with a point — <see cref="UiaSession.ElementFromPointAsync"/>,
 /// <see cref="UiaSession.ElementFromCursorAsync"/>, recording a definition from a coordinate, an
-/// overlay drawn around an element — uses <b>physical</b> screen coordinates. Windows virtualizes
+/// overlay drawn around an element — uses **physical** screen coordinates. Windows virtualizes
 /// coordinates for a process that is not per-monitor DPI aware, so on a scaled display those calls
 /// land somewhere else and quietly return the wrong element. Nothing throws.
 /// </para>

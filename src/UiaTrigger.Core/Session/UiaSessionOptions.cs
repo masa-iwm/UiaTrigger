@@ -79,7 +79,7 @@ public sealed class UiaSessionOptions
     internal static bool IsValidTimeout(TimeSpan value) => value.TotalMilliseconds is > 0 and <= uint.MaxValue;
 
     /// <summary>
-    /// 設定の検証。<b>呼び出し元スレッドで前倒しする</b> — 設定ミスがディスパッチャスレッド上の
+    /// 設定の検証。**呼び出し元スレッドで前倒しする** — 設定ミスがディスパッチャスレッド上の
     /// 例外になると、呼び出し元には「なぜか動かない」としか見えないため。
     /// </summary>
     internal void Validate()

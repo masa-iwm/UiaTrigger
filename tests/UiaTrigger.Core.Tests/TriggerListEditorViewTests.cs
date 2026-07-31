@@ -53,7 +53,7 @@ public sealed class TriggerListEditorViewTests
     // ---------- WPF ----------
 
     /// <summary>
-    /// View が<b>すべての</b>ラベル用キーを要求すること。
+    /// View が**すべての**ラベル用キーを要求すること。
     /// コントロールを足してラベルの代入を忘れると、例外にならず欄が空のまま出る。
     /// </summary>
     [Fact]
@@ -164,7 +164,7 @@ public sealed class TriggerListEditorViewTests
     /// [OK] が編集後のリストを返し、閉じただけなら null のままであること。
     ///
     /// null は「プロパティを設定しない」を意味する (<c>TriggerListEditor</c> の規約)。
-    /// [OK] を押していないのにリストが返ると、<b>取り消したはずの編集が保存される</b>。
+    /// [OK] を押していないのにリストが返ると、**取り消したはずの編集が保存される**。
     /// </summary>
     [Fact]
     public void TheWpfViewReturnsTheListOnlyAfterAccepting()
@@ -189,7 +189,7 @@ public sealed class TriggerListEditorViewTests
         });
     }
 
-    // 子ピッカーを開く経路 (ShowPicker) はここでは扱わない。<b>窓の表示が要る</b>ためである —
+    // 子ピッカーを開く経路 (ShowPicker) はここでは扱わない。**窓の表示が要る**ためである —
     // Show() / Show(owner) を呼ぶことになり、可視のデスクトップを要する検査は T1 の担当ではない
     // (docs/TESTING.md §2 の横断ルール。WPF のコンテナ実体化を T1 から外したのと同じ線)。
     // 追加 → コミット → 一覧に出る、までを通すのは T4 (EditorShowcaseTests) である。

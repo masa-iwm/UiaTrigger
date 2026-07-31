@@ -9,7 +9,7 @@
 
   ロールアップの単位は「メンバー」ではなく「ファイル」である。
   このファイルが存在する限りこちらが丸ごと使われ、ここに無いメンバーは
-  英語に落ちるのではなく <b>説明が消える</b>。だから公開 API を過不足なく覆う必要があり、
+  英語に落ちるのではなく **説明が消える**。だから公開 API を過不足なく覆う必要があり、
   PublicApiDocumentationTests がそれを検査している。
 
   入れてよいのは公開 API のぶんだけ。実装内部のコメントは英語版
@@ -216,7 +216,7 @@
       <summary>このプロセスが物理スクリーン座標をそのまま UI Automation へ渡せるか。</summary>
       <remarks>
         true になるのはモニターごとの認識モードのときだけである。システム DPI 認識は
-        シングルモニターでは<b>たまたま</b>座標が仮想化されないだけで、倍率の異なる 2 台目が
+        シングルモニターでは**たまたま**座標が仮想化されないだけで、倍率の異なる 2 台目が
         つながった時点で破綻するため、安全とはみなさない。
       </remarks>
     </member>
@@ -468,7 +468,7 @@
       <summary>モニターが今どう動いているかのスナップショット。</summary>
       <remarks>
         このカウンターは、ライブラリが前提としながら肯定形では述べられない性質 —
-        必要のないイベントを<b>受け取っていない</b>こと — を外から観測する唯一の手段である。
+        必要のないイベントを**受け取っていない**こと — を外から観測する唯一の手段である。
         購読範囲が広すぎると、忙しいアプリケーションでは処理量を食い、
         関係のない変化しか起きていないのに構造変化イベント数が増え続ける形でここに現れる。
       </remarks>
@@ -790,7 +790,7 @@
     <member name="P:UiaTrigger.Models.ElementPropertySnapshot.LocalizedControlType">
       <summary>UI Automation がローカライズしたコントロール型名 (例: <c>button</c>)。</summary>
       <remarks>
-        表示用の形である。プロバイダーが<b>対象アプリケーションの</b>言語で返すため安定せず、
+        表示用の形である。プロバイダーが**対象アプリケーションの**言語で返すため安定せず、
         比較には一切関与しない。プロバイダーが何も返さない場合は
         <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.ControlTypeName" /> で埋める。
       </remarks>
@@ -1011,14 +1011,14 @@
       </summary>
       <remarks>
         <para>
-          監視はイベント駆動である。つまり<b>対象アプリが UI Automation のイベントを上げなければ
-          トリガーは鳴らない</b>。画面上では変化しているのに <c>PropertyChanged</c> を
+          監視はイベント駆動である。つまり**対象アプリが UI Automation のイベントを上げなければ
+          トリガーは鳴らない**。画面上では変化しているのに <c>PropertyChanged</c> を
           一度も上げないアプリが実在し、それをこちらから上げさせる手段は無い。
           これがその逃げ道である — 間隔を指定すると、解決済みの要素がその周期で読み直され、
           誰も知らせてくれなくても変化に気づける。
         </para>
         <para>
-          <b>これは利用者が頼んだ費用であって、ライブラリが自分の判断で負うものではない。</b>
+          **これは利用者が頼んだ費用であって、ライブラリが自分の判断で負うものではない。**
           1 周につき、このトリガーが解決している要素の数だけクロスプロセス読みが走り、
           しかもセッションを共有しているすべてと同じオートメーションスレッドの上で走る。
           全部ではなく必要なトリガーにだけ指定し、変化に間に合う範囲でいちばん長い間隔を選び、
@@ -1027,7 +1027,7 @@
           実際の費用を見ること。
         </para>
         <para>
-          ポーリングが変えるのは<b>いつ発火するか</b>ではなく<b>いつ変化に気づくか</b>である。
+          ポーリングが変えるのは**いつ発火するか**ではなく**いつ変化に気づくか**である。
           <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> は今までどおり立ち上がりだけで鳴り、
           <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> は監視値が実際に違ったときだけ鳴る。
           何も変わっていない周は何も起こさない。例外は
@@ -1126,7 +1126,7 @@
       </summary>
       <remarks>
         「変化後の値」ではなく「このイベント時点での値」である: 複数の要素にまたがるトリガーでは、
-        ここで読む値が<b>変化した値とは限らない</b>。クラスの remarks を参照。
+        ここで読む値が**変化した値とは限らない**。クラスの remarks を参照。
       </remarks>
     </member>
     <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.OldValue">
@@ -1140,7 +1140,7 @@
         <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> (条件全体が成立したことで鳴るので、
         1 つの値の変化ではない)、そして
         <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
-        <b>最初以外の条件</b>の変化で鳴ったとき (その条件が変わったことは、
+        **最初以外の条件**の変化で鳴ったとき (その条件が変わったことは、
         最初の条件が何だったかを何も語らない)。
       </remarks>
     </member>
@@ -1150,13 +1150,13 @@
     <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Properties">
       <summary>
         <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue" /> の出どころとなった要素の、
-        観測できるプロパティ<b>すべて</b>を 1 往復で読んだもの。
+        観測できるプロパティ**すべて**を 1 往復で読んだもの。
         <see cref="F:UiaTrigger.Models.TriggerOn.ElementRemoved" /> の場合は、
         その要素が存在していた間に取った最後のスナップショットである。
         パスワード欄の値は伏せられる — <see cref="F:UiaTrigger.Models.ElementPropertySnapshot.RedactedMarker" /> を参照。
       </summary>
       <remarks>
-        <b>監視対象のものだけではなく、観測できるプロパティすべてである。</b>1 往復で全部読めるので、
+        **監視対象のものだけではなく、観測できるプロパティすべてである。**1 往復で全部読めるので、
         条件が使うプロパティだけに絞っても費用は同じで、ホストに渡る情報が減るだけである。
       </remarks>
     </member>
@@ -1184,7 +1184,7 @@
           0 でないなら、対象アプリを購読できなかったということである。多くは、モニターが
           購読しようとした時点でそのアプリが応答しなかった場合である。そのトリガーは要素の
           出現を見られないので、購読が戻るまで間隔を広げながら再試行する。
-          <b>モニターが自分の判断でタイマーを回すのはこれだけ</b>であり、購読が戻れば止まる。
+          **モニターが自分の判断でタイマーを回すのはこれだけ**であり、購読が戻れば止まる。
           それ以外にタイマーで回っているものがあるなら、それは
           <see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> で頼まれたものであり、
           <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PollCount" /> に出る。
@@ -1270,7 +1270,7 @@
       <summary>ポーリングが実行したクロスプロセス読みの回数。</summary>
       <remarks>
         1 周あたり解決済み要素 1 つにつき 1 回なので、トリガーの数ではなく
-        <b>ポーリングされるトリガーがまたぐ要素の数</b>に比例して増える。間隔を決めるときに見る数字はこれである。
+        **ポーリングされるトリガーがまたぐ要素の数**に比例して増える。間隔を決めるときに見る数字はこれである。
         <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> の句は評価ごとにさらに 1 回読むが、
         それはここに数えていないので、その場合は下限として読むこと。
       </remarks>
@@ -1476,7 +1476,7 @@
       <summary>UI Automation がローカライズしたコントロール型名 (例: <c>button</c>)。</summary>
       <remarks>
         表示用の形であって、識別子では決してない。プロバイダーが返すのは呼び出し側ではなく
-        <b>対象アプリケーションの</b>言語であり、対象を別の言語で起動し直せば同じコントロールが
+        **対象アプリケーションの**言語であり、対象を別の言語で起動し直せば同じコントロールが
         別の文字列を報告する。プロバイダーが何も返さない場合は
         <see cref="P:UiaTrigger.UiaElement.ControlTypeName" /> で埋める。これを永続化しないこと —
         <see cref="P:UiaTrigger.UiaElement.ControlTypeName" /> を参照。
@@ -1570,7 +1570,7 @@
         <para>
           このライブラリが座標を扱う操作 — <see cref="M:UiaTrigger.UiaSession.ElementFromPointAsync(System.Int32,System.Int32)" />、
           <see cref="M:UiaTrigger.UiaSession.ElementFromCursorAsync" />、座標からの定義の記録、
-          要素を囲むオーバーレイの描画 — はすべて<b>物理</b>スクリーン座標を使う。
+          要素を囲むオーバーレイの描画 — はすべて**物理**スクリーン座標を使う。
           モニターごとの DPI 認識でないプロセスに対して Windows は座標を仮想化するため、
           スケールされたディスプレイではこれらの呼び出しが別の場所を指し、静かに間違った要素を返す。
           例外は何も出ない。
@@ -1597,7 +1597,7 @@
       <remarks>
         条件評価が受け取るのはこの型の値だけである。表示用の文字列は素の
         <see cref="T:System.String" /> で、現在の UI カルチャに合わせて整形されるため、
-        比較に紛れ込ませてはならない — この型は<b>その間違いをコンパイルさせない</b>ために存在する。
+        比較に紛れ込ませてはならない — この型は**その間違いをコンパイルさせない**ために存在する。
         トリガー定義に書かれた文字列は約束として比較用であり、
         <see cref="M:UiaTrigger.Models.ComparisonString.FromDefinition(System.String)" /> から入る。
       </remarks>
@@ -1629,7 +1629,7 @@
     <member name="T:UiaTrigger.Models.ElementSearch">
       <summary>経路を 1 段ずつ辿らずに、対象要素を直接見つける方式。</summary>
       <remarks>
-        記録時に対象の AutomationId が<b>そのウィンドウの中で一意</b>だった場合にのみ記録される。
+        記録時に対象の AutomationId が**そのウィンドウの中で一意**だった場合にのみ記録される。
         解決は段ごとの呼び出しではなく、ウィンドウの部分木に対する <c>FindAll</c> 1 回で済み、
         対象より上で起きる変化の影響を受けない。一意性は解決時にも確かめ直す:
         その AutomationId が曖昧になっていたり、何にも一致しなくなっていた場合は、
@@ -1696,7 +1696,7 @@
           ここで通ったパターンが監視側でもコンパイルできるか — が含まれる。
         </para>
         <para>
-          どの入力欄を<b>表示するか</b>も同じ述語 (<see cref="M:UiaTrigger.Models.TriggerDraftValidator.UsesText(UiaTrigger.Models.ComparisonOp)" /> など)
+          どの入力欄を**表示するか**も同じ述語 (<see cref="M:UiaTrigger.Models.TriggerDraftValidator.UsesText(UiaTrigger.Models.ComparisonOp)" /> など)
           から決めることが、見た目以上に重要である。逆に「見えている欄から保存する値を決める」ピッカーは、
           隠れた欄に残っていた値をそのまま永続化してしまう。
         </para>
@@ -1730,7 +1730,7 @@
         読まれない。これは意図されたもので、
         <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> の条件を読むには
         プロセス間呼び出しが 1 回かかるためである。「成立しなかった」とは別の状態であり、
-        この条件については<b>何も分かっていない</b>。
+        この条件については**何も分かっていない**。
       </remarks>
     </member>
     <member name="F:UiaTrigger.Monitoring.ClauseOutcome.Unreadable">
@@ -1786,12 +1786,12 @@
       <summary>トリガーの各条件が何を読み、どうなったか (定義の並び順)。</summary>
       <remarks>
         <para>
-          <b>複数の要素にまたがるトリガーが読めるようになるのはここである。</b>
+          **複数の要素にまたがるトリガーが読めるようになるのはここである。**
           <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue" /> と
           <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Properties" /> は 1 つの要素
           — 最初の条件の要素 — を語るので、複数の要素にまたがるトリガーでは他の要素が
           どうだったかを言えない。こちらは言える: 条件 1 つにつき 1 項目、
-          それぞれが<b>自分の要素から読んだ値</b>を持つ。
+          それぞれが**自分の要素から読んだ値**を持つ。
         </para>
         <para>
           行き先 (<see cref="T:UiaTrigger.Monitoring.ClauseOutcome" />) がどれだけ情報を足すかは、
@@ -1799,7 +1799,7 @@
           どれも成立しているので値のほうが面白い。
           <see cref="F:UiaTrigger.Models.ClauseCombinator.Any" /> や
           <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> では
-          <i>どれが</i>成立したかが本当の問いになり、それに答えられるのはこれだけである。
+          *どれが*成立したかが本当の問いになり、それに答えられるのはこれだけである。
         </para>
         <para>
           値は各条件の最後のスナップショット由来である (トリガーがそれに対して評価されたもの)。
@@ -1815,9 +1815,9 @@
           <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired" /> を参照。
         </para>
         <para>
-          <b>値が語るのは 1 つの要素についてである — トリガーの最初の条件が読む要素</b>
+          **値が語るのは 1 つの要素についてである — トリガーの最初の条件が読む要素**
           (条件を持たないトリガーではそのトリガー自身の要素)。複数の要素にまたがるトリガーでは
-          これが効いてくる: <i>変化した</i>条件は別の条件かもしれない —
+          これが効いてくる: *変化した*条件は別の条件かもしれない —
           何がトリガーを鳴らしたかと、イベントが何を報告するかは別の問いである。
           <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.OldValue" /> /
           <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue" /> /
@@ -1843,7 +1843,7 @@
           そのとき他のトリガーは乱されない。
         </para>
         <para>
-          <b>モニターが自分の判断でポーリングすることはない。</b>
+          **モニターが自分の判断でポーリングすることはない。**
           <see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> を指定したトリガーは、
           解決済みの要素だけがその周期で読み直される。これが、必要なイベントを上げないアプリに対する逃げ道である。
           どちらの場合も要素を見つけるところはイベント駆動のままで、ポーリングが解決を回すことはない。
@@ -1947,7 +1947,7 @@
         <para>
           <see cref="T:UiaTrigger.UiaSession" /> から取得する。この型が持つ値は、ハンドルを作った時点で
           1 回のクロスプロセス呼び出しにまとめて読んであるので、読み出しにコストは掛からない。
-          ただしそれらは<b>スナップショット</b>である: その後に名前が変わった要素も、
+          ただしそれらは**スナップショット**である: その後に名前が変わった要素も、
           古い名前を返し続ける。現在の値が要るときは
           <see cref="M:UiaTrigger.UiaSession.ReadSnapshotAsync(UiaTrigger.UiaElement)" /> を呼ぶこと。
         </para>

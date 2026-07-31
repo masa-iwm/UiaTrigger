@@ -10,27 +10,27 @@ using Xunit;
 namespace UiaTrigger.RealUia.Tests;
 
 /// <summary>
-/// テストプロセスの DPI 認識を、<b>何よりも先に</b>宣言する。
+/// テストプロセスの DPI 認識を、**何よりも先に**宣言する。
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>UIA を一度でも触ると、プロセスの DPI 認識は <c>System</c> に固定される。</b>
+/// **UIA を一度でも触ると、プロセスの DPI 認識は <c>System</c> に固定される。**
 /// 以後 <c>SetProcessDpiAwarenessContext</c> は失敗し、二度と変えられない
 /// (実測: 触る前 <c>Unaware</c> → <c>AutomationElement.RootElement</c> を
 /// 読んだ直後 <c>System</c> → 宣言を試みても <c>changed=False</c>)。
 /// </para>
 /// <para>
 /// <see cref="TestTargetProcess.RequireCoordinateSafeProcess"/> を「最初のテストが呼ぶ」に
-/// 任せると、<b>UIA を先に触るテストが 1 つでも在れば、それが先に走った実行だけ</b>
+/// 任せると、**UIA を先に触るテストが 1 つでも在れば、それが先に走った実行だけ**
 /// 座標を使う全テストが落ちる (座標を使わないテストは宣言を通らずに UIA へ入れるため、
 /// xunit の実行順しだいで座標系がまとめて落ちる)。
 /// 落ち方が「ハーネスが拒む」なので黙って嘘をつくわけではないが、
-/// <b>実行順に依存する赤</b>であり、原因が見えない。
+/// **実行順に依存する赤**であり、原因が見えない。
 /// </para>
 /// <para>
 /// モジュール初期化子はモジュール内のどのコードよりも先に走るので、
 /// 「誰が最初に走るか」に依存しなくなる。<c>RequireCoordinateSafeProcess</c> の
-/// assert は<b>残す</b> — 宣言が効かない環境 (manifest で別の値が固定されている等) を
+/// assert は**残す** — 宣言が効かない環境 (manifest で別の値が固定されている等) を
 /// 見逃さないためである。
 /// </para>
 /// <para>
@@ -46,7 +46,7 @@ internal static class TestProcessDpi
 /// <summary>
 /// テスト対象アプリ (tests/UiaTrigger.TestTarget) の子プロセス。
 ///
-/// UI の変化は <b>すべて stdin のコマンド</b> で起こし、応答 (ok/err) を待ってから次へ進む。
+/// UI の変化は **すべて stdin のコマンド** で起こし、応答 (ok/err) を待ってから次へ進む。
 /// 擬似入力は使わない — 擬似入力は「入力がどこへ届くか」を検証できず、
 /// 誤った結論を導いた実績がある (docs/TESTING.md §4)。
 /// </summary>
@@ -95,9 +95,9 @@ internal sealed class TestTargetProcess : IDisposable
             RedirectStandardInput = true,
             RedirectStandardOutput = true,
             UseShellExecute = false,
-            // <b>対象アプリはコンソールサブシステム (Exe) である。</b>手で起動できるようにするため
+            // **対象アプリはコンソールサブシステム (Exe) である。**手で起動できるようにするため
             // WinExe をやめた (csproj のコメントを参照)。その代償として、これを付けないと
-            // <b>対象プロセスごとにコンソール窓が 1 枚デスクトップに増える</b>。
+            // **対象プロセスごとにコンソール窓が 1 枚デスクトップに増える**。
             // T3 も T4 も座標 (ElementFromPoint) を通るので、余分な最前面窓は
             // 「記録したつもりが別の窓を掴む」を間欠的に起こす。窓は出さずパイプだけ繋ぐ
             CreateNoWindow = true,
@@ -131,23 +131,23 @@ internal sealed class TestTargetProcess : IDisposable
     }
 
     /// <summary>
-    /// 応答を待たずに 1 コマンドを送る。<b>塞がれたアプリへ送るための口</b>である。
+    /// 応答を待たずに 1 コマンドを送る。**塞がれたアプリへ送るための口**である。
     /// </summary>
     /// <remarks>
     /// <para>
     /// <c>hang</c> 中のアプリは stdin を読んだ先で UI スレッドを待つので、応答は
     /// 塞ぎが明けるまで返らない。<see cref="Send"/> だとそこで待ち切ってしまい、
-    /// <b>塞いでいるあいだに別のことをする</b>という観測ができない。
+    /// **塞いでいるあいだに別のことをする**という観測ができない。
     /// </para>
     /// <para>
-    /// これが要るのは検証の順序のためである。「塞がれていた」ことを塞ぎの<b>後</b>に
+    /// これが要るのは検証の順序のためである。「塞がれていた」ことを塞ぎの**後**に
     /// 確かめても、観測したかった窓のあいだ塞がっていた証拠にはならない。
     /// 先にここで送っておき、観測を挟んでから <see cref="AwaitResponse"/> で受けると、
     /// 「送ってから受けるまで返らなかった」= その窓のあいだ塞がっていた、が言える。
     /// </para>
     /// <para>
-    /// <b>未受け取りの応答を 1 つまでしか許さない。</b>2 つ送ると、次の
-    /// <see cref="Send"/> が<b>前のコマンドの終了行を自分の応答として読む</b> —
+    /// **未受け取りの応答を 1 つまでしか許さない。**2 つ送ると、次の
+    /// <see cref="Send"/> が**前のコマンドの終了行を自分の応答として読む** —
     /// 例外は出ず、以後すべての応答が 1 つずつずれる。静かに嘘をつく壊れ方なので、
     /// ここで落とす。
     /// </para>
@@ -199,7 +199,7 @@ internal sealed class TestTargetProcess : IDisposable
     }
 
     /// <summary>
-    /// UI スレッドを <paramref name="duration"/> だけ塞ぐ。<b>応答は先に返る</b>ので、
+    /// UI スレッドを <paramref name="duration"/> だけ塞ぐ。**応答は先に返る**ので、
     /// この呼び出し自体は待たない (tests/UiaTrigger.TestTarget/TargetApp.cs の <c>hang</c>)。
     /// </summary>
     public void Hang(TimeSpan duration) => Send(string.Create(
@@ -208,7 +208,7 @@ internal sealed class TestTargetProcess : IDisposable
     /// <summary>
     /// コントロールが自己申告する画面上の矩形 (物理座標)。
     /// これが UIA の <c>BoundingRectangle</c> と一致することがハーネスの前提であり、
-    /// ずれていれば座標からの記録は<b>例外を出さずに別の要素を掴む</b> (docs/DESIGN.md A19)。
+    /// ずれていれば座標からの記録は**例外を出さずに別の要素を掴む** (docs/DESIGN.md A19)。
     /// </summary>
     public (int Left, int Top, int Right, int Bottom) RectOf(string controlName)
     {
@@ -227,7 +227,7 @@ internal sealed class TestTargetProcess : IDisposable
     }
 
     /// <summary>
-    /// <c>TextBox</c> のキャレット位置。<b>UIA を通さずに読む</b> (T5 の K2 用)。
+    /// <c>TextBox</c> のキャレット位置。**UIA を通さずに読む** (T5 の K2 用)。
     /// </summary>
     /// <remarks>
     /// ←/→ が「ピッカーだけでなく対象アプリにも普通に届く」ことの観測点である
@@ -244,10 +244,10 @@ internal sealed class TestTargetProcess : IDisposable
         => int.Parse(Send("clicks " + controlName).Single()["clicks ".Length..], CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// コントロールにキーボードフォーカスを当て、<b>当たったかどうか</b>を返す。
+    /// コントロールにキーボードフォーカスを当て、**当たったかどうか**を返す。
     /// </summary>
     /// <remarks>
-    /// <b>true が返っても、それだけを信じてはいけない。</b>フォアグラウンドロックの規則により
+    /// **true が返っても、それだけを信じてはいけない。**フォアグラウンドロックの規則により
     /// 背景のプロセスは自分を前面へ出せないので、ここは「アプリの中では選択されている」しか
     /// 言っていない。撃つ前の検算は UIA の <c>HasKeyboardFocus</c> で行う
     /// (docs/TESTING.md §3 の解禁条件 1)。
@@ -334,7 +334,7 @@ internal sealed class TestTargetProcess : IDisposable
     /// テストプロセスを PerMonitorV2 にする。
     ///
     /// DPI 非認識のままだと Windows が座標を仮想化するため、UIA に渡した座標が
-    /// 狙った要素の外を指し、<b>例外にならずに別の要素を記録する</b> (docs/DESIGN.md A19)。
+    /// 狙った要素の外を指し、**例外にならずに別の要素を記録する** (docs/DESIGN.md A19)。
     /// これはハーネスが静かに嘘をつく壊れ方なので、成立していることを明示的に確かめる。
     /// </summary>
     public static void RequireCoordinateSafeProcess()

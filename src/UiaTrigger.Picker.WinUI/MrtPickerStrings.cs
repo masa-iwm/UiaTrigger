@@ -12,7 +12,7 @@
 // 一切引けなくなる (例外にはならず、キー名がそのまま画面に出る)。
 //
 // アセンブリ名に追随しなければならないことに注意 — アセンブリをリネームしたときに
-// ここを直し忘れても<b>ビルドは通り、実行時に画面がキー名だらけになる</b>だけである。
+// ここを直し忘れても**ビルドは通り、実行時に画面がキー名だらけになる**だけである。
 // XamlLocalizationTests.TheResourceMapNamesTheAssemblyItLivesIn がここを固定している。
 using Microsoft.Windows.ApplicationModel.Resources;
 

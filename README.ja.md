@@ -119,7 +119,7 @@ public List<TriggerDefinition> Triggers { get; set; } = [];
   **残りが読めるようになるのが `Clauses`** — 句 1 つにつき `ClauseReading` 1 件で、
   それぞれが自分の要素から読んだ値と、`Matched` / `NotMatched` / `Unreadable` / `NotEvaluated` の
   行き先を持つ。最後のものを別の状態にしてあるのは意図で、式は短絡するので
-  評価されない側の句は<b>一度も見ていない</b> — 「成立しなかった」とは別である。
+  評価されない側の句は**一度も見ていない** — 「成立しなかった」とは別である。
   単一ワーカー上で**検出順に 1 件ずつ**配送され、ハンドラの例外は `UnhandledException` へ回る
 - **要素の識別**: 「スコア合計 + 閾値」ではなく**必須述語 + ランキング + ビーム探索**。
   トップレベルウィンドウは属性ごとの `MatchStrength` (`Required` / `Preferred` / `Ignored`) で照合し、

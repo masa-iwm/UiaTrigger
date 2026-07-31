@@ -2,13 +2,13 @@
 // MANUAL-CHECKS §2 の一次の網。
 //
 // これは「狙い」が要る組である (docs/TESTING.md §3 の解禁条件 1)。撃つ前に、対象アプリの TextBox が
-// 本当にキーボードフォーカスを持っていることを<b>別実装 (UIA) で</b>検算する。
+// 本当にキーボードフォーカスを持っていることを**別実装 (UIA) で**検算する。
 // 検算が通らなければ「入力が届かなかった」ではなく
 // 「ハーネスが狙いを立てられなかった」として落とす。
 //
-// <b>M1 / M2 (クリック) はここに無い。</b>M1 は OverlayClickTests が持つ。
+// **M1 / M2 (クリック) はここに無い。**M1 は OverlayClickTests が持つ。
 // M2 は検出力を示せず自動化を見送られており (docs/TESTING.md §3)、
-// MANUAL-CHECKS §3 のアイコンの項目は<b>人の項目のまま</b>である。
+// MANUAL-CHECKS §3 のアイコンの項目は**人の項目のまま**である。
 using System.Globalization;
 using System.Windows.Automation;
 using UiaTrigger.Picker.UiTests;
@@ -22,23 +22,23 @@ public sealed class TargetInputTests
     private static readonly TimeSpan Settle = TimeSpan.FromSeconds(20);
 
     /// <summary>
-    /// ピッカーがフックを仕掛けている最中でも、<b>他のアプリに ←/→ が普通に効く</b>こと (MANUAL-CHECKS §2)。
+    /// ピッカーがフックを仕掛けている最中でも、**他のアプリに ←/→ が普通に効く**こと (MANUAL-CHECKS §2)。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// フックはキーを<b>吸収しない</b> — 通知だけして <c>CallNextHookEx</c> で流す。
+    /// フックはキーを**吸収しない** — 通知だけして <c>CallNextHookEx</c> で流す。
     /// これが崩れると、ピッカーを開いているあいだ**システム全体で ←/→ が効かなくなる**。
     /// 症状がピッカーの外に出るので、ピッカーのテストでは絶対に捕まらない類である。
     /// </para>
     /// <para>
-    /// <b>前面化は「実際のクリック」で行う。</b>背景のプロセスへフォーカスを移す方法は
+    /// **前面化は「実際のクリック」で行う。**背景のプロセスへフォーカスを移す方法は
     /// 他に無い — <c>Form.Activate()</c> はフォアグラウンドロックで拒否される。実測では、
-    /// アプリの中では <c>Focused == true</c> になるのに <b>UIA のフォーカスはピッカーのまま</b>で、
-    /// ←/→ はキャレットを動かさなかった。フォアグラウンド規則は<b>実入力を尊重する</b>ので、
+    /// アプリの中では <c>Focused == true</c> になるのに **UIA のフォーカスはピッカーのまま**で、
+    /// ←/→ はキャレットを動かさなかった。フォアグラウンド規則は**実入力を尊重する**ので、
     /// クリックだけがこの狙いを立てられる。
     /// </para>
     /// <para>
-    /// <b>← を使う。</b>クリックで置いたキャレットは行末に来るので、
+    /// **← を使う。**クリックで置いたキャレットは行末に来るので、
     /// → では clamp されて動かない (実測で 2 度踏んだ形)。
     /// </para>
     /// <para>
@@ -61,7 +61,7 @@ public sealed class TargetInputTests
         SyntheticInput.CursorGuard.MoveTo((left + right) / 2, (top + bottom) / 2);
         SyntheticInput.TapLeftButton();
 
-        // 狙いの検算 — <b>別実装 (UIA) で</b>確かめる。アプリの自己申告 (Control.Focused) は
+        // 狙いの検算 — **別実装 (UIA) で**確かめる。アプリの自己申告 (Control.Focused) は
         // 前面化まで保証しないので、これだけを信じてはいけない
         _ = Ui.Until(
             () => HasKeyboardFocus(scenario, "TargetEdit") ? "ok" : null,

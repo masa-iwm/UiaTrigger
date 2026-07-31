@@ -9,7 +9,7 @@ namespace UiaTrigger.Tests;
 ///
 /// 入れ子を「POCO を入れ子にする」のではなく「1 本の文字列を解析する」ことで得ているので、
 /// 構文と優先順位はここで実 UIA 無しに固定できる。木は永続化されないため、
-/// 検査すべきは形ではなく <b>評価の結果</b>である。
+/// 検査すべきは形ではなく **評価の結果**である。
 /// </summary>
 public sealed class ClauseExpressionTests
 {

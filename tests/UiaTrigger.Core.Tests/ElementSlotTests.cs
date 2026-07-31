@@ -9,8 +9,8 @@ namespace UiaTrigger.Tests;
 /// 1 つのトリガーが複数の要素にまたがれること (docs/DESIGN.md §4)。
 ///
 /// 句を実効 (Window, Locator) でまとめた単位が「スロット」で、解決も購読もスロットごとに起きる。
-/// <b>同じ要素を指す句が別々のスロットになると、1 要素にプロパティハンドラが 2 本立ち、
-/// 1 回の変化で 2 回発火する。</b>ただの無駄ではなく誤りである。
+/// **同じ要素を指す句が別々のスロットになると、1 要素にプロパティハンドラが 2 本立ち、
+/// 1 回の変化で 2 回発火する。**ただの無駄ではなく誤りである。
 ///
 /// ここは要素が 1 つも解決しない定義で回す。スロットは定義を追加した時点で決まるので、
 /// 実 UIA も対象アプリも要らない (<see cref="TriggerMonitorDiagnostics.WatchedPropertyCount"/> が
@@ -56,10 +56,10 @@ public sealed class ElementSlotTests
     // ---------- 同じ要素を指す句はまとまる ----------
 
     /// <summary>
-    /// <b>この検査がいちばん重要である。</b>
+    /// **この検査がいちばん重要である。**
     ///
     /// <see cref="WindowIdentity"/> と <see cref="ElementLocator"/> は <c>Equals</c> を持たない
-    /// 可変クラスなので、JSON から読んだ「同じ要素を指す 2 つの句」は<b>別オブジェクト</b>になる。
+    /// 可変クラスなので、JSON から読んだ「同じ要素を指す 2 つの句」は**別オブジェクト**になる。
     /// 参照同値でまとめようとすると、ここが 2 スロットに割れて二重発火する。
     /// 手で同じインスタンスを使い回す検査では絶対に落ちない形の誤りである。
     /// </summary>
@@ -118,7 +118,7 @@ public sealed class ElementSlotTests
     }
 
     /// <summary>
-    /// <see cref="WindowIdentity"/> の<b>どのプロパティ</b>が違ってもスロットは割れること。
+    /// <see cref="WindowIdentity"/> の**どのプロパティ**が違ってもスロットは割れること。
     ///
     /// 手書きの構造比較だと、あとからプロパティが 1 つ増えた日にそれを見落として
     /// 「違う要素を同じと見なす」形で黙って腐る。この検査はリフレクションで全プロパティを
@@ -161,7 +161,7 @@ public sealed class ElementSlotTests
     ///
     /// 誰も要らない要素まで解決しにいくと、それが存在しないときに
     /// <c>IsOrphaned(0, hwnd)</c> が永久に true になって <c>SubscriptionRepair</c> が
-    /// armed のままになる = <b>事実上のポーリング</b>である (docs/DESIGN.md §8)。
+    /// armed のままになる = **事実上のポーリング**である (docs/DESIGN.md §8)。
     /// </summary>
     [Fact]
     public async Task WhenEveryClauseOverridesTheTarget_TheDefaultIsNotResolved()
@@ -179,7 +179,7 @@ public sealed class ElementSlotTests
 
     /// <summary>
     /// 逆に <see cref="TriggerOn.ElementAppeared"/> / <see cref="TriggerOn.ElementRemoved"/> は
-    /// 「<b>どの</b>要素が出現したのか」を言う必要があるので、既定の要素が要る。
+    /// 「**どの**要素が出現したのか」を言う必要があるので、既定の要素が要る。
     /// </summary>
     [Theory]
     [InlineData(TriggerOn.ElementAppeared)]

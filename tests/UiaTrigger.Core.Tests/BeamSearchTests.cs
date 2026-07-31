@@ -75,7 +75,7 @@ public sealed class BeamSearchTests
     /// 兄弟が 1 個挿入されても解決できること。
     ///
     /// スコア合計 + 閾値の形では、手掛かりの薄い Pane は index が 1 ずれただけで閾値を割り、
-    /// <b>経路全体が失敗</b>する。
+    /// **経路全体が失敗**する。
     /// </summary>
     [Fact]
     public void Resolve_FollowsAGenericPaneWhenASiblingIsInsertedBefore()
@@ -93,7 +93,7 @@ public sealed class BeamSearchTests
     }
 
     /// <summary>
-    /// 兄弟インデックスは <b>タイブレークにのみ</b> 効くこと。
+    /// 兄弟インデックスは **タイブレークにのみ** 効くこと。
     /// 他の手掛かりが同点の 2 つの Pane があるなら、記録された index に近いほうを採る。
     /// </summary>
     [Fact]
@@ -107,7 +107,7 @@ public sealed class BeamSearchTests
     }
 
     /// <summary>
-    /// 一方でインデックスは <b>スコアではない</b>。
+    /// 一方でインデックスは **スコアではない**。
     /// 記録された index の要素より、記録された Name に一致する要素のほうが優先されること。
     /// </summary>
     [Fact]
@@ -240,7 +240,7 @@ public sealed class BeamSearchTests
     /// <summary>
     /// 探索の途中で要素が消えても、そこまでに掴んだノードを 1 つも残さないこと。
     ///
-    /// ビームが複数あると、1 つ目の親の子から候補を採った<b>あと</b>に 2 つ目の親で落ちうる。
+    /// ビームが複数あると、1 つ目の親の子から候補を採った**あと**に 2 つ目の親で落ちうる。
     /// その時点の候補はまだ「生き残りの記録」に入っていないので、素直に書くと取りこぼす。
     /// </summary>
     [Fact]

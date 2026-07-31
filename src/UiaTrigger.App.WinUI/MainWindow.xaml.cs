@@ -22,7 +22,7 @@ public sealed partial class MainWindow : Window, IDisposable
     // キーは定義自身が持つ。並行配列で別持ちしない (docs/DESIGN.md §3)
     private readonly List<TriggerDefinition> _triggers = [];
     /// <summary>
-    /// 開いているピッカー。<b>複数開ける</b> — オーバーレイは static singleton ではなく
+    /// 開いているピッカー。**複数開ける** — オーバーレイは static singleton ではなく
     /// 登録表方式であり (A18)、その効果はホストが 2 つ目を開けなければ実機で確かめようがない
     /// (docs/MANUAL-CHECKS.md §6)。
     /// </summary>
@@ -35,7 +35,7 @@ public sealed partial class MainWindow : Window, IDisposable
     private readonly ObservableCollection<string> _log = [];
 
     /// <summary>
-    /// 動いている監視。null = 停止中。<b>UI スレッドからのみ読み書きする。</b>
+    /// 動いている監視。null = 停止中。**UI スレッドからのみ読み書きする。**
     /// </summary>
     private TriggerMonitor? _monitor;
     private bool _disposed;
@@ -108,7 +108,7 @@ public sealed partial class MainWindow : Window, IDisposable
                 // 複合条件は 1 行に収まらないので別書式にする。プロセス名を出しても
                 // 意味が無い (要素ごとに違う) ので、代わりに条件の数と式を出す。
                 //
-                // <b>「要素が何個か」をここで数えないこと。</b>同じ要素かどうかは
+                // **「要素が何個か」をここで数えないこと。**同じ要素かどうかは
                 // Window / Locator の値で決まるが、あの 2 つは Equals を持たない可変クラスなので、
                 // 素朴に比べると JSON から読んだ「同じ要素を指す 2 句」を別物と数えてしまう。
                 // 正しい数はライブラリが持っている — 監視中の
@@ -160,8 +160,8 @@ public sealed partial class MainWindow : Window, IDisposable
         // 先に開いていたほうが新しいピッカーのマウスに黙って追随して、出していた要素を失う
         // (確定済みの条件は無事である)。
         //
-        // <b>--pick-at で位置を注入している実行では調停しない。</b>あのとき各ピッカーは
-        // 自分に渡された ICursorSource を読むので<b>ポインターを共有していない</b> —
+        // **--pick-at で位置を注入している実行では調停しない。**あのとき各ピッカーは
+        // 自分に渡された ICursorSource を読むので**ポインターを共有していない** —
         // 取り合いが起きないものを止める理由は無く、止めると A18 の
         // 「2 枚が別々の枠を出す」検査 (T4 / T5) が原理的に成立しなくなる。
         if (HostOptions.Cursors.Count == 0)
@@ -228,7 +228,7 @@ public sealed partial class MainWindow : Window, IDisposable
     // 録ったトリガーを選んで 1 件にまとめる。条件の名前には元のトリガーの id をそのまま
     // 使うので、式が「login && !busy」のように読める形になる。
     //
-    // <b>まとめた結果も同じ一覧に並ぶ。</b>それをまた選んでまとめれば入れ子になるので、
+    // **まとめた結果も同じ一覧に並ぶ。**それをまた選んでまとめれば入れ子になるので、
     // 入れ子のための UI は要らない。
     //
     // 組む規則そのものはここには無い — TriggerComposer (docs/DESIGN.md §4) が持つ。
@@ -263,7 +263,7 @@ public sealed partial class MainWindow : Window, IDisposable
     }
 
     /// <summary>
-    /// 再読込。<b>監視中なら先に止める</b> — 一覧を丸ごと入れ替えるので、
+    /// 再読込。**監視中なら先に止める** — 一覧を丸ごと入れ替えるので、
     /// 走らせたままにすると「画面のトリガーと監視しているトリガーが違う」状態になる。
     /// </summary>
     private async void OnReload(object sender, RoutedEventArgs e)
@@ -280,18 +280,18 @@ public sealed partial class MainWindow : Window, IDisposable
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>渡して受け取るだけ</b>である。エディタは保存先も監視も知らないので、
+    /// **渡して受け取るだけ**である。エディタは保存先も監視も知らないので、
     /// 書くのも登録し直すのもここでやる。エディタが返すのは写しなので、
     /// 返ってくるまで <c>_triggers</c> は一切変わらない (取り消しても何も起きない)。
     /// </para>
     /// <para>
-    /// <b>監視中なら先に止める</b> — 一覧を丸ごと入れ替えるので、理由は
+    /// **監視中なら先に止める** — 一覧を丸ごと入れ替えるので、理由は
     /// <see cref="OnReload"/> と同じである。差分だけ登録し直す形は書かない:
     /// エディタは「どれが変わったか」を返さないし、返させると
-    /// <b>監視の所有をエディタへ渡すことになる</b>。
+    /// **監視の所有をエディタへ渡すことになる**。
     /// </para>
     /// <para>
-    /// WinUI のエディタは<b>モーダルではない</b> (WinUI3 に窓単位のモーダルが無い)。
+    /// WinUI のエディタは**モーダルではない** (WinUI3 に窓単位のモーダルが無い)。
     /// 押した口を無効にしておくのが、再入を防ぐいちばん簡単な形である。
     /// </para>
     /// </remarks>
@@ -410,7 +410,7 @@ public sealed partial class MainWindow : Window, IDisposable
     /// 1 件だけ登録し直す (走らせたまま編集できることの実演)。
     /// </summary>
     /// <remarks>
-    /// <b>必ず外してから足す。</b>ピッカーの確定は「同じ id を録り直す」経路を普通に通り、
+    /// **必ず外してから足す。**ピッカーの確定は「同じ id を録り直す」経路を普通に通り、
     /// <c>AddAsync</c> は id が重複すると <see cref="ArgumentException"/> を投げる。
     /// </remarks>
     private async Task ReregisterAsync(TriggerDefinition definition)
@@ -459,12 +459,12 @@ public sealed partial class MainWindow : Window, IDisposable
         AppendLog("MonitorRowError", DateTimeOffset.Now, exception.Message);
 
     /// <summary>
-    /// 監視ログに 1 行足す。<b>どのスレッドから呼んでもよい。</b>
+    /// 監視ログに 1 行足す。**どのスレッドから呼んでもよい。**
     /// </summary>
     /// <remarks>
     /// 発火・解決状態・例外は 3 つとも単一のバックグラウンドワーカー上で配られる
     /// (<see cref="TriggerMonitor.TriggerFired"/> の remarks)。UI に触れるのは
-    /// <c>TryEnqueue</c> の先だけである。<b>ここを省くのがサンプルの最も写されやすい間違い。</b>
+    /// <c>TryEnqueue</c> の先だけである。**ここを省くのがサンプルの最も写されやすい間違い。**
     /// </remarks>
     private void AppendLog(string key, params object?[] args) => DispatcherQueue.TryEnqueue(() =>
     {

@@ -10,7 +10,7 @@ namespace UiaTrigger.RealUia.Tests;
 /// 1 つのトリガーが複数の要素にまたがること (docs/DESIGN.md §4) を実 UIA で確認する。
 ///
 /// <para>
-/// <b>対象は 2 プロセスにする。</b>同一ウィンドウ内の 2 要素だと、スロットが割れていようが
+/// **対象は 2 プロセスにする。**同一ウィンドウ内の 2 要素だと、スロットが割れていようが
 /// まとまっていようが素通りしてしまい何も証明しない。プロセスをまたぐと
 /// 「ウィンドウごとに解決し、ウィンドウごとに購読する」が本当に効いていないと通らない。
 /// あわせて WinForms (MSAA ブリッジ) と WPF (ネイティブ UIA プロバイダー) を 1 つずつ使い、
@@ -18,7 +18,7 @@ namespace UiaTrigger.RealUia.Tests;
 /// </para>
 ///
 /// <para>
-/// <b>片方だけ満たしたときに鳴らないこと (ネガティブコントロール) がこの一群の主眼である。</b>
+/// **片方だけ満たしたときに鳴らないこと (ネガティブコントロール) がこの一群の主眼である。**
 /// 「両方満たしたら鳴った」だけなら、条件を無視して鳴っているだけかもしれない。
 /// </para>
 /// </summary>
@@ -31,7 +31,7 @@ public sealed class CompositeScenarioTests
     private static readonly TimeSpan NoFireWindow = TimeSpan.FromSeconds(3);
 
     /// <summary>
-    /// 2 つの対象アプリを、<b>重ならない位置に</b>並べて起動する。
+    /// 2 つの対象アプリを、**重ならない位置に**並べて起動する。
     ///
     /// <para>
     /// どちらも既定位置 (40,40) に 520x1000 で出るので、そのままだと完全に重なる。
@@ -93,7 +93,7 @@ public sealed class CompositeScenarioTests
         };
 
     /// <summary>
-    /// 「A のラベルが ready、<b>かつ</b> B のラベルが done」。
+    /// 「A のラベルが ready、**かつ** B のラベルが done」。
     ///
     /// 片方だけ満たした時点では鳴らず、もう片方を満たした瞬間に 1 回だけ鳴ること。
     /// <c>TriggerDefinition</c> が <c>Window</c> と <c>Locator</c> を 1 組しか
@@ -135,22 +135,22 @@ public sealed class CompositeScenarioTests
 
         // ---- イベントに載る値は「先頭の句の要素」のもので、3 つとも整合していること ----
         //
-        // <b>鳴らしたのは B の変化だが、載るのは A の値である</b> (docs/DESIGN.md §4)。
+        // **鳴らしたのは B の変化だが、載るのは A の値である** (docs/DESIGN.md §4)。
         // 何がトリガーを鳴らしたかと、イベントが何を報告するかは別の問いだと doc が
         // 述べているのはこの形のことで、ここが唯一それを実物で押さえる場所である。
         //
         // 退行の形: Properties を「変化を報告したスロットのもの」に戻すと、
-        // NewValue が A・Properties が B という<b>1 つのイベントが 2 つの要素を指す</b>状態になり、
+        // NewValue が A・Properties が B という**1 つのイベントが 2 つの要素を指す**状態になり、
         // 最後の 2 行が落ちる。例外は出ないので、これが無いと誰も気づけない
         Assert.Equal("ready", fired.NewValue.Value);
         Assert.NotNull(fired.Properties);
         Assert.Equal("ready", fired.Properties.GetComparisonValue(TriggerProperty.Name).Value);
         // WhileMatching は「条件全体が成立した」ので、1 つの値の変化前は存在しない。
-        // <b>HasValue で見ること</b> — 「読めなかった」と「空文字だった」は別である
+        // **HasValue で見ること** — 「読めなかった」と「空文字だった」は別である
         // (ComparisonString.Value は前者でも空文字を返す)
         Assert.False(fired.OldValue.HasValue);
 
-        // ---- 句ごとの値は<b>それぞれ自分の要素</b>から来ること (docs/DESIGN.md §4) ----
+        // ---- 句ごとの値は**それぞれ自分の要素**から来ること (docs/DESIGN.md §4) ----
         //
         // 上の 3 行が「1 つの要素しか語れない」ことの裏返しである。2 プロセスにまたがる
         // トリガーで B 側がどうだったかを言えるのは、ここだけである。
@@ -160,16 +160,16 @@ public sealed class CompositeScenarioTests
     }
 
     /// <summary>
-    /// 「B が done <b>のまま</b>、A が ready になったとき」を
+    /// 「B が done **のまま**、A が ready になったとき」を
     /// <see cref="PropertyClause.Watch"/> = false で書けること。
     ///
     /// <para>
     /// 購読は <c>Property</c> から作られ <c>Op</c> を見ないので、B の句をそのまま置くと
-    /// <b>B が変わるだけでも鳴る</b>。Watch = false はそれを絞るだけの句にする。
+    /// **B が変わるだけでも鳴る**。Watch = false はそれを絞るだけの句にする。
     /// </para>
     ///
     /// <para>
-    /// <b>B をいくら変えても鳴らないこと</b>がこの検査の主眼である。
+    /// **B をいくら変えても鳴らないこと**がこの検査の主眼である。
     /// </para>
     /// </summary>
     [Fact]
@@ -218,16 +218,16 @@ public sealed class CompositeScenarioTests
     }
 
     /// <summary>
-    /// <b>式が短絡して読まなかった句は、そう報告されること</b> (docs/DESIGN.md §4)。
+    /// **式が短絡して読まなかった句は、そう報告されること** (docs/DESIGN.md §4)。
     ///
     /// <para>
     /// <c>Expression</c> の doc は「短絡するので、演算子の評価されない側の句は読まれない」と
     /// 公開済みの約束にしている。<see cref="ClauseOutcome.NotEvaluated"/> はそれを
-    /// <b>ホストから観測できる形にしたもの</b>である —
+    /// **ホストから観測できる形にしたもの**である —
     /// 「読んだが成立しなかった」と「読んでいない」を混ぜないために別の状態にしてある。
     /// </para>
     /// <para>
-    /// <c>a || b</c> で a が成立すれば b は読まれない。<b>この形でしか観測できない</b> —
+    /// <c>a || b</c> で a が成立すれば b は読まれない。**この形でしか観測できない** —
     /// 値は「最後に読めた値」ではなく「その周に読んだかどうか」で決まるので、
     /// スナップショットを見ても区別できない。
     /// </para>
@@ -266,28 +266,28 @@ public sealed class CompositeScenarioTests
 
         Assert.Equal(ClauseOutcome.Matched, fired.Clauses[0].Outcome);
         Assert.Equal("ready", fired.Clauses[0].Value.Value);
-        // 読んでいないのだから値も無い。<b>「空文字だった」ではない</b>
+        // 読んでいないのだから値も無い。**「空文字だった」ではない**
         Assert.Equal(ClauseOutcome.NotEvaluated, fired.Clauses[1].Outcome);
         Assert.False(fired.Clauses[1].Value.HasValue);
     }
 
     /// <summary>
-    /// <b>ファイルから読み直した</b>定義で、同じ要素を指す 2 つの句の発火が 1 回であること。
+    /// **ファイルから読み直した**定義で、同じ要素を指す 2 つの句の発火が 1 回であること。
     ///
     /// <para>
     /// <see cref="WindowIdentity"/> と <see cref="ElementLocator"/> は <c>Equals</c> を持たない
-    /// 可変クラスなので、JSON から読むと「同じ要素を指す 2 つの句」は<b>別オブジェクト</b>になる。
+    /// 可変クラスなので、JSON から読むと「同じ要素を指す 2 つの句」は**別オブジェクト**になる。
     /// 参照でまとめようとすると 1 要素にプロパティハンドラが 2 本立ち、
-    /// <b>1 回の変化で 2 回鳴る</b>。
+    /// **1 回の変化で 2 回鳴る**。
     /// </para>
     ///
     /// <para>
-    /// <b>句を手で組み立てて同じインスタンスを使い回すと、この誤りは絶対に落ちない。</b>
+    /// **句を手で組み立てて同じインスタンスを使い回すと、この誤りは絶対に落ちない。**
     /// だからここは往復させてから使う — 利用者がやるのはまさにそれである。
     /// </para>
     ///
     /// <para>
-    /// 直接見るのは<b>解決する要素の数</b>である。二重発火はその帰結だが、
+    /// 直接見るのは**解決する要素の数**である。二重発火はその帰結だが、
     /// 同じ要素に 2 本立てたハンドラを UIA がどう配送するかはこちらの管轄ではなく、
     /// 「鳴らなかったこと」だけを根拠にすると検出力が UIA の都合に左右される。
     /// </para>

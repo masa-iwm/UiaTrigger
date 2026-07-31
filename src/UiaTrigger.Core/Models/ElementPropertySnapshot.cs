@@ -61,7 +61,7 @@ public sealed record ElementPropertySnapshot
 
     /// <summary>The control type as UI Automation localizes it, for example <c>button</c>.</summary>
     /// <remarks>
-    /// The display form. Supplied by the provider in <b>the target application's</b> language, so
+    /// The display form. Supplied by the provider in **the target application's** language, so
     /// it is not stable and never takes part in a comparison; falls back to
     /// <see cref="ControlTypeName"/> when the provider supplies nothing.
     /// </remarks>

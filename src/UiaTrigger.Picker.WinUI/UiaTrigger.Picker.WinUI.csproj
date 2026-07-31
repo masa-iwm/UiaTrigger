@@ -19,17 +19,17 @@
     <!--
       Windows SDK 投影パッケージを明示する (docs/DESIGN.md §12)。
 
-      .NET SDK が既定で引くのは 10.0.19041.<b>57</b> で、そこの CsWinRT は
-      CsWinRTAotWarningLevel を知らない。<b>AOT の警告を上げるための前提である。</b>
+      .NET SDK が既定で引くのは 10.0.19041.**57** で、そこの CsWinRT は
+      CsWinRTAotWarningLevel を知らない。**AOT の警告を上げるための前提である。**
       版を上げること自体が目的ではない — 上げないと下の警告レベルが黙って無視される。
     -->
     <WindowsSdkPackageVersion>10.0.19041.87</WindowsSdkPackageVersion>
     <!--
-      <b>AOT で壊れる WinRT の使い方を警告として出させる</b> (docs/DESIGN.md §12)。
+      **AOT で壊れる WinRT の使い方を警告として出させる** (docs/DESIGN.md §12)。
 
       A23 (WinUI の GridSplitter が発行物で動かない) がこの層の不具合の実例である。
-      TreatWarningsAsErrors と組み合わせると、同じ形は<b>ビルドで止まる</b>。
-      既定のレベルでは何も出ず、<b>発行して人が掴んで初めて分かる</b>。
+      TreatWarningsAsErrors と組み合わせると、同じ形は**ビルドで止まる**。
+      既定のレベルでは何も出ず、**発行して人が掴んで初めて分かる**。
     -->
     <CsWinRTAotWarningLevel>3</CsWinRTAotWarningLevel>
   </PropertyGroup>
@@ -44,7 +44,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <!--
-      GridSplitter。<b>この変種だけが標準で持っていない</b>ので、ここだけが依存を 1 つ増やす
+      GridSplitter。**この変種だけが標準で持っていない**ので、ここだけが依存を 1 つ増やす
       (Directory.Packages.props に理由がある)。このプロジェクトは IsPackable なので、
       利用者の側にもこの依存が伝播する。
     -->

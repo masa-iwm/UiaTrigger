@@ -1,6 +1,6 @@
 // トリガ一覧エディタのリソースキー表 (docs/DESIGN.md §4)。
 //
-// PickerStringKeys と<b>別の表にしてある。</b>同じ表に混ぜると、ピッカーの View 3 つに対して
+// PickerStringKeys と**別の表にしてある。**同じ表に混ぜると、ピッカーの View 3 つに対して
 // 「キー表のラベルをすべて要求すること」を見ているテスト
 // (TriggerPickerWpfWindowTests.TheViewAsksForEveryLabelInTheKeyTable ほか) が、
 // ピッカーには存在しないエディタのコントロールを要求し始める。

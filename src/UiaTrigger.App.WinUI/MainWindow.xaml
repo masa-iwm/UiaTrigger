@@ -11,8 +11,8 @@
         <!--
             トリガー一覧とログ一覧の高さの配分はユーザーが動かせる (下の GridSplitter)。
             ログ一覧 (D9) と分け合うため、トリガー一覧は既定で約半分の高さになる。
-            docs/MANUAL-CHECKS.md §9 の「高さの配分が実用的であること」は、<b>配分を
-            固定したまま「実用的な値」を探すのではなく、動かせること</b>で満たす。
+            docs/MANUAL-CHECKS.md §9 の「高さの配分が実用的であること」は、**配分を
+            固定したまま「実用的な値」を探すのではなく、動かせること**で満たす。
         -->
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -36,7 +36,7 @@
             <Button x:Name="ReloadButton" x:Uid="ReloadButton" Click="OnReload" />
             <!--
                 トリガ一覧エディタ (docs/DESIGN.md §4)。この窓が持っている一覧・削除・
-                まとめる相当を、<b>組み込む側が使える形で</b>ライブラリが持つ。
+                まとめる相当を、**組み込む側が使える形で**ライブラリが持つ。
                 ホスト側は「渡して受け取る」だけである。
             -->
             <Button x:Name="EditListButton" x:Uid="EditListButton" Click="OnEditList" />

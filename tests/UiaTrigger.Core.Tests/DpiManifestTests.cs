@@ -59,15 +59,15 @@ public sealed class DpiManifestTests
     /// PerMonitorV2 を宣言していなければならないプロジェクト。
     ///
     /// <para>
-    /// ホスト (App) だけでなく <b>T3 の対象アプリ</b> も含む。DPI 非認識のプロセスは
+    /// ホスト (App) だけでなく **T3 の対象アプリ** も含む。DPI 非認識のプロセスは
     /// 座標を仮想化され、UIA の <c>BoundingRectangle</c> (物理座標) と食い違う。
-    /// 対象アプリ側でこれが崩れると、座標から記録したつもりの定義が<b>別の要素</b>を指し、
+    /// 対象アプリ側でこれが崩れると、座標から記録したつもりの定義が**別の要素**を指し、
     /// T3 は落ちるのではなく静かに嘘をつく (docs/DESIGN.md A19)。
     /// </para>
     /// <para>
     /// WinForms のプロジェクトがここに無いのは、WinForms が manifest ではなく
     /// <c>Application.SetHighDpiMode</c> (WFO0003) での宣言を要求するためである。
-    /// アナライザーが manifest 側の DPI 設定をエラーにするので、<b>置きたくても置けない</b>。
+    /// アナライザーが manifest 側の DPI 設定をエラーにするので、**置きたくても置けない**。
     /// そちらは <see cref="HighDpiModeProjects"/> の側で見る。
     /// </para>
     /// </summary>
@@ -84,13 +84,13 @@ public sealed class DpiManifestTests
     /// PerMonitorV2 を <c>Application.SetHighDpiMode</c> で宣言するプロジェクト (Windows Forms)。
     ///
     /// <para>
-    /// manifest を全ホストに置く形は<b>成立しない</b>。
+    /// manifest を全ホストに置く形は**成立しない**。
     /// Windows Forms のアナライザー WFO0003 が「高 DPI 設定を app.manifest から削除して
     /// SetHighDpiMode を使え」とエラーにし、<c>TreatWarningsAsErrors=true</c> の
     /// この repo ではビルドが通らない。
     /// </para>
     /// <para>
-    /// 経路が 2 つに分かれる以上、<b>どちらも通っていないプロジェクトが出ないこと</b>を
+    /// 経路が 2 つに分かれる以上、**どちらも通っていないプロジェクトが出ないこと**を
     /// 見る必要がある (<see cref="EveryHostDeclaresPerMonitorV2SomeWay"/>)。
     /// 「どちらの表にも載っていないから緑」が起きるのがいちばん困る形である。
     /// </para>
@@ -148,17 +148,17 @@ public sealed class DpiManifestTests
     }
 
     /// <summary>
-    /// PerMonitorV2 の宣言が<b>ビルド成果物にまで残っている</b>こと。
+    /// PerMonitorV2 の宣言が**ビルド成果物にまで残っている**こと。
     ///
     /// <para>
     /// ソースに app.manifest があり csproj が指していても、取り込みの過程で落ちれば
     /// プロセスは DPI 非認識になる。埋め込み方はツールチェーンで違うので両方見る:
     /// </para>
     /// <list type="bullet">
-    ///   <item>Windows App SDK は <c>obj/**/Manifests/app.manifest</c> に<b>マージ済み</b>の
+    ///   <item>Windows App SDK は <c>obj/**/Manifests/app.manifest</c> に**マージ済み**の
     ///     manifest を出す (自前の manifest と統合される)。存在すればそれを XML として検査する</item>
     ///   <item>素の apphost (WPF / Win32) はマージ段階を持たず、manifest を exe の
-    ///     Win32 リソースへ<b>直接埋め込む</b>。中間ファイルが無いので、
+    ///     Win32 リソースへ**直接埋め込む**。中間ファイルが無いので、
     ///     成果物のバイト列に宣言が入っていることで確かめる
     ///     (発行出力の <c>.pri</c> を同じやり方で確かめている — docs/LOCALIZATION.md §2)</item>
     /// </list>
@@ -211,11 +211,11 @@ public sealed class DpiManifestTests
 
     /// <summary>
     /// Windows Forms のプロジェクトが <c>Application.SetHighDpiMode(PerMonitorV2)</c> を
-    /// <b>ウィンドウを作る前に</b>呼んでいること。
+    /// **ウィンドウを作る前に**呼んでいること。
     ///
     /// <para>
     /// 呼ぶ位置が要点である。<c>SetHighDpiMode</c> はプロセスが最初のウィンドウを作るまでしか
-    /// 効かず、遅れると<b>黙って無視される</b> (戻り値 false)。とくに
+    /// 効かず、遅れると**黙って無視される** (戻り値 false)。とくに
     /// <c>ApplicationConfiguration.Initialize()</c> は既定値でこれを呼んでしまうので、
     /// その後に書くと自分の指定が通らない。
     /// </para>
@@ -251,11 +251,11 @@ public sealed class DpiManifestTests
     }
 
     /// <summary>
-    /// ピッカーを開けるホストが、<b>どれか 1 つの経路で</b>必ず PerMonitorV2 を宣言していること。
+    /// ピッカーを開けるホストが、**どれか 1 つの経路で**必ず PerMonitorV2 を宣言していること。
     ///
     /// <para>
-    /// 経路が 2 つに分かれた以上、これが要る。ホストを 1 つ足して<b>どちらの表にも
-    /// 載せ忘れる</b>と、上の検査はどちらも「対象外」として素通りし、全部緑のまま
+    /// 経路が 2 つに分かれた以上、これが要る。ホストを 1 つ足して**どちらの表にも
+    /// 載せ忘れる**と、上の検査はどちらも「対象外」として素通りし、全部緑のまま
     /// DPI 非認識のホストが 1 つ増える。ホイールバグはそこから始まった (docs/TESTING.md §4)。
     /// </para>
     /// </summary>

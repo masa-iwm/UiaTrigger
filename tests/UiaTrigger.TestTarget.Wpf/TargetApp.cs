@@ -82,7 +82,7 @@ internal sealed class TargetApp(string title)
             // WPF のレイアウトは遅延する。WinForms 版と同じ約束
             // 「応答を返した時点で UI 反映が完了している」を守るため、ここで同期的に流し切る。
             // これが無いと、追加した直後の要素は ActualWidth が 0 のままで
-            // rect が親の座標を返し、座標からの記録が<b>静かに別の要素</b>を掴む
+            // rect が親の座標を返し、座標からの記録が**静かに別の要素**を掴む
             _window?.UpdateLayout();
             output.Append("ok ").Append(verb).Append('\n');
         }
@@ -152,11 +152,11 @@ internal sealed class TargetApp(string title)
 
             case "set-accessible-name":
             {
-                // UIA の Name だけを、<b>表示内容を変えずに</b>書き換える。
+                // UIA の Name だけを、**表示内容を変えずに**書き換える。
                 //
                 // WinForms 側の同名の verb は AccessibleName を差し替えるもので、
                 // MSAA ブリッジの通知経路を通らない = 変化通知が上がらない。
-                // <b>WPF で同じことが起きるかは自明ではない</b> — ネイティブ UIA
+                // **WPF で同じことが起きるかは自明ではない** — ネイティブ UIA
                 // プロバイダーは peer のプロパティを自動で突き合わせて通知を上げる仕組みを
                 // 持っており、レイアウトが動けばそこで拾われうる (2 つのプロバイダー経路は
                 // 非対称である — docs/DESIGN.md §6)。

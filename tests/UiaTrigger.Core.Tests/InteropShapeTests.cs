@@ -8,7 +8,7 @@ namespace UiaTrigger.Tests;
 /// 手書き interop の「形」を固定する。
 ///
 /// [GeneratedComInterface] は宣言順に vtable スロットを割り当てるため、メソッドを 1 つ
-/// 増減・並べ替えするだけで <b>別のメソッドを呼ぶ</b> ようになる。コンパイルは通り、
+/// 増減・並べ替えするだけで **別のメソッドを呼ぶ** ようになる。コンパイルは通り、
 /// AOT 発行も通り、実行時に静かに壊れる類の事故なのでここで固定する。
 /// </summary>
 public sealed class InteropShapeTests

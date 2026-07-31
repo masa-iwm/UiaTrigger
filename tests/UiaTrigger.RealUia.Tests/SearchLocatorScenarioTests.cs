@@ -8,7 +8,7 @@ namespace UiaTrigger.RealUia.Tests;
 ///
 /// <para>
 /// 擬似ツリーの <c>SearchLocatorTests</c> は「解決側が Search を使うこと」を固定するが、
-/// <b>記録側が一意性を正しく確かめていること</b>は実物でしか突き合わせられない。
+/// **記録側が一意性を正しく確かめていること**は実物でしか突き合わせられない。
 /// 「一意だろう」で記録した定義は、解決時に黙って別の要素を掴む。
 /// </para>
 ///
@@ -97,7 +97,7 @@ public sealed class SearchLocatorScenarioTests
 
     /// <summary>
     /// 記録時は一意だった id が後から重複したら、Search を使わず経路方式で
-    /// <b>記録した側の要素</b>を掴み直すこと。先頭の一致を採る実装なら落ちる。
+    /// **記録した側の要素**を掴み直すこと。先頭の一致を採る実装なら落ちる。
     /// </summary>
     [Fact]
     public async Task Resolve_WhenTheAutomationIdBecomesAmbiguous_StillWatchesTheRecordedElement()

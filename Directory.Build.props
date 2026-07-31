@@ -63,7 +63,7 @@
     「安定している」という約束になるので出さない。プレリリース札を付けてあるので、
     利用者が明示的に選ばない限り復元されない。
 
-    Description と PackageTags は<b>プロジェクトごと</b>に書く (中身が違うため)。
+    Description と PackageTags は**プロジェクトごと**に書く (中身が違うため)。
   -->
   <PropertyGroup>
     <Version>0.1.0-preview.1</Version>

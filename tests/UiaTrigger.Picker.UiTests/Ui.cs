@@ -18,7 +18,7 @@ internal static class Ui
     /// <paramref name="diagnose"/> の内容を添えて落ちる。
     /// </summary>
     /// <remarks>
-    /// 診断を必須の引数にしてあるのは、実 UIA のテストは<b>失敗したときに何も分からない</b>のが
+    /// 診断を必須の引数にしてあるのは、実 UIA のテストは**失敗したときに何も分からない**のが
     /// 常だからである (T3 の <c>MonitorHarness.History</c> と同じ理由)。
     /// 「行が実体化しなかった」と「そもそも捕捉が起きなかった」は、状態を印字しないと区別できない。
     /// </remarks>
@@ -51,7 +51,7 @@ internal static class Ui
     /// </summary>
     /// <remarks>
     /// <see cref="Until{T}"/> と違い、ここでは <see cref="ElementNotAvailableException"/> を
-    /// <b>握り潰さない</b>。握り潰すと「起きなかった」と「見られなかった」が同じ扱いになり、
+    /// **握り潰さない**。握り潰すと「起きなかった」と「見られなかった」が同じ扱いになり、
     /// 対象のウィンドウが消えただけでネガティブコントロールが通ってしまう。
     /// 待つ側では一時的な失敗を「まだ成立していない」と読むのが正しいが、
     /// 起きないことを確かめる側では逆になる。
@@ -92,14 +92,14 @@ internal static class Ui
     }
 
     /// <summary>
-    /// 診断を集める。<b>集めるほうが失敗しても、元の失敗を握り潰さない。</b>
+    /// 診断を集める。**集めるほうが失敗しても、元の失敗を握り潰さない。**
     /// </summary>
     /// <remarks>
     /// <see cref="ElementNotAvailableException"/> だけを捕まえるのでは足りない。
     /// 診断は UIA を叩くので <c>COMException</c> (「Operation timed out」) も普通に出る —
-    /// 相手が忙しいときほど出るので、<b>いちばん診断が要る場面で</b>出る。
+    /// 相手が忙しいときほど出るので、**いちばん診断が要る場面で**出る。
     /// それが素通りすると、xunit が報告するのは診断側の COMException になり、
-    /// <b>本当のタイムアウトの説明がまるごと消える</b> (実際にそれで原因調査を 30 分遠回りした)。
+    /// **本当のタイムアウトの説明がまるごと消える** (実際にそれで原因調査を 30 分遠回りした)。
     /// </remarks>
     private static string Diagnose(Func<string> diagnose)
     {
@@ -125,13 +125,13 @@ internal static class Ui
            ?? throw new InvalidOperationException($"AutomationId '{automationId}' の要素が見つかりません。");
 
     /// <summary>
-    /// AutomationId で子孫を 1 つ探す。<b>出てくるまで待つ</b>。
+    /// AutomationId で子孫を 1 つ探す。**出てくるまで待つ**。
     /// </summary>
     /// <remarks>
-    /// <b>WinUI では、レイアウトが動いた直後に既に在る要素が一時的に UIA から消える。</b>
+    /// **WinUI では、レイアウトが動いた直後に既に在る要素が一時的に UIA から消える。**
     /// トグルを切り替えた直後の <c>CondCombo</c> で実際に踏んだ。
     /// <see cref="RequireById"/> を使うと「要素が無い」という顔で落ちるが、
-    /// 実際には<b>まだ出ていないだけ</b>である。
+    /// 実際には**まだ出ていないだけ**である。
     /// 待っても出てこなければ結局落ちるので、本当に無い場合を見逃すことはない。
     /// </remarks>
     public static AutomationElement RequireByIdEventually(
@@ -162,7 +162,7 @@ internal static class Ui
 
     /// <summary>選択されている行。無ければ null。</summary>
     /// <remarks>
-    /// ツリー側の <see cref="SelectionPattern"/> ではなく<b>行側の</b>
+    /// ツリー側の <see cref="SelectionPattern"/> ではなく**行側の**
     /// <see cref="SelectionItemPattern"/> を見る。WinUI の <c>TreeView</c> は自身を UIA に出さず
     /// 内側の <c>TreeViewList</c> が Tree として現れるため、<c>TreeView.SelectedItem</c> への
     /// 代入がツリー側の選択として報告されない (実測)。行側は 2 変種とも
@@ -182,10 +182,10 @@ internal static class Ui
         => ((InvokePattern)element.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
 
     /// <summary>
-    /// テキストを入れる。<b>キー入力ではなく <c>ValuePattern</c> で入れる</b>。
+    /// テキストを入れる。**キー入力ではなく <c>ValuePattern</c> で入れる**。
     /// </summary>
     /// <remarks>
-    /// 文字を入れることは検査対象ではなく<b>舞台の準備</b>である。準備に合成入力を使うと、
+    /// 文字を入れることは検査対象ではなく**舞台の準備**である。準備に合成入力を使うと、
     /// フォーカスがどこに在るかという新しい前提が要るようになり、そのぶん
     /// 「入力が届かなかった」と「ハーネスが狙いを立てられなかった」が混ざる (docs/TESTING.md §4)。
     /// 最下層から撃つのは T5 だけで、しかも検査対象そのものに限る (docs/TESTING.md §3)。
@@ -203,17 +203,17 @@ internal static class Ui
             : null;
 
     /// <summary>
-    /// コンボボックスの項目を<b>名前で</b>選ぶ。
+    /// コンボボックスの項目を**名前で**選ぶ。
     /// </summary>
     /// <remarks>
     /// <para>
     /// 開いてから選ぶ。項目は開くまで実体化しないので、閉じたまま探すと見つからない。
     /// </para>
     /// <para>
-    /// 名前で探せるのは、条件のコンボが並べているのが<b>列挙メンバー名</b>だからである
+    /// 名前で探せるのは、条件のコンボが並べているのが**列挙メンバー名**だからである
     /// (<c>Always</c> / <c>Equals</c> / <c>Between</c> …)。これは翻訳しないと決めてある
     /// (docs/LOCALIZATION.md §7) ので、カルチャを変えても綴りが動かない。
-    /// <b>翻訳される項目をこの関数で選んではいけない。</b>
+    /// **翻訳される項目をこの関数で選んではいけない。**
     /// </para>
     /// </remarks>
     public static void SelectComboItem(this AutomationElement combo, string itemName)
@@ -238,7 +238,7 @@ internal static class Ui
     /// <remarks>
     /// null と false を分けているのは意図である。「スクロールできない」と
     /// 「そもそもスクロールの概念が出ていない」は別の失敗で、後者は
-    /// <b>検査対象を取り違えている</b>合図である (Windows Forms の <c>TreeView</c> は
+    /// **検査対象を取り違えている**合図である (Windows Forms の <c>TreeView</c> は
     /// MSAA ブリッジ越しなので出ない可能性がある)。
     /// </remarks>
     public static bool? CanScrollHorizontally(this AutomationElement element)
@@ -247,17 +247,17 @@ internal static class Ui
             : null;
 
     /// <summary>
-    /// その行<b>自身</b>が持つ確定ボタンの数。
+    /// その行**自身**が持つ確定ボタンの数。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>引き算が要るのは WPF のためである。</b>WinUI の <c>TreeView</c> は行を平坦な
-    /// <c>ListView</c> に展開するので行の部分木は自分だけだが、WPF は行が<b>入れ子</b>なので、
+    /// **引き算が要るのは WPF のためである。**WinUI の <c>TreeView</c> は行を平坦な
+    /// <c>ListView</c> に展開するので行の部分木は自分だけだが、WPF は行が**入れ子**なので、
     /// 部分木をそのまま数えると子孫の行のぶんまで数える (実測: プロセスルートの行の部分木に
     /// 33 個)。直下の行のぶんを引けば、両変種とも同じ意味になる。
     /// </para>
     /// <para>
-    /// <b>「確定ボタン」の見分けは <c>InvokePattern</c> を持つことである。</b>
+    /// **「確定ボタン」の見分けは <c>InvokePattern</c> を持つことである。**
     /// 名前では見分けられない — WinUI では名前も AutomationId も空で、WPF では
     /// リソースの字形 (✓) がそのまま名前になるため、字形を変えるとテストが落ちる。
     /// WPF の行には展開用のボタンも居るが、あちらは <c>InvokePattern</c> を持たない (実測)。

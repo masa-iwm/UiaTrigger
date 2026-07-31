@@ -41,7 +41,7 @@ internal sealed class UiaDispatcher : IDisposable
     /// Queues <paramref name="func"/> for execution on the dispatcher thread.
     /// </summary>
     /// <remarks>
-    /// Cancellation is only observed <b>before</b> the work starts running: once the dispatcher
+    /// Cancellation is only observed **before** the work starts running: once the dispatcher
     /// thread has picked the item up it always runs to completion. This keeps the returned task's
     /// result honest — a canceled task means the work never ran, never "it may or may not have
     /// taken effect". UIA calls cannot be aborted midway anyway.

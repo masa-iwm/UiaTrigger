@@ -11,14 +11,14 @@
 // DPI を中で引きにいかないのは意図である — 引きにいくと T1 が固定できなくなり、
 // T4 / T5 の期待矩形も計算できなくなる。DPI の出どころは IDpiSource が持つ。
 //
-// <b>絵は 2 枚である (docs/DESIGN.md §10)。</b>1 枚のビットマップに枠とアイコンを描いて
-// 1 つのウィンドウへ流す形では、<b>クリックスルーが原理的に成立しない</b> —
+// **絵は 2 枚である (docs/DESIGN.md §10)。**1 枚のビットマップに枠とアイコンを描いて
+// 1 つのウィンドウへ流す形では、**クリックスルーが原理的に成立しない** —
 // レイヤードウィンドウのヒットテストはピクセルごとのアルファで決まるので、
 // 不透明な枠線は必ずそのウィンドウのものになる (実測)。
 // 枠とアイコンは別のウィンドウで、
 //   ・枠   … WS_EX_TRANSPARENT (窓ごとヒットテストから外れる) → PaintFrame
 //   ・アイコン … 全ピクセル不透明で、窓の矩形がそのまま当たり判定 → PaintIcon
-// である。<b>2 枚を 1 枚に戻すとクリックスルーが壊れる。</b>
+// である。**2 枚を 1 枚に戻すとクリックスルーが壊れる。**
 //
 // テストは tests/UiaTrigger.Core.Tests/OverlayGeometryTests.cs にある。
 using UiaTrigger.Models;
@@ -34,7 +34,7 @@ internal static class OverlayGeometry
     /// <summary>枠線の太さ (96 DPI での値)。</summary>
     public const int FrameThicknessAt96 = 3;
 
-    /// <summary>アイコンの半分 (96 DPI での値)。<b>これが寸法の基本単位である</b> — 下記の不変条件を参照。</summary>
+    /// <summary>アイコンの半分 (96 DPI での値)。**これが寸法の基本単位である** — 下記の不変条件を参照。</summary>
     public const int IconHalfAt96 = 10;
 
     /// <summary>確定アイコンの一辺 (96 DPI での値)。</summary>
@@ -64,7 +64,7 @@ internal static class OverlayGeometry
 
     /// <summary>ある DPI での実寸。</summary>
     /// <remarks>
-    /// <b>4 つを別々にスケールしてはいけない。</b>丸めが独立に効くので中途半端な DPI でずれる
+    /// **4 つを別々にスケールしてはいけない。**丸めが独立に効くので中途半端な DPI でずれる
     /// (dpi=110 なら <c>IconInset</c> を直接スケールすると 6、<c>IconHalf - IconOutside</c> なら 7)。
     /// <see cref="MetricsFor"/> は <c>IconHalf</c> と <c>IconOutside</c> だけをスケールし、
     /// 残りは導出する。
@@ -81,15 +81,15 @@ internal static class OverlayGeometry
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>不変条件 1: <c>IconSize == IconHalf * 2</c>。</b>アイコンの窓は一辺 <c>IconSize</c> で、
+    /// **不変条件 1: <c>IconSize == IconHalf * 2</c>。**アイコンの窓は一辺 <c>IconSize</c> で、
     /// その矩形がそのまま当たり判定 (<see cref="IsInIconZone"/>) になる。
     /// <see cref="IconRect"/> は中心から <c>IconHalf</c> で広がる式から導いているので、
     /// 一辺が偶数でないと絵と当たり判定が 1px ずれる。だから <c>IconHalf</c> を先にスケールし、
-    /// <c>IconSize</c> は 2 倍で<b>導出する</b> — <c>IconSize</c> を直接スケールすると
+    /// <c>IconSize</c> は 2 倍で**導出する** — <c>IconSize</c> を直接スケールすると
     /// 175% でちょうど 35 (奇数) になる。
     /// </para>
     /// <para>
-    /// <b>不変条件 2: <c>IconInset == IconHalf - IconOutside</c> かつ 1 以上。</b>
+    /// **不変条件 2: <c>IconInset == IconHalf - IconOutside</c> かつ 1 以上。**
     /// アイコンが枠の外へ完全に出てしまうのを防ぐ。
     /// </para>
     /// <para>枠線は最低 1px を保証する (低い DPI で消えないように)。</para>
@@ -114,7 +114,7 @@ internal static class OverlayGeometry
         => ((valueAt96 * dpi) + (ReferenceDpi / 2)) / ReferenceDpi;
 
     /// <summary>
-    /// 枠の窓の大きさ。<b>アイコンのはみ出しは含まない</b> (アイコンは別の窓である)。
+    /// 枠の窓の大きさ。**アイコンのはみ出しは含まない** (アイコンは別の窓である)。
     /// 枠自体は最低でもアイコン 1 個分は確保する (極小要素でアイコンが枠から溢れないように)。
     /// </summary>
     public static (int Width, int Height) FrameSize(ElementRect rect, int dpi)
@@ -127,30 +127,30 @@ internal static class OverlayGeometry
     public static (int X, int Y) FrameOrigin(ElementRect rect) => (rect.Left, rect.Top);
 
     /// <summary>
-    /// 確定アイコンの窓 (スクリーン座標)。<b>この矩形がそのまま当たり判定である。</b>
+    /// 確定アイコンの窓 (スクリーン座標)。**この矩形がそのまま当たり判定である。**
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>座標と寸法は別の話であり、DPI の効き方が違う。</b>
+    /// **座標と寸法は別の話であり、DPI の効き方が違う。**
     /// <paramref name="rect"/> は物理ピクセルであり、ホストが PerMonitorV2 を宣言している
     /// 限りスケールが何であっても要素の矩形自体が物理ピクセルで来るため、
-    /// <b>座標系には</b>換算が要らない
+    /// **座標系には**換算が要らない
     /// — 逆に言えば、ホストが DPI 非認識だとこの位置は静かにずれる (docs/DESIGN.md A19)。
     /// </para>
     /// <para>
-    /// 一方<b>寸法</b> (アイコンの一辺) は要素と一緒に伸ばさなければならない。
+    /// 一方**寸法** (アイコンの一辺) は要素と一緒に伸ばさなければならない。
     /// 物理ピクセルの定数のままだと 175% では要素に対して小さくなる。
     /// この 2 つを 1 文に混ぜて語らないこと (docs/DESIGN.md §9)。
     /// </para>
     /// <para>
-    /// <b>基準は要素の右端ではなく「広げたあとの枠」の右端である</b> (docs/DESIGN.md §10)。
+    /// **基準は要素の右端ではなく「広げたあとの枠」の右端である** (docs/DESIGN.md §10)。
     /// <see cref="FrameSize"/> は枠を最低アイコン 1 個分まで広げ、アイコンは
-    /// <b>広げたあとの</b>枠の右上に来る。ここで <c>rect.Right</c> を見ると、
-    /// アイコンより小さい要素で<b>見えているのに押せない帯</b>ができる (96 DPI でも同じ)。
+    /// **広げたあとの**枠の右上に来る。ここで <c>rect.Right</c> を見ると、
+    /// アイコンより小さい要素で**見えているのに押せない帯**ができる (96 DPI でも同じ)。
     /// 縦は枠の高さに依らずつねに上端なので、<c>rect.Top</c> を基準にしてよい。
     /// </para>
     /// <para>
-    /// <b>この矩形は「絵の中の一部分」ではなく窓そのものである。</b>だから
+    /// **この矩形は「絵の中の一部分」ではなく窓そのものである。**だから
     /// 「見えているアイコン」と「押せるアイコン」がずれる余地が構造から消えている
     /// (docs/DESIGN.md §10)。
     /// </para>
@@ -168,7 +168,7 @@ internal static class OverlayGeometry
     /// 確定アイコンの当たり判定 (スクリーン座標) = <see cref="IconRect"/> の中かどうか。
     /// </summary>
     /// <remarks>
-    /// アイコンの窓が受け取るクリックとは別に、<b>ピッカー側の除外判定</b>がこれを使う
+    /// アイコンの窓が受け取るクリックとは別に、**ピッカー側の除外判定**がこれを使う
     /// (確定アイコンへ向かう途中で選択が変わらないように)。<c>IconRect</c> から導くので、
     /// 窓の位置と除外領域が食い違うことはない。
     /// </remarks>
@@ -183,8 +183,8 @@ internal static class OverlayGeometry
     /// <see cref="FrameSize"/> の Width × Height 個であること。
     /// </summary>
     /// <remarks>
-    /// <b>ここにアイコンを描いてはいけない。</b>この絵は WS_EX_TRANSPARENT の窓へ流れるので、
-    /// ここに不透明な絵を足しても<b>押せない</b> (窓ごとヒットテストから外れている)。
+    /// **ここにアイコンを描いてはいけない。**この絵は WS_EX_TRANSPARENT の窓へ流れるので、
+    /// ここに不透明な絵を足しても**押せない** (窓ごとヒットテストから外れている)。
     /// 押せる絵は <see cref="PaintIcon"/> のほうにだけ置く (docs/DESIGN.md §10)。
     /// </remarks>
     public static void PaintFrame(ElementRect rect, int dpi, Span<uint> pixels)
@@ -214,7 +214,7 @@ internal static class OverlayGeometry
     /// <paramref name="pixels"/> は <c>IconSize</c> × <c>IconSize</c> 個であること。
     /// </summary>
     /// <remarks>
-    /// <b>全ピクセルが不透明であることが、この窓が押せる理由である。</b>
+    /// **全ピクセルが不透明であることが、この窓が押せる理由である。**
     /// レイヤードウィンドウのヒットテストはピクセルごとのアルファで決まるので、
     /// ここに透過を混ぜるとその点だけ押せなくなる (docs/DESIGN.md §10)。
     /// 矩形は要素に依らないので、引数は DPI だけでよい。

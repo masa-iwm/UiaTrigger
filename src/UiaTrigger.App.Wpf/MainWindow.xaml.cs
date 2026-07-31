@@ -16,7 +16,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly List<TriggerDefinition> _triggers = [];
 
     /// <summary>
-    /// 開いているピッカー。<b>複数開ける</b> — オーバーレイは static singleton ではなく
+    /// 開いているピッカー。**複数開ける** — オーバーレイは static singleton ではなく
     /// 登録表方式であり (A18)、その効果はホストが 2 つ目を開けなければ実機で確かめようがない
     /// (docs/MANUAL-CHECKS.md §6)。
     /// </summary>
@@ -140,8 +140,8 @@ public partial class MainWindow : Window, IDisposable
         // 先に開いていたほうが新しいピッカーのマウスに黙って追随して、出していた要素を失う
         // (確定済みの条件は無事である)。
         //
-        // <b>--pick-at で位置を注入している実行では調停しない。</b>あのとき各ピッカーは
-        // 自分に渡された ICursorSource を読むので<b>ポインターを共有していない</b> —
+        // **--pick-at で位置を注入している実行では調停しない。**あのとき各ピッカーは
+        // 自分に渡された ICursorSource を読むので**ポインターを共有していない** —
         // 取り合いが起きないものを止める理由は無く、止めると A18 の
         // 「2 枚が別々の枠を出す」検査 (T4 / T5) が原理的に成立しなくなる。
         if (HostOptions.Cursors.Count == 0)
@@ -191,7 +191,7 @@ public partial class MainWindow : Window, IDisposable
     /// トリガ一覧エディタを開く (docs/DESIGN.md §4)。
     /// </summary>
     /// <remarks>
-    /// <b>渡して受け取るだけ</b>である。エディタは保存先を知らないので書くのはここでやる。
+    /// **渡して受け取るだけ**である。エディタは保存先を知らないので書くのはここでやる。
     /// エディタが返すのは写しなので、返ってくるまで <c>_triggers</c> は一切変わらない
     /// (取り消しても何も起きない)。このホストは監視を持たない — README の
     /// "Two asymmetries are deliberate" のとおり、それは WinUI 版だけの役目である。

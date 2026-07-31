@@ -5,7 +5,7 @@
 //
 // 「T1 から参照できない」の原因は WinUI3 / x64 / WindowsAppSDK であって
 // 「View だから」ではない (docs/DESIGN.md §12)。
-// net10.0-windows / AnyCPU の WPF・WinForms View は<b>普通にプロジェクト参照できる</b>。
+// net10.0-windows / AnyCPU の WPF・WinForms View は**普通にプロジェクト参照できる**。
 using Xunit;
 
 namespace UiaTrigger.Tests;

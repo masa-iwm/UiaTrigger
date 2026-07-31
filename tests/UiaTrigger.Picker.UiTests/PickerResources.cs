@@ -1,4 +1,4 @@
-// ピッカーの文字列を<b>リポジトリのリソースファイルから</b>読む (docs/TESTING.md §1)。
+// ピッカーの文字列を**リポジトリのリソースファイルから**読む (docs/TESTING.md §1)。
 //
 // 期待文字列をテストへ書き写さないためである。書き写すと、翻訳を直したときに
 // テストだけが古い正解を守り続ける。
@@ -16,7 +16,7 @@ internal static class PickerResources
     /// <remarks>
     /// 供給元が変種で違う: WinUI は自分の <c>.resw</c> (MRT)、WPF / WinForms は
     /// <c>Picker.Core</c> の <c>.resx</c> (<c>ResxPickerStrings</c>)。
-    /// <b>キーの集合は同じ</b> (<c>PickerStringKeys</c>) だが、値の出所と解決経路が違う —
+    /// **キーの集合は同じ** (<c>PickerStringKeys</c>) だが、値の出所と解決経路が違う —
     /// S4 が見ているのはまさにそこである。
     /// </remarks>
     public static Dictionary<string, string> For(PickerHostProfile profile, string culture)

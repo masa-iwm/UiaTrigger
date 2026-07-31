@@ -6,28 +6,28 @@ using Xunit;
 namespace UiaTrigger.Picker.UiTests;
 
 /// <summary>
-/// D9 — ピッカーで録ったトリガーが<b>実際に発火し、ログ一覧に出る</b>ところまでを通しで見る
+/// D9 — ピッカーで録ったトリガーが**実際に発火し、ログ一覧に出る**ところまでを通しで見る
 /// (docs/MANUAL-CHECKS.md §9 / docs/DESIGN.md §12)。
 ///
 /// <para>
-/// <b>発火がログ一覧に出ることは、ここでしか見えない。</b>`HostMonitorTests` (T1) が
+/// **発火がログ一覧に出ることは、ここでしか見えない。**`HostMonitorTests` (T1) が
 /// 見ているのはソースの形だけで、「発火がログ一覧に出るか」については何も言えない。
 /// 実行には対話デスクトップが要る (docs/TESTING.md §6)。
 /// </para>
 /// <para>
-/// <b>`App.WinUI` だけを見る。</b>監視 UI を持つのはこのホストだけで、
+/// **`App.WinUI` だけを見る。**監視 UI を持つのはこのホストだけで、
 /// README の "Two asymmetries are deliberate" が明記する意図された非対称である。
-/// 他の 2 ホストに監視 UI が<b>無い</b>ことは <see cref="MonitoringIsAbsentFromTheOtherHosts"/> で見る。
+/// 他の 2 ホストに監視 UI が**無い**ことは <see cref="MonitoringIsAbsentFromTheOtherHosts"/> で見る。
 /// </para>
 /// <para>
-/// <b>入力は UIA のコントロールパターンだけで駆動する。</b>合成入力は一切使わない
+/// **入力は UIA のコントロールパターンだけで駆動する。**合成入力は一切使わない
 /// (docs/TESTING.md §3 の政策。最下層へ入る経路が解禁されているのは
 /// `tests/UiaTrigger.Input.Tests` の中だけである)。
 ///
-/// <b>その API 名をここに書かないこと。</b>政策の lint は `tests/**/*.cs` を
-/// 文字列で走査するので、<b>「使っていない」と書いた説明文でも赤になる</b>
+/// **その API 名をここに書かないこと。**政策の lint は `tests/**/*.cs` を
+/// 文字列で走査するので、**「使っていない」と書いた説明文でも赤になる**
 /// (実際に 1 度落とした)。lint は意図的に鈍く作ってあるので、
-/// 緩めるのではなく<b>こちらの書き方を変える</b>のが正しい。
+/// 緩めるのではなく**こちらの書き方を変える**のが正しい。
 /// </para>
 /// </summary>
 public sealed class MonitorShowcaseTests
@@ -46,14 +46,14 @@ public sealed class MonitorShowcaseTests
     /// <summary>ログ行の書式は `MonitorRow*` リソース側にある。ここでは種別の札だけを見る。</summary>
     private const string FiredMarker = "FIRED";
 
-    /// <summary>拾い所の無い例外の行。<b>出ていないこと</b>を見るのに使う。</summary>
+    /// <summary>拾い所の無い例外の行。**出ていないこと**を見るのに使う。</summary>
     private const string ErrorMarker = "ERROR";
 
     /// <summary>
-    /// 解決の行の札。<b>小文字である</b> — ホストは平常を小文字、注意を大文字で出し分けている。
+    /// 解決の行の札。**小文字である** — ホストは平常を小文字、注意を大文字で出し分けている。
     /// </summary>
     /// <remarks>
-    /// <b>ここを大文字で書くと `UNRESOLVED` にも一致してしまい、</b>
+    /// **ここを大文字で書くと `UNRESOLVED` にも一致してしまい、**
     /// 「未解決になったのを解決と読んで先へ進む」テストになる。
     /// 一致は序数で見るので、この綴りのままなら取り違えない。
     /// </remarks>
@@ -62,19 +62,19 @@ public sealed class MonitorShowcaseTests
     private const string UnresolvedMarker = "UNRESOLVED";
 
     /// <summary>
-    /// <b>録って、監視して、実際に鳴らして、ログ行を読む。</b>D9 の本体である。
+    /// **録って、監視して、実際に鳴らして、ログ行を読む。**D9 の本体である。
     /// </summary>
     /// <remarks>
     /// <para>
     /// 見ているのは 3 つ:
     /// (1) 「監視を開始」でボタンの活性が入れ替わること、
-    /// (2) 対象アプリを変化させると<b>発火行が出る</b>こと、
+    /// (2) 対象アプリを変化させると**発火行が出る**こと、
     /// (3) 「監視を停止」で活性が戻ること。
     /// </para>
     /// <para>
-    /// <b>発火行は「増えた」ではなく「FIRED の行が在る」で見る。</b>
+    /// **発火行は「増えた」ではなく「FIRED の行が在る」で見る。**
     /// 解決状態の変化も同じ一覧に出るので、行数だけを数えると
-    /// <b>解決の通知が来ただけで緑になる</b> — 肝心の発火を見ないまま通る。
+    /// **解決の通知が来ただけで緑になる** — 肝心の発火を見ないまま通る。
     /// </para>
     /// </remarks>
     [Fact]
@@ -108,17 +108,17 @@ public sealed class MonitorShowcaseTests
     }
 
     /// <summary>
-    /// <b>監視したまま同じ id を録り直しても、止まらずにその 1 件だけ入れ替わること。</b>
+    /// **監視したまま同じ id を録り直しても、止まらずにその 1 件だけ入れ替わること。**
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>assert の置き方は docs/TESTING.md §2 の 7 (監視中の録り直し) が定めている。</b>
+    /// **assert の置き方は docs/TESTING.md §2 の 7 (監視中の録り直し) が定めている。**
     /// ホストは <c>RemoveAsync</c> → <c>AddAsync</c> の順に依存しており、逆順だと
     /// <c>AddAsync</c> が必ず投げる。しかも投げっぱなしの非同期なので、
-    /// <b>順序を間違えても画面には何も出ず、ログ行が 1 本出るだけ</b>である。
+    /// **順序を間違えても画面には何も出ず、ログ行が 1 本出るだけ**である。
     /// </para>
     /// <para>
-    /// <b>真偽は「エラー行が無いこと」ではなく「録り直したあとも鳴ること」に置く。</b>
+    /// **真偽は「エラー行が無いこと」ではなく「録り直したあとも鳴ること」に置く。**
     /// 登録に失敗するとトリガーは消えたままになるので、鳴らなくなる。
     /// エラー行の不在は補助として見る (種類の違う失敗も拾えるため)。
     /// </para>
@@ -155,10 +155,10 @@ public sealed class MonitorShowcaseTests
     }
 
     /// <summary>
-    /// <b>対象アプリが落ちたら「未解決」の行が出ること</b> (解決状態の変化が両方向で見えること)。
+    /// **対象アプリが落ちたら「未解決」の行が出ること** (解決状態の変化が両方向で見えること)。
     /// </summary>
     /// <remarks>
-    /// 「解決」の行だけを見ていると、<b>一度解決したきり何も追わなくなった監視</b>でも緑になる。
+    /// 「解決」の行だけを見ていると、**一度解決したきり何も追わなくなった監視**でも緑になる。
     /// 消えたことに気づけるかどうかが、トリガーが黙って動かなくなる形
     /// (docs/DESIGN.md §8 のゾンビ要素) に対する唯一の観測点である。
     /// </remarks>
@@ -178,16 +178,16 @@ public sealed class MonitorShowcaseTests
     }
 
     /// <summary>
-    /// <b>監視したまま 1 件消すと、そのトリガーだけ止まり、他は動き続けること。</b>
+    /// **監視したまま 1 件消すと、そのトリガーだけ止まり、他は動き続けること。**
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>「消したほうが鳴らない」だけでは足りない。</b>監視ごと止まってしまっても
-    /// 同じように鳴らないので、それでは区別がつかない。<b>残したほうが鳴り続けること</b>が
+    /// **「消したほうが鳴らない」だけでは足りない。**監視ごと止まってしまっても
+    /// 同じように鳴らないので、それでは区別がつかない。**残したほうが鳴り続けること**が
     /// この項目の本体である (C1 —「1 件だけ触って他に触らない」)。
     /// </para>
     /// <para>
-    /// <b>2 件は同じ要素に立てる</b> (id だけ変える)。別々の要素にするより厳しい —
+    /// **2 件は同じ要素に立てる** (id だけ変える)。別々の要素にするより厳しい —
     /// 片方を外したときにもう片方の購読まで落とすと、同じ要素なので即座に鳴らなくなる。
     /// </para>
     /// </remarks>
@@ -207,7 +207,7 @@ public sealed class MonitorShowcaseTests
         scenario.DeleteTrigger(doomed);
         Assert.Single(scenario.SavedTriggers());
 
-        // <b>ここが本体。</b>2 件は同じ要素を見ているので、片方を外したときに
+        // **ここが本体。**2 件は同じ要素を見ているので、片方を外したときに
         // もう片方の購読まで落とすと、これが鳴らなくなる
         scenario.ChangeTheTarget("still-alive");
         string row = scenario.WaitForALogRowContaining("still-alive", "残したトリガーの発火");
@@ -221,12 +221,12 @@ public sealed class MonitorShowcaseTests
     }
 
     /// <summary>
-    /// <b>複数選択して「削除」を押すと、選択した全部が消えること。</b>
+    /// **複数選択して「削除」を押すと、選択した全部が消えること。**
     /// </summary>
     /// <remarks>
     /// 一覧は「選択をまとめる」のために <c>SelectionMode=Extended</c> である。
     /// 削除が <c>SelectedIndex</c> (単一) を読むと、2 件選んで押しても
-    /// <b>1 件しか消えず、例外も出ない</b>。
+    /// **1 件しか消えず、例外も出ない**。
     /// 選択の読み方は「まとめる」と同じ <c>SelectedRanges</c> に揃える。
     /// </remarks>
     [Fact]
@@ -288,10 +288,10 @@ public sealed class MonitorShowcaseTests
     }
 
     /// <summary>
-    /// <b>監視 UI を持つのは `App.WinUI` だけであること</b> (意図された非対称が保たれている)。
+    /// **監視 UI を持つのは `App.WinUI` だけであること** (意図された非対称が保たれている)。
     /// </summary>
     /// <remarks>
-    /// docs/TESTING.md §2 の 7 の言うとおり、<b>「無いこと」は自動で見るほうが確実である</b> —
+    /// docs/TESTING.md §2 の 7 の言うとおり、**「無いこと」は自動で見るほうが確実である** —
     /// 人は「在るはずのものが無い」には気づくが、「無いはずのものが在る」は見落とす。
     /// </remarks>
     [Theory]
@@ -345,7 +345,7 @@ public sealed class MonitorShowcaseTests
         public int ProcessId => _host.ProcessId;
 
         /// <param name="pickPoints">
-        /// 用意する pick 点の数。<b>ピッカーは n 枚目が n 番目を受け取る</b>ので、
+        /// 用意する pick 点の数。**ピッカーは n 枚目が n 番目を受け取る**ので、
         /// 2 枚目を開くテストは 2 つ要る。
         /// </param>
         public static ShowcaseScenario Open(int pickPoints = 1)
@@ -384,13 +384,13 @@ public sealed class MonitorShowcaseTests
         public IReadOnlyList<TriggerDefinition> SavedTriggers() => _host.SavedTriggers();
 
         /// <summary>
-        /// 保存済みのトリガー。<b>読めない瞬間がある</b>ので、待ちの中からはこちらを使う。
+        /// 保存済みのトリガー。**読めない瞬間がある**ので、待ちの中からはこちらを使う。
         /// </summary>
         /// <remarks>
         /// ホストは原子的な置き換え (<c>AtomicFile</c>) で書くため、覗いた瞬間に
         /// ファイルが存在しないことがある。待ちの述語から素の <see cref="SavedTriggers"/> を
-        /// 呼ぶと、<b>「まだ書かれていない」が例外として現れて待ちが打ち切られる</b>。
-        /// <b>実際にこれで 1 度落ちた</b>。
+        /// 呼ぶと、**「まだ書かれていない」が例外として現れて待ちが打ち切られる**。
+        /// **実際にこれで 1 度落ちた**。
         /// </remarks>
         private IReadOnlyList<TriggerDefinition> SavedTriggersOrEmpty()
         {
@@ -436,16 +436,16 @@ public sealed class MonitorShowcaseTests
         }
 
         /// <summary>
-        /// 監視を開始し、<b>本当に始まるまで</b>待つ。
+        /// 監視を開始し、**本当に始まるまで**待つ。
         /// </summary>
         /// <remarks>
-        /// <b>「開始ボタンが無効になったこと」で待ってはいけない。</b>ホスト側は押された瞬間に
-        /// 開始ボタンを無効にし、停止ボタンを有効にするのは<b>監視の開始が完了してから</b>である
+        /// **「開始ボタンが無効になったこと」で待ってはいけない。**ホスト側は押された瞬間に
+        /// 開始ボタンを無効にし、停止ボタンを有効にするのは**監視の開始が完了してから**である
         /// (失敗すれば開始ボタンは有効に戻る)。前者で待つと、まだ購読が張られていない時点で
-        /// 先へ進み、そのあとの変化を取りこぼす。<b>実際にこれで 1 度落ちた。</b>
+        /// 先へ進み、そのあとの変化を取りこぼす。**実際にこれで 1 度落ちた。**
         /// </remarks>
         /// <summary>
-        /// 2 枚目のピッカーを開いて、<b>同じ id で</b>確定・コミットする (= 録り直し)。
+        /// 2 枚目のピッカーを開いて、**同じ id で**確定・コミットする (= 録り直し)。
         /// </summary>
         /// <remarks>
         /// 「ピッカーで追加」は既に開いていれば前面に出すだけなので、2 枚目はこちらでしか開かない。
@@ -453,13 +453,13 @@ public sealed class MonitorShowcaseTests
         public void OpenAnotherPickerAndCommitAs(string id)
         {
             _host.OpenAnotherPicker();
-            // <b>操作はすべて「2 枚目」と特定した 1 枚の中で行う。</b>Picker() (= 最初に
+            // **操作はすべて「2 枚目」と特定した 1 枚の中で行う。**Picker() (= 最初に
             // 見つかった 1 枚) を使うと、UIA の列挙順は Z オーダーで動くので、id の書き込みと
             // コミットが 1 枚目に届きうる — 1 枚目は自分の KeyBox (元の id) のまま再コミット
             // するので、「id がファイルに入ること」が待ち切る (実測済み。
             // CompositeShowcaseTests.PickerShowing と同じ取り違え)。
-            // ここでは 2 枚とも<b>同じ要素</b>を捕捉するので行の中身では見分けられない —
-            // <b>CommitStatus がまだ空であること</b>が「新しい 1 枚」の定義になる
+            // ここでは 2 枚とも**同じ要素**を捕捉するので行の中身では見分けられない —
+            // **CommitStatus がまだ空であること**が「新しい 1 枚」の定義になる
             AutomationElement picker = Ui.Until(
                 () => _host.PickerWindows().FirstOrDefault(w =>
                     w.ById(_host.Profile.TreeAutomationId) is not null &&
@@ -550,7 +550,7 @@ public sealed class MonitorShowcaseTests
         }
 
         /// <summary>
-        /// 一覧の全行を選んで「削除」を押し、<b>ファイルが空になるまで</b>待つ。
+        /// 一覧の全行を選んで「削除」を押し、**ファイルが空になるまで**待つ。
         /// </summary>
         /// <remarks>
         /// 行はピッカーに覆われたままでも UIA に出るし、<c>SelectionItemPattern</c> も効く

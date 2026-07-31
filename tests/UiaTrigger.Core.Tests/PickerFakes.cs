@@ -22,7 +22,7 @@ internal sealed class FakePickerElement(string displayLabel) : IPickerElement
 
     /// <summary>解放された回数。0 = 生きている、2 以上 = 二重解放。</summary>
     /// <remarks>
-    /// <b>ここで Assert してはいけない。</b>プレゼンターは <c>catch (Exception)</c> を
+    /// **ここで Assert してはいけない。**プレゼンターは <c>catch (Exception)</c> を
     /// 3 箇所持ち (<c>CaptureAtAsync</c> / <c>MoveStackAsync</c> / <c>ConfirmNodeAsync</c>)、
     /// xunit の失敗例外もそこでヒント文字列に変えられて緑で通る。さらに fire-and-forget の
     /// 経路では観測すらされない。判定は必ずテストスレッド側で行う
@@ -57,7 +57,7 @@ internal sealed class FakeCursor : ICursorSource
 
 /// <summary>表示スケールをテストから決める (docs/DESIGN.md §9)。</summary>
 /// <remarks>
-/// 既定は 96 である。<b>走っている機械の DPI を見にいってはいけない</b> —
+/// 既定は 96 である。**走っている機械の DPI を見にいってはいけない** —
 /// T1 が 96 の機械では緑・175% の機械では赤という、再現しないテストになる。
 /// スケールを見たいテストは <see cref="Dpi"/> を明示的に立てる。
 /// </remarks>
@@ -322,16 +322,16 @@ internal sealed class FakeEditorView : ITriggerListEditorView
 /// <summary>UIA の代わり。返す値をテストが仕込み、渡された引数を記録する。</summary>
 /// <remarks>
 /// <para>
-/// <b>ハンドルの台帳もここにある。</b>プレゼンターが要素を受け取る先はここだけなので、
+/// **ハンドルの台帳もここにある。**プレゼンターが要素を受け取る先はここだけなので、
 /// 配ったものを 1 箇所で数えれば「漏らしていないか」「解放済みを使い回していないか」を
-/// <b>既存のテスト全件に対して</b>見られる (<see cref="Retained"/> /
+/// **既存のテスト全件に対して**見られる (<see cref="Retained"/> /
 /// <see cref="UseAfterDispose"/>)。解決層の <c>FakeElementTree.Retained</c> と同じ形である。
 /// </para>
 /// <para>
-/// <b>ここでは記録だけを行い、Assert は呼ばない。</b>プレゼンターは
+/// **ここでは記録だけを行い、Assert は呼ばない。**プレゼンターは
 /// <c>CaptureAtAsync</c> / <c>MoveStackAsync</c> / <c>ConfirmNodeAsync</c> の 3 箇所で
 /// <c>catch (Exception)</c> しており、xunit の失敗例外もそこでヒント文字列に変えられて
-/// <b>緑で通る</b>。さらに fire-and-forget の経路では観測すらされない。
+/// **緑で通る**。さらに fire-and-forget の経路では観測すらされない。
 /// 判定は必ずテストスレッド側 (<c>Harness.Dispose</c>) で行う。
 /// </para>
 /// </remarks>
@@ -514,7 +514,7 @@ internal sealed class FakePickerServices : IPickerServices
     /// <see cref="ObjectDisposedException"/> にする。
     /// </summary>
     /// <remarks>
-    /// ここだけは記録ではなく<b>投げる</b>。プレゼンターはこれを生き延びなければならず、
+    /// ここだけは記録ではなく**投げる**。プレゼンターはこれを生き延びなければならず、
     /// 生き延びるかどうかは投げてみないと分からないからである。
     /// </remarks>
     private static void ThrowIfReleasedInFlight(IPickerElement? element, string method)

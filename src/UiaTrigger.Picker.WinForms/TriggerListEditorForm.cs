@@ -109,7 +109,7 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         AcceptButton = _accept;
         CancelButton = _cancel;
 
-        // presenter は<b>ハンドラーを結ぶ前に</b>作る。コンストラクターの中で最初の ShowRows を
+        // presenter は**ハンドラーを結ぶ前に**作る。コンストラクターの中で最初の ShowRows を
         // 呼ぶので、一覧のコントロールが出来上がっている必要がある (BuildLayout は済んでいる)
         _presenter = createPresenter?.Invoke(this)
             ?? new TriggerListEditorPresenter(this, strings, triggers);

@@ -8,15 +8,15 @@ namespace UiaTrigger.Interop;
 ///
 /// RCW には 2 系統ある (docs/DESIGN.md B6/B7):
 ///
-/// - <b>共有 RCW</b> (<see cref="WrapShared{T}"/>) — ComWrappers の同一性テーブルに載る。
+/// - **共有 RCW** (<see cref="WrapShared{T}"/>) — ComWrappers の同一性テーブルに載る。
 ///   UiaFactory が独自の <see cref="StrategyBasedComWrappers"/> を持つと、生成された
 ///   marshalling stub は別のインスタンスを使うため同一性テーブルが 2 系統に分裂する。
 ///   <see cref="ComInterfaceMarshaller{T}"/> 経由にすることで stub と同じ
 ///   インスタンスに揃う (B7)。
-/// - <b>一意 RCW</b> (<see cref="WrapUnique{T}"/>) — 同一性テーブルに載らないので
+/// - **一意 RCW** (<see cref="WrapUnique{T}"/>) — 同一性テーブルに載らないので
 ///   <see cref="ReleaseUnique"/> で決定的に解放できる (B6)。解決ループが 1 段あたり数百作る
 ///   要素はこちらにして、GC を待たずに相手プロセスの provider を手放す。
-///   <b>共有 RCW を <see cref="ReleaseUnique"/> に渡してはならない</b> — テーブルに解放済みの
+///   **共有 RCW を <see cref="ReleaseUnique"/> に渡してはならない** — テーブルに解放済みの
 ///   エントリが残り、同じアドレスが再利用されたときに死んだ RCW が返ってくる。
 /// </summary>
 internal static partial class UiaFactory

@@ -202,9 +202,9 @@ public readonly record struct ClauseReading(string Name, ComparisonString Value,
 /// <see cref="TriggerMonitor.TriggerFired"/>.
 /// </para>
 /// <para>
-/// <b>The values describe one element: the one the trigger's first condition reads</b> (or the
+/// **The values describe one element: the one the trigger's first condition reads** (or the
 /// trigger's own element when it carries no condition). That matters for a trigger spanning several
-/// elements, because the condition that <i>changed</i> may be a different one — what fired the
+/// elements, because the condition that *changed* may be a different one — what fired the
 /// trigger and what the event reports are not the same question. <see cref="OldValue"/>,
 /// <see cref="NewValue"/> and <see cref="Properties"/> are always consistent with each other.
 /// </para>
@@ -247,7 +247,7 @@ public sealed class TriggerFiredEventArgs : EventArgs
     /// <see cref="ElementPropertySnapshot.RedactedMarker"/>.
     /// </summary>
     /// <remarks>
-    /// <b>Every observable property, not only the watched ones.</b> One round trip reads them all,
+    /// **Every observable property, not only the watched ones.** One round trip reads them all,
     /// so restricting the snapshot to the conditions' properties would cost the same and tell the
     /// host less.
     /// </remarks>
@@ -258,7 +258,7 @@ public sealed class TriggerFiredEventArgs : EventArgs
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>This is where a trigger spanning several elements becomes readable.</b>
+    /// **This is where a trigger spanning several elements becomes readable.**
     /// <see cref="NewValue"/> and <see cref="Properties"/> describe one element — the first
     /// condition's — so for a trigger over several elements they cannot say what the others held.
     /// These can: one entry per condition, each with the value read from its own element.
@@ -267,7 +267,7 @@ public sealed class TriggerFiredEventArgs : EventArgs
     /// How much the outcomes add depends on how the trigger combines its conditions. With
     /// <see cref="ClauseCombinator.All"/> every one of them held, so the values are the interesting
     /// part; with <see cref="ClauseCombinator.Any"/> or an
-    /// <see cref="TriggerDefinition.Expression"/>, <i>which</i> ones held is a real question and
+    /// <see cref="TriggerDefinition.Expression"/>, *which* ones held is a real question and
     /// only these answer it.
     /// </para>
     /// <para>

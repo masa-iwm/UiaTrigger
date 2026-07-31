@@ -6,16 +6,16 @@ namespace UiaTrigger.RealUia.Tests;
 /// 実 UIA テストの対象アプリの種別。
 ///
 /// <para>
-/// WinForms は <b>MSAA ブリッジ経由</b>のプロバイダーであり、ネイティブ UIA プロバイダー
+/// WinForms は **MSAA ブリッジ経由**のプロバイダーであり、ネイティブ UIA プロバイダー
 /// (WPF / Chromium) とは挙動が違う (docs/DESIGN.md §6)。たとえば WinForms では削除が
 /// <c>StructureChanged</c> として届かない。片方の対象アプリだけでは、B3 (経路購読) の
 /// 実装が正しいかどうかを片側のプロバイダーでしか確かめられない — だから 2 種類持つ。
 /// </para>
 ///
 /// <para>
-/// <b>すべてのテストを両プロファイルに広げてはいない。</b> 34 → 68 は実行時間と flake を
+/// **すべてのテストを両プロファイルに広げてはいない。** 34 → 68 は実行時間と flake を
 /// 倍にするだけで、プロバイダー差が論点でないテスト (経路解決アルゴリズム・Search 方式・
-/// セッション共有) には意味が無い。広げたのは<b>プロバイダーの挙動そのものが論点</b>のものだけである。
+/// セッション共有) には意味が無い。広げたのは**プロバイダーの挙動そのものが論点**のものだけである。
 /// </para>
 /// </summary>
 internal sealed record TargetProfile(
@@ -28,7 +28,7 @@ internal sealed record TargetProfile(
     bool IsNativeProvider)
 {
     /// <summary>
-    /// WinForms 版。<b>残してある</b> — ウィンドウクラス名に起動ごとに変わりうる token
+    /// WinForms 版。**残してある** — ウィンドウクラス名に起動ごとに変わりうる token
     /// (<c>WindowsForms10.Window.8.app.0.141b42a_r6_ad1</c>) が入るため、A4 の回帰ケースそのものになる。
     /// </summary>
     public static readonly TargetProfile WinForms = new(

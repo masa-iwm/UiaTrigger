@@ -13,17 +13,17 @@ namespace UiaTrigger.Tests;
 /// キーの出所は <see cref="PickerStringKeys"/> と <see cref="EditorStringKeys"/> の 2 表で、
 /// 値の供給だけが 2 経路ある: WinUI は <c>.resw</c> + MRT Core、
 /// WPF / WinForms は <c>.resx</c> + <c>ResourceManager</c>。
-/// WPF と WinForms は resx を<b>共有する</b>
+/// WPF と WinForms は resx を**共有する**
 /// (仕組みが同一なので、分けると全キー × 2 言語を手で二重管理することになる)。
 /// </para>
 /// <para>
-/// <b>表を 2 つに割ったのは窓が 2 つあるからである</b> (docs/LOCALIZATION.md §4)。供給経路は
+/// **表を 2 つに割ったのは窓が 2 つあるからである** (docs/LOCALIZATION.md §4)。供給経路は
 /// 2 表を合わせたものを持つが、「View がキー表のラベルをすべて要求すること」を見ている検査は
 /// 窓ごとに別々でなければならない — 混ぜると、ピッカーに存在しないエディタのコントロールを
 /// ピッカーの View が要求するはめになる。
 /// </para>
 /// <para>
-/// ここで塞ぐのは<b>片方にだけ足す</b>という壊れ方である。文字列が引けないことは
+/// ここで塞ぐのは**片方にだけ足す**という壊れ方である。文字列が引けないことは
 /// 例外にならず、その View だけ画面にキー名が出る形で現れる。
 /// </para>
 /// </summary>
@@ -72,10 +72,10 @@ public sealed class PickerStringTests
     }
 
     /// <summary>
-    /// どの供給経路も<b>2 つのキー表を合わせたもの</b>と過不足なく一致すること。
+    /// どの供給経路も**2 つのキー表を合わせたもの**と過不足なく一致すること。
     ///
     /// 「片方の経路にだけ新しいキーを足す」は、その View だけ画面にキー名が出る形で現れ、
-    /// <b>ビルドも実行も通る</b>。キー表を起点に全経路を回すのがここの目的である。
+    /// **ビルドも実行も通る**。キー表を起点に全経路を回すのがここの目的である。
     /// </summary>
     [Theory]
     [MemberData(nameof(ResourceFiles))]
@@ -132,7 +132,7 @@ public sealed class PickerStringTests
     }
 
     /// <summary>
-    /// 同じキーの<b>値</b>も経路をまたいで一致すること (言語ごとに)。
+    /// 同じキーの**値**も経路をまたいで一致すること (言語ごとに)。
     ///
     /// キー集合だけを見ていると、WinUI 側の文言を直したときに WPF / WinForms 側が
     /// 古い文言のまま残る。ユーザーから見れば「同じ画面なのに版ごとに文言が違う」であり、
@@ -162,7 +162,7 @@ public sealed class PickerStringTests
     /// <para>
     /// これは配線の検査である。<c>ResourceManager</c> のベース名
     /// (<c>UiaTrigger.Picker.Resources.Strings</c>) はアセンブリの既定名前空間 +
-    /// フォルダ名から決まるので、<b>ファイルを移動するだけで黙って引けなくなる</b>。
+    /// フォルダ名から決まるので、**ファイルを移動するだけで黙って引けなくなる**。
     /// WinUI 側のリソースマップ名の罠 (<see cref="XamlLocalizationTests"/>) と同じ壊れ方で、
     /// 例外は出ず画面がキー名に化けるだけである。
     /// </para>
@@ -201,7 +201,7 @@ public sealed class PickerStringTests
     /// <summary>
     /// ja のサテライトが実際に日本語を返すこと (neutral へ落ちていないこと)。
     ///
-    /// サテライトが出力に含まれないと、例外にはならず<b>英語のまま表示される</b>。
+    /// サテライトが出力に含まれないと、例外にはならず**英語のまま表示される**。
     /// 上のテストは「引けること」しか見ないので素通りする。
     /// </summary>
     [Fact]

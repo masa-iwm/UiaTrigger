@@ -12,11 +12,11 @@
 // なぜ --pick-at がホスト側に要るのか — ピッカーの主要な操作はホバー滞留であり、捕捉が
 // 起きなければツリーには何も出ない。実際のマウスを動かすのは擬似入力であり、
 // このリポジトリのテストでは禁止されている (docs/TESTING.md §4)。
-// 差し替えているのは入力<b>イベント</b>ではなくカーソルの<b>取得元</b>である。
+// 差し替えているのは入力**イベント**ではなくカーソルの**取得元**である。
 //
 // 引数は Environment.GetCommandLineArgs() から読む。Main(string[]) を生やすこともできるが、
 // WinUI ホストがそうせざるをえない (エントリーポイントが生成される) 以上、
-// 3 ホストで<b>同じ形</b>にしておくほうが、写しどうしの差分が意味を持つ。
+// 3 ホストで**同じ形**にしておくほうが、写しどうしの差分が意味を持つ。
 //
 // 3 ホストがこのファイルをそれぞれ持っている理由は、WinUI 版の同じファイルの冒頭に書いた。
 using System.Globalization;
@@ -29,7 +29,7 @@ internal static class HostOptions
     private static int _pickersOpened;
 
     /// <summary>
-    /// <c>--pick-at x,y</c> で指定された固定カーソルの列。<b>繰り返して指定できる</b>。
+    /// <c>--pick-at x,y</c> で指定された固定カーソルの列。**繰り返して指定できる**。
     /// 指定が無ければ空 (= 実際のマウスに追随する、通常の動作)。
     /// </summary>
     public static IReadOnlyList<ICursorSource> Cursors { get; } = ReadCursors(Environment.GetCommandLineArgs());
@@ -39,7 +39,7 @@ internal static class HostOptions
     /// </summary>
     /// <remarks>
     /// 既定は <c>%LOCALAPPDATA%</c> の実ファイルである。
-    /// <b>この口が無いと、自動テストが開発機の実ファイルを書き換える。</b>
+    /// **この口が無いと、自動テストが開発機の実ファイルを書き換える。**
     /// </remarks>
     public static string? TriggerFile { get; } = ReadOption(Environment.GetCommandLineArgs(), "--triggers");
 
@@ -48,11 +48,11 @@ internal static class HostOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>n 枚目のピッカーが n 番目の座標</b>を受け取る。足りなければ最後を使い回すので、
+    /// **n 枚目のピッカーが n 番目の座標**を受け取る。足りなければ最後を使い回すので、
     /// <c>--pick-at</c> を 1 つだけ渡す従来の使い方は何枚開いても同じ座標になる。
     /// </para>
     /// <para>
-    /// <b>「n 枚目」はこのメソッドを呼んだ回数である。</b>「ピッカーで追加」は既に開いていれば
+    /// **「n 枚目」はこのメソッドを呼んだ回数である。**「ピッカーで追加」は既に開いていれば
     /// 前面に出すだけなので、2 枚目を開くには「もう 1 つ開く」を押す必要がある。
     /// S1 (2 枚がそれぞれ独立に追従すること) の検出力はここに依存する — 2 枚が同じ座標を
     /// 受け取ると、オーバーレイを static singleton へ戻す退行が「枠が一致する」で素通りする。
@@ -72,7 +72,7 @@ internal static class HostOptions
     /// <c>--culture &lt;name&gt;</c> を表示カルチャへ反映する。
     /// </summary>
     /// <remarks>
-    /// <b>ウィンドウを 1 つも作る前に呼ぶこと。</b><c>ResxPickerStrings</c> は
+    /// **ウィンドウを 1 つも作る前に呼ぶこと。**<c>ResxPickerStrings</c> は
     /// <c>culture: null</c> で作られており <c>CurrentUICulture</c> を追うので、これで切り替わる。
     /// </remarks>
     public static void ApplyCulture()
@@ -97,8 +97,8 @@ internal static class HostOptions
     }
 
     /// <summary>
-    /// <c>--pick-at</c> を<b>すべて</b>読む。値が壊れているものは飛ばし、
-    /// <b>理由をログに残す</b> — 黙って通常動作に落ちると「捕捉が起きない」だけの症状になり、
+    /// <c>--pick-at</c> を**すべて**読む。値が壊れているものは飛ばし、
+    /// **理由をログに残す** — 黙って通常動作に落ちると「捕捉が起きない」だけの症状になり、
     /// 原因が分からなくなる。
     /// </summary>
     internal static IReadOnlyList<ICursorSource> ReadCursors(string[] args)

@@ -8,14 +8,14 @@ namespace UiaTrigger.Tests;
 /// 公開 API のドキュメントに関する回帰テスト (docs/DESIGN.md L1)。
 ///
 /// 押さえるのは 2 つ:
-///   1. 生成される XML ドキュメントの<b>公開 API 部分</b>が英語であること
+///   1. 生成される XML ドキュメントの**公開 API 部分**が英語であること
 ///      (NuGet 配布すると全利用者の IntelliSense に出る)
 ///   2. 日本語版 IntelliSense ファイル (<c>ja/UiaTrigger.Core.xml</c>) が
-///      公開 API を<b>過不足なく</b>覆っていること
+///      公開 API を**過不足なく**覆っていること
 ///
-/// 2 が「過不足なく」でなければならないのは、ロールアップの単位が<b>ファイル</b>だからである。
+/// 2 が「過不足なく」でなければならないのは、ロールアップの単位が**ファイル**だからである。
 /// ja のファイルが存在すればそちらが丸ごと使われ、そこに無いメンバーは
-/// <b>英語に落ちるのではなく、説明が消える</b>。resx のキー集合一致 (docs/LOCALIZATION.md §3) と
+/// **英語に落ちるのではなく、説明が消える**。resx のキー集合一致 (docs/LOCALIZATION.md §3) と
 /// 同じ理由で、ここも差分をテストで塞ぐ。
 ///
 /// 対象は NuGet で配るアセンブリすべてである (UiaTrigger.Picker.Core を含む)。
@@ -55,7 +55,7 @@ public sealed class PublicApiDocumentationTests
     };
 
     /// <summary>
-    /// XML ドキュメントを出すアセンブリが、<b>1 つ残らず</b>上の表に載っていること。
+    /// XML ドキュメントを出すアセンブリが、**1 つ残らず**上の表に載っていること。
     ///
     /// <para>
     /// <see cref="DocumentedAssemblies"/> は手で並べた配列なので、
@@ -123,7 +123,7 @@ public sealed class PublicApiDocumentationTests
     /// L1: 公開 API の XML doc に日本語が残っていないこと。
     ///
     /// 実装内部のコメントは日本語のままでよい (docs/LOCALIZATION.md §1 の L1) ので、
-    /// <b>公開 API のぶんだけ</b>を見る。同じファイルに両方が入るため、
+    /// **公開 API のぶんだけ**を見る。同じファイルに両方が入るため、
     /// ファイル全体を見る検査にすると内部コメントで必ず落ちて成立しない。
     /// </summary>
     [Theory]
@@ -143,13 +143,13 @@ public sealed class PublicApiDocumentationTests
     /// 配布する XML doc に非公開メンバーの項目が残っていないこと (docs/LOCALIZATION.md §5)。
     ///
     /// <para>
-    /// <b>csc は可視性で絞らない。</b><c>///</c> を書いた private / internal のメンバーも
+    /// **csc は可視性で絞らない。**<c>///</c> を書いた private / internal のメンバーも
     /// そのまま <c>.xml</c> に入るので、docs/LOCALIZATION.md §1 (L1) で「実装内部のコメントは日本語のままでよい」と
     /// 決めた以上、放っておくと日本語の内部コメントが NuGet パッケージと Release の zip に
     /// 同梱される。
     /// </para>
     /// <para>
-    /// <see cref="ThePublicApiDocumentationIsEnglish"/> は<b>公開面だけ</b>を見るので、
+    /// <see cref="ThePublicApiDocumentationIsEnglish"/> は**公開面だけ**を見るので、
     /// この検査が無いと誰も見ない
     /// (実測で <c>UiaTrigger.Core</c> は 618 項目のうち 301 が非公開だった)。
     /// 絞り込みは <c>Directory.Build.targets</c> の
@@ -197,7 +197,7 @@ public sealed class PublicApiDocumentationTests
     /// 日本語版が実際に翻訳されていること。
     ///
     /// これが無いと「英語をそのままコピーした ja ファイル」でもキー集合一致の検査は通り、
-    /// <b>翻訳したつもりで英語が出る</b>状態に静かに戻れる。
+    /// **翻訳したつもりで英語が出る**状態に静かに戻れる。
     /// </summary>
     [Theory]
     [MemberData(nameof(DocumentedAssemblies))]

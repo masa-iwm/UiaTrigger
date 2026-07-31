@@ -5,7 +5,7 @@ using Xunit;
 namespace UiaTrigger.Tests;
 
 /// <summary>
-/// 定義の検証が <b>呼び出し元スレッドで</b> 起き、すべて <see cref="ArgumentException"/> として
+/// 定義の検証が **呼び出し元スレッドで** 起き、すべて <see cref="ArgumentException"/> として
 /// 出ること。
 ///
 /// 検証は UIA へ何も投げる前に済むので、この一群は実 UIA を必要としない。
@@ -211,10 +211,10 @@ public sealed class TriggerMonitorValidationTests
     /// 出現・消滅で鳴るトリガーの句は、自前の要素を名指せないこと。
     ///
     /// <para>
-    /// <b>「消えたのは誰か」と「イベントに載る値は誰のものか」が食い違う組み合わせである。</b>
+    /// **「消えたのは誰か」と「イベントに載る値は誰のものか」が食い違う組み合わせである。**
     /// 出現・消滅の対象は定義の要素 (スロット 0) と決まっているのに、イベントの値は
     /// 先頭の句の要素から読む。句が別の要素を名指すとその 2 つが別物になり、
-    /// <b>どちらを指しているのか言えないイベント</b>になる。
+    /// **どちらを指しているのか言えないイベント**になる。
     /// </para>
     /// <para>
     /// <c>PollInterval</c> を同じ <c>On</c> で弾くのと同じ規律である —
@@ -239,7 +239,7 @@ public sealed class TriggerMonitorValidationTests
 
     /// <summary>
     /// 対照: 同じ句でも <c>On</c> が値を見るものなら通ること。
-    /// <b>多要素そのものを禁じたのではない</b> — 禁じたのは出現・消滅との組み合わせだけである。
+    /// **多要素そのものを禁じたのではない** — 禁じたのは出現・消滅との組み合わせだけである。
     /// </summary>
     [Theory]
     [InlineData(TriggerOn.PropertyChanged)]

@@ -6,7 +6,7 @@
   UiaTrigger.Core.ja.xml と同じで、ResourceManager は一切関与しない。
 
   ロールアップの単位は「メンバー」ではなく「ファイル」である。このファイルが在る限り
-  こちらが丸ごと使われ、ここに無いメンバーは英語に落ちるのではなく <b>説明が消える</b>。
+  こちらが丸ごと使われ、ここに無いメンバーは英語に落ちるのではなく **説明が消える**。
   だから公開 API を過不足なく覆う必要があり、PublicApiDocumentationTests が検査している。
 -->
 <doc>
@@ -167,7 +167,7 @@
           同時にカーソル下の重なり要素を送り進めてはならない。
         </para>
         <para>
-          見るのは<b>ツリー</b>であってウィンドウではない。他のアプリケーションの上に
+          見るのは**ツリー**であってウィンドウではない。他のアプリケーションの上に
           カーソルを重ねてもフォーカスは動かない (Windows がフォーカスを移すのはクリックのとき)
           ので、ウィンドウ単位で見るとホバーしているあいだずっと真になる —
           重なり要素を送りたいのはまさにそのときである。
@@ -210,8 +210,8 @@
           切ってある <see cref="P:UiaTrigger.Models.PropertyClause.Watch" />、
           プロパティ id を伴う <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> である。
           確定は下書きから条件を作り直すので、下書きが運べないものは落ちる —
-          そのトリガーは<b>別の要素を監視し始める</b>か、要求するだけのつもりだった要素を
-          監視し始める。編集を提示する<b>前に</b>訊くこと。そうしないと、
+          そのトリガーは**別の要素を監視し始める**か、要求するだけのつもりだった要素を
+          監視し始める。編集を提示する**前に**訊くこと。そうしないと、
           ユーザーが一度も見ていないものが黙って変わる編集になる。
         </para>
       </remarks>
@@ -219,7 +219,7 @@
     <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.LoadDefinition(UiaTrigger.Models.TriggerDefinition)">
       <summary>既存のトリガーを読み込み、その条件を編集して確定し直せるようにする。</summary>
       <param name="definition">
-        編集するトリガー。プレゼンターがこれを引き取り、確定された条件を<b>この実体へ</b>書き戻すので、
+        編集するトリガー。プレゼンターがこれを引き取り、確定された条件を**この実体へ**書き戻すので、
         元をそのまま残す必要があるときは写しを渡すこと。
       </param>
       <exception cref="T:System.ArgumentException">
@@ -611,10 +611,10 @@
       <summary>トリガ一覧エディタの振る舞い: 追加・編集・削除・まとめる・ほどく。</summary>
       <remarks>
         <para>
-          終始<b>写しの上で</b>作業する。コンストラクターに渡されたリストは深く複製され、
+          終始**写しの上で**作業する。コンストラクターに渡されたリストは深く複製され、
           <see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.Snapshot" /> も深い複製を返すので、
           ホストはエディタを出しても、ユーザーが確定するまで自分のリストに手を触れられない。
-          どこへ保存するか、監視が動いているかは<b>ホストの領分のまま</b>である。
+          どこへ保存するか、監視が動いているかは**ホストの領分のまま**である。
         </para>
         <para>
           View はユーザーの操作を <c>Notify…</c> で伝え、
@@ -632,7 +632,7 @@
       <summary>編集後のリストの深い写し (並び順のまま)。</summary>
       <remarks>
         プレゼンター自身の実体ではなく写しを返す。そうしないと、結果を持ったままエディタを
-        もう一度出したホストへ、<b>後のセッションがその場で書き換える実体</b>を渡すことになる。
+        もう一度出したホストへ、**後のセッションがその場で書き換える実体**を渡すことになる。
       </remarks>
     </member>
     <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyAddRequested">
@@ -652,7 +652,7 @@
     <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyCombineRequested">
       <summary>ユーザーが選択中のトリガーを 1 件にまとめようとしたことを伝える。</summary>
       <remarks>
-        元のトリガーは一覧に残る。まとめるのは<b>足すだけ</b>の操作であり、それが
+        元のトリガーは一覧に残る。まとめるのは**足すだけ**の操作であり、それが
         取り消し機能なしでも取り消せる理由である — 複合を削除すれば元はまだそこにある。
       </remarks>
     </member>
@@ -660,14 +660,14 @@
       <summary>ユーザーが選択中の複合をほどこうとしたことを伝える。</summary>
       <remarks>
         複合は一覧に残り、条件 1 つにつきトリガー 1 件が足される — まとめる前のトリガーを
-        すでに削除してしまったときの戻り道である。まとめるのと同じ理由で<b>足すだけ</b>にしてある。
+        すでに削除してしまったときの戻り道である。まとめるのと同じ理由で**足すだけ**にしてある。
       </remarks>
     </member>
     <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyPickerCommitted(UiaTrigger.Models.TriggerDefinition)">
       <summary>ピッカーが確定したトリガーを伝える。</summary>
       <param name="definition">確定されたトリガー。プレゼンターは写しを取る。</param>
       <remarks>
-        編集中は、編集していた行を<b>その位置で</b>差し替える (末尾へ移さない) ので、
+        編集中は、編集していた行を**その位置で**差し替える (末尾へ移さない) ので、
         ユーザーが並べた順序は保たれる。それ以外のとき — および確定された id が
         新しいものだったとき — は id が決める: その id の既存トリガーが差し替わるので、
         同じトリガーを録り直すと 2 件目が増えるのではなく更新される。

@@ -8,8 +8,8 @@ namespace UiaTrigger.RealUia.Tests;
 ///
 /// <para>
 /// 停止処理が <c>RemoveAllEventHandlers()</c> を呼ぶ形に戻ると、1 プロセスに
-/// <c>IUIAutomation</c> が 1 つしかない状態では<b>同じセッションを使う他の購読者
-/// (ピッカーや別の monitor) の購読まで一緒に消える</b>。ここはその形でしか壊れないので、
+/// <c>IUIAutomation</c> が 1 つしかない状態では**同じセッションを使う他の購読者
+/// (ピッカーや別の monitor) の購読まで一緒に消える**。ここはその形でしか壊れないので、
 /// 実 UIA でイベントが届き続けることを見るしかない。
 /// </para>
 /// </summary>

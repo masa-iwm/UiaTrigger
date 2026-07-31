@@ -65,7 +65,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         OnCombo.ItemsSource = Enum.GetValues<TriggerOn>();
         CondCombo.ItemsSource = Enum.GetValues<ComparisonOp>();
 
-        // 見るのはウィンドウのアクティブ状態ではなく<b>ツリーがフォーカスを持っているか</b>である。
+        // 見るのはウィンドウのアクティブ状態ではなく**ツリーがフォーカスを持っているか**である。
         // ホバー中はフォーカスがピッカーに残るので、ウィンドウ単位だと重なり切替 (←/→) が
         // 一度他アプリをクリックするまで使えない (docs/DESIGN.md §7)。
         //
@@ -90,7 +90,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     public void LoadDefinition(TriggerDefinition definition)
     {
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
-        // 静止しているだけで<b>編集対象が別の要素に差し替わる</b>
+        // 静止しているだけで**編集対象が別の要素に差し替わる**
         AutoSelectToggle.IsOn = false;
         _presenter.LoadDefinition(definition);
     }
@@ -137,7 +137,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// <c>ListView</c> は自分に付いた添付プロパティをテンプレート内の <c>ScrollViewer</c> へ
     /// <c>TemplateBinding</c> で流すが、<c>TreeView</c> のテンプレートは内側の
     /// <c>TreeViewList</c> (= <c>ListView</c> 派生、部品名 <c>ListControl</c>) を置くだけで
-    /// その中継をしないため、添付プロパティは<b>誰にも読まれず黙って無視される</b>。
+    /// その中継をしないため、添付プロパティは**誰にも読まれず黙って無視される**。
     /// </para>
     /// <para>
     /// <c>ScrollViewer</c> を視覚ツリーから型で探す方法も使えない。発行済みバイナリでは
@@ -165,13 +165,13 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// <remarks>
     /// <para>
     /// 条件欄の行は <c>Auto</c> である — 掴まれるまでは内容ぶんの高さにするという決定
-    /// (docs/DESIGN.md §12) を守るためで、そこは変えない。ところが <b><c>Auto</c> の行は子に
-    /// 「欲しいだけ」与える</b>ので、包んである <c>ScrollViewer</c> のビューポートが中身と
-    /// 同じ高さになり、<b>スクロールが一生起きない</b>。窓を縮めると <c>Grid</c> が
+    /// (docs/DESIGN.md §12) を守るためで、そこは変えない。ところが **<c>Auto</c> の行は子に
+    /// 「欲しいだけ」与える**ので、包んである <c>ScrollViewer</c> のビューポートが中身と
+    /// 同じ高さになり、**スクロールが一生起きない**。窓を縮めると <c>Grid</c> が
     /// 下を黙って切り落とすだけになる。
     /// </para>
     /// <para>
-    /// <b>この変種は T1 から組み立てられない</b> (docs/DESIGN.md §12) ので、退行の網は T4 側にある。
+    /// **この変種は T1 から組み立てられない** (docs/DESIGN.md §12) ので、退行の網は T4 側にある。
     /// WPF は同じ形の不具合を同じ形で持っており、あちらは T1 が見ている。
     /// </para>
     /// <para>
@@ -189,9 +189,9 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
             ConditionScroll.MaxHeight = available;
         }
 
-        // 折り返す文字列の幅は<b>こちらから渡す</b> (docs/DESIGN.md §12)。横スクロールを有効にすると
+        // 折り返す文字列の幅は**こちらから渡す** (docs/DESIGN.md §12)。横スクロールを有効にすると
         // 測りに渡る幅が無限になり、TextWrapping="Wrap" が何もしなくなる — 1 行のまま
-        // どこまでも伸び、<b>広い窓でも常に横バーが出る</b>ことになる。
+        // どこまでも伸び、**広い窓でも常に横バーが出る**ことになる。
         double textWidth = Math.Max(0, e.NewSize.Width - ScrollBarAllowance);
         if (Math.Abs(ConfirmedText.MaxWidth - textWidth) > 0.5)
         {
@@ -203,11 +203,11 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// 折り返し幅から引く、縦スクロールバーのぶんの余裕 (px)。
     /// </summary>
     /// <remarks>
-    /// <b>バーが出ていなくても常に引く。</b>出た瞬間に折り返しが変わって背が伸び、
+    /// **バーが出ていなくても常に引く。**出た瞬間に折り返しが変わって背が伸び、
     /// その高さがまたバーの出入りを決める、という振動を避けるためである
     /// (Windows Forms 側が <c>SizeTheConditionPane</c> で同じ理由から
     /// 「狭いほうの幅」で測っている)。実際のバーは 12〜16px なので多めであり、
-    /// <b>多い側に外すぶんには文字が少し早く折り返すだけ</b>で壊れない。
+    /// **多い側に外すぶんには文字が少し早く折り返すだけ**で壊れない。
     /// </remarks>
     private const double ScrollBarAllowance = 20;
 
@@ -313,13 +313,13 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
 
     PickerTreeNode? IPickerView.SelectedNode => ElementTree.SelectedItem as PickerTreeNode;
 
-    // ItemsSource へは <b>必ず配列にしてから</b>渡すこと。
+    // ItemsSource へは **必ず配列にしてから**渡すこと。
     //
     // ItemsSource は WinRT の ABI 上 object であり、CsWinRT は「代入地点の静的な型」を見て
     // CCW を組む。継ぎ目が渡してくる IReadOnlyList<T> は IVectorView<T> として載せようとするが、
     // T が WinRT 射影を持たない素の .NET 型 (ここでは TriggerProperty 列挙) だと組めず
     // E_INVALIDARG になる — 「Value does not fall within the expected range.」という
-    // <b>投げた場所が一切分からない</b>例外として出る。AOT でも JIT でも同じ。
+    // **投げた場所が一切分からない**例外として出る。AOT でも JIT でも同じ。
     //
     // IReadOnlyList<string> がたまたま通るのは IVectorView<HSTRING> が実在の射影だからで、
     // 通っているのは偶然に近い。ここは「その UI フレームワークの事実」なので View に置く。
@@ -508,7 +508,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
 }
 
 /// <summary>WinUI3 の DispatcherQueue を継ぎ目に合わせる。</summary>
-// partial は<b>入れ子の親も</b>要る (docs/DESIGN.md §12)。
+// partial は**入れ子の親も**要る (docs/DESIGN.md §12)。
 // CsWinRT1028 は「その型 or 親のどれかが partial でない」で出るので、
 // WinUiTimer だけ partial にしても消えない
 internal sealed partial class WinUiDispatcher(DispatcherQueue queue) : IUiDispatcher

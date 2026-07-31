@@ -23,7 +23,7 @@
         </Grid.RowDefinitions>
         <!--
             ツリーと右側の境界はユーザーが動かせる (下の GridSplitter)。
-            MinWidth は<b>畳み潰せないようにするため</b>で、これが無いと片側を 0 まで
+            MinWidth は**畳み潰せないようにするため**で、これが無いと片側を 0 まで
             引き切れてしまい、戻す掴み代も無くなる。
         -->
         <Grid.ColumnDefinitions>
@@ -54,7 +54,7 @@
         <!--
             要素ツリー。
 
-            WinUI と違い、ここでは ScrollViewer.* の添付プロパティが<b>そのまま効く</b> —
+            WinUI と違い、ここでは ScrollViewer.* の添付プロパティが**そのまま効く** —
             WPF の TreeView 既定テンプレートは内側の ScrollViewer へ TemplateBinding で
             中継しているためである。中継しないのは WinUI の TreeView だけで、
             そちらはコードビハインドで実物の ListControl に付けている。
@@ -74,8 +74,8 @@
                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                     <!--
                         行が UIA に名乗る名前。既定では ItemAutomationPeer が束縛した項目の
-                        ToString() を返すので、<b>どの行も "UiaTrigger.Picker.PickerTreeNode" と
-                        名乗る</b> (実測)。スクリーンリーダーはそれを読み上げるし、
+                        ToString() を返すので、**どの行も "UiaTrigger.Picker.PickerTreeNode" と
+                        名乗る** (実測)。スクリーンリーダーはそれを読み上げるし、
                         UIA から駆動するテストも行を見分けられない。
                         WinUI 側は同じことを AutomationProperties.Name="{x:Bind Display}" で既にしている。
                     -->
@@ -90,7 +90,7 @@
                         <TextBlock Text="{Binding Display}" VerticalAlignment="Center" />
                         <!--
                             Focusable / IsTabStop を落とす。既定のままだと、ツリーを
-                            キーボードの上下で辿ったときに<b>行ごとにこのボタンが停留点になる</b>
+                            キーボードの上下で辿ったときに**行ごとにこのボタンが停留点になる**
                             (1 行進むのに 2 回押す必要がある)。マウスでのクリックは効いたままで、
                             キーボードからの確定は枠の ✓ と条件欄の[トリガーを追加]が担う。
                         -->
@@ -109,12 +109,12 @@
             ツリーと右側の境界。窓を縮めるとどちらも狭くなるので、どちらを優先するかを
             ユーザーが決められるようにする。
 
-            WPF は標準で GridSplitter を持つ。3 変種のうち<b>持っていないのは WinUI3 だけ</b>で、
+            WPF は標準で GridSplitter を持つ。3 変種のうち**持っていないのは WinUI3 だけ**で、
             そちらは CommunityToolkit の Sizers を足してある。
 
             Focusable / IsTabStop は既定 (true) のままにする。行の確定ボタンではこれを落としたが
             (キーボードで 1 行進むのに 2 回押すことになるため)、こちらは逆で、
-            <b>キーボードだけで寸法を変えられる唯一の手段</b>である。Tab の停留点は 1 つ増える。
+            **キーボードだけで寸法を変えられる唯一の手段**である。Tab の停留点は 1 つ増える。
 
             AutomationProperties.Name はコードビハインドが代入する (この XAML に
             表示文字列は書かない)。名前が無いと、スクリーンリーダーには "Thumb" としか
@@ -129,7 +129,7 @@
         <Grid x:Name="RightPane" Grid.Row="1" Grid.Column="2" Margin="2,0,0,0"
               SizeChanged="OnRightPaneSizeChanged">
             <!--
-                条件欄の行は Auto のままにする。<b>掴まれるまでは内容ぶんの高さ</b>で、
+                条件欄の行は Auto のままにする。**掴まれるまでは内容ぶんの高さ**で、
                 掴んだ時点で GridSplitter が固定 px に変える。
                 既定の見た目を変えずに「動かせる」だけを足すのが狙いである。
             -->
@@ -144,10 +144,10 @@
                      HorizontalContentAlignment="Left" />
 
             <!--
-                プロパティ一覧と条件欄の境界。<b>ここは縦の分割である。</b>
+                プロパティ一覧と条件欄の境界。**ここは縦の分割である。**
 
                 条件欄を縮められるようにすると、そのぶん中身がはみ出す。窓を狭めると
-                WrapPanel が折り返して<b>さらに背が高くなる</b>ので、固定 px に変わった後は
+                WrapPanel が折り返して**さらに背が高くなる**ので、固定 px に変わった後は
                 なおさらである。下の ScrollViewer はそのためにあり、無いと黙って切れる。
             -->
             <GridSplitter x:Name="ConditionSplitter" Grid.Row="1" Height="6"

@@ -4,7 +4,7 @@
 //   ・データバインディングが無いので TreeView を手で同期させる (TreeMirror)
 //   ・行の中にボタンを置けないので、確定は「選択中の要素を確定する」ボタン 1 つにする
 //   ・TextBox の空欄が「値なし」であること
-//   ・仮想化が無いので<b>遅延処理が要らない</b> — WinUI / WPF の実体化待ちリトライを
+//   ・仮想化が無いので**遅延処理が要らない** — WinUI / WPF の実体化待ちリトライを
 //     写さないこと。写すと、要らない複雑さを 3 つ目の View にも配ることになる
 //
 // デザイナーは使わずコードだけで組む。
@@ -25,7 +25,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
     // 変種ごとに別の探し方をしなくてよい (docs/TESTING.md §1)。
     //
     // これはアクセシビリティの改善でもある。AutomationId が無いコントロールは
-    // スクリーンリーダーの利用者にとっても、自動化する側にとっても<b>名前が無い</b>。
+    // スクリーンリーダーの利用者にとっても、自動化する側にとっても**名前が無い**。
     private readonly IPickerStrings _strings;
     private readonly TriggerPickerPresenter _presenter;
     private readonly TreeMirror _mirror;
@@ -66,7 +66,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
     private readonly Label _commitStatus = new() { Name = "CommitStatus", AutoSize = true };
 
     // ツリーと右側の境界。Windows Forms は SplitContainer を標準で持つので、
-    // 3 変種のうち<b>ここだけは元から動かせた</b> (WPF は GridSplitter、
+    // 3 変種のうち**ここだけは元から動かせた** (WPF は GridSplitter、
     // WinUI3 だけが標準で持たず CommunityToolkit を足してある)。
     // 名前は 3 変種で揃えてあり、T4 は変種ごとに別の探し方をしなくてよい。
     private readonly SplitContainer _split = new() { Name = "TreeSplitter", Dock = DockStyle.Fill };
@@ -142,7 +142,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         BuildLayout();
         ApplyStrings();
 
-        // ハンドルは<b>ここで</b>作る。オーバーレイはコールバックを自分のスレッドから
+        // ハンドルは**ここで**作る。オーバーレイはコールバックを自分のスレッドから
         // 上げてくるので、Post は UI スレッド以外から呼ばれる。ハンドル生成前の
         // BeginInvoke は InvalidOperationException になり (実測済み)、かといって
         // Post の中で Handle に触れば別スレッドでハンドルが作られてしまう
@@ -152,7 +152,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         // (SizeTheConditionPane の remarks を参照)
         SizeTheConditionPane();
 
-        // プレゼンターはコントロールに初期値を入れる<b>前に</b>作る。
+        // プレゼンターはコントロールに初期値を入れる**前に**作る。
         // SelectedIndex への代入はその場で SelectedIndexChanged を上げ、
         // ハンドラーがプレゼンターを触るためである
         _presenter = createPresenter?.Invoke(this) ?? new TriggerPickerPresenter(
@@ -182,7 +182,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
     public void LoadDefinition(TriggerDefinition definition)
     {
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
-        // 静止しているだけで<b>編集対象が別の要素に差し替わる</b>
+        // 静止しているだけで**編集対象が別の要素に差し替わる**
         _autoSelect.Checked = false;
         _presenter.LoadDefinition(definition);
     }
@@ -230,12 +230,12 @@ public sealed class TriggerPickerForm : Form, IPickerView
         Controls.Add(_split);
         Controls.Add(topBar);
 
-        // 寸法は<b>ドッキングが済んでから</b>入れる。ここまでの SplitContainer は
+        // 寸法は**ドッキングが済んでから**入れる。ここまでの SplitContainer は
         // まだ既定の 150px 幅で、その幅に収まらない値は例外にも警告にもならないからである。
         //
         // SplitterDistance を初期化子で入れると、その時点の幅は 150px で、setter は例外を
-        // 出さずに<b>黙って 121 まで詰める</b> (実測)。SplitContainer は比率を保つので、Fill で
-        // 1100px に広がると 887 — <b>ツリーが幅の 80.6%</b> になり、6:5 (54.5%) の他の 2 変種と
+        // 出さずに**黙って 121 まで詰める** (実測)。SplitContainer は比率を保つので、Fill で
+        // 1100px に広がると 887 — **ツリーが幅の 80.6%** になり、6:5 (54.5%) の他の 2 変種と
         // 同じ画面が変種ごとに違って見える。
         // 最小幅のほうは黙ってすらおらず、150px 幅で 240 を入れると
         // ApplyPanel2MinSize が中で SplitterDistance を動かして例外になる (T1 で実測)。
@@ -245,12 +245,12 @@ public sealed class TriggerPickerForm : Form, IPickerView
         _split.Panel1MinSize = 240;
         _split.Panel2MinSize = 240;
 
-        // 開始位置は<b>比率で入れる</b> (docs/DESIGN.md §12)。
+        // 開始位置は**比率で入れる** (docs/DESIGN.md §12)。
         //
         // 他の 2 変種は 6*/5* の star サイズなので、幅がいくつであっても 6:5 になる。
-        // ここに絶対値 (600) を入れると、<b>窓が 1100px を貰えない環境で比率が崩れる</b> —
+        // ここに絶対値 (600) を入れると、**窓が 1100px を貰えない環境で比率が崩れる** —
         // CI の狭いデスクトップでは要求した 1100 が黙って 804 まで詰められ、600 は
-        // Panel2MinSize に引っかかって<b>560 (69.6%)</b> になる。
+        // Panel2MinSize に引っかかって**560 (69.6%)** になる。
         // 例外も警告も出ず、狭い画面でだけツリーが太くなる形である。
         _split.SplitterDistance = (int)Math.Round((_split.Width - _split.SplitterWidth) * 6.0 / 11.0);
 
@@ -263,19 +263,19 @@ public sealed class TriggerPickerForm : Form, IPickerView
     /// </summary>
     /// <remarks>
     /// <para>
-    /// 高さは<b>折り返しの結果でしか決まらない</b>ので定数では書けず、折り返しは幅で決まる。
-    /// <b>そして幅は、ハンドルができるまで確定しない</b> — <c>BuildLayout</c> の中で測ると
+    /// 高さは**折り返しの結果でしか決まらない**ので定数では書けず、折り返しは幅で決まる。
+    /// **そして幅は、ハンドルができるまで確定しない** — <c>BuildLayout</c> の中で測ると
     /// 内側の区画は 856px (直前の値) のままで、<c>PerformLayout</c> を挟んでも変わらなかった
     /// (実測)。だから呼び出しはハンドル生成の後に置いてある。
     /// </para>
     /// <para>
-    /// 測るのは<b>縦スクロールバーのぶんを引いた幅</b>である。いまの高さをそのまま使うと
+    /// 測るのは**縦スクロールバーのぶんを引いた幅**である。いまの高さをそのまま使うと
     /// 足りない: 区画をその高さちょうどにした瞬間に <c>AutoScroll</c> がスクロールバーを出し、
-    /// <b>幅が縮んでさらに折り返して</b>中身が伸びる。狭いほうの幅で測っておけば、
+    /// **幅が縮んでさらに折り返して**中身が伸びる。狭いほうの幅で測っておけば、
     /// スクロールバーが出ても出なくても収まる。
     /// </para>
     /// <para>
-    /// どちらの読み違いも例外にならない。出るのは<b>「[トリガーを追加] が既定で見えない」</b>
+    /// どちらの読み違いも例外にならない。出るのは**「[トリガーを追加] が既定で見えない」**
     /// という形だけで、T1 が 106px の区画に 200px の中身を見つけて初めて分かった。
     /// </para>
     /// </remarks>
@@ -524,8 +524,8 @@ public sealed class TriggerPickerForm : Form, IPickerView
 
     /// <summary>数値欄に書く。null は空欄 (= 値なし)。</summary>
     /// <remarks>
-    /// <see cref="ReadNumber"/> と同じカルチャで書くこと。ずれると<b>読み込んだ値を
-    /// そのまま確定するだけで条件が変わる</b> — 書式の差なので例外にもならない。
+    /// <see cref="ReadNumber"/> と同じカルチャで書くこと。ずれると**読み込んだ値を
+    /// そのまま確定するだけで条件が変わる** — 書式の差なので例外にもならない。
     /// </remarks>
     internal static void WriteNumber(TextBox box, double? value)
         => box.Text = value?.ToString(CultureInfo.CurrentCulture) ?? string.Empty;

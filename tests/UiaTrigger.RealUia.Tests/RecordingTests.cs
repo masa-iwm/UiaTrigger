@@ -64,7 +64,7 @@ public sealed class RecordingTests
         Assert.Equal(MatchStrength.Preferred, definition.Window.ClassNameMatch);
 
         // ウィンドウ → root パネル → ボタン。
-        // 段数は<b>両プロファイルで同じ</b>であることを要求する。プロファイルごとに
+        // 段数は**両プロファイルで同じ**であることを要求する。プロファイルごとに
         // 期待段数を変えると「アプリが出した形をそのまま確認するだけ」の assert になる
         Assert.Equal(2, definition.Locator.Steps.Count);
         Assert.Equal("root", definition.Locator.Steps[0].AutomationId);
@@ -76,7 +76,7 @@ public sealed class RecordingTests
     ///
     /// <para>
     /// WinForms は必ず <c>Control.Name</c> を UIA の <c>AutomationId</c> に出すため、
-    /// <c>Recording.WithoutSearch()</c> で作れるのは<b>擬似的な</b>「Search の無い定義」だけである。
+    /// <c>Recording.WithoutSearch()</c> で作れるのは**擬似的な**「Search の無い定義」だけである。
     /// 「記録側が本当に Search を諦められるか」(= 一意性を数えた結果 0 件だったときの経路) は
     /// AutomationId を持たない実物の要素が要る — ネイティブプロバイダーなら素直に作れる。
     /// </para>
@@ -117,12 +117,12 @@ public sealed class RecordingTests
     /// ハーネス自身の検証: 対象アプリが申告する矩形が、UIA の <c>BoundingRectangle</c> と一致すること。
     ///
     /// <para>
-    /// T3 の定義はすべて<b>座標からの記録</b>で作る。対象アプリの座標が DIP のままだったり
-    /// 係数が掛かっていたりすると、記録は例外を出さずに<b>別の要素</b>を掴み、
+    /// T3 の定義はすべて**座標からの記録**で作る。対象アプリの座標が DIP のままだったり
+    /// 係数が掛かっていたりすると、記録は例外を出さずに**別の要素**を掴み、
     /// 以後のシナリオは「何を記録したのか分からないまま」通る (docs/DESIGN.md A19 / docs/TESTING.md §4)。
     /// </para>
     /// <para>
-    /// <b>100% スケールの CI ではこの種のバグは緑のまま通る</b>ため、絶対値の比較でしか
+    /// **100% スケールの CI ではこの種のバグは緑のまま通る**ため、絶対値の比較でしか
     /// 捕まえられない。WinForms は <c>RectangleToScreen</c>、WPF は <c>Visual.PointToScreen</c>
     /// (HwndSource の DPI 変換を含む) で、どちらも物理ピクセルを返す規約になっている。
     /// </para>

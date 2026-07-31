@@ -1,7 +1,7 @@
 // ピッカーの文字列を .resx + サテライトアセンブリから供給する (docs/DESIGN.md L3 / docs/LOCALIZATION.md §4)。
 //
 // WinUI は MRT Core (resources.pri) を使うため MrtPickerStrings が別にあるが、
-// WPF と WinForms は<b>仕組みが同一</b>なのでここを共有する。
+// WPF と WinForms は**仕組みが同一**なのでここを共有する。
 // UiaTrigger.Core が Strings.resx でやっていることと同じ形であり、この repo の定石である。
 //
 // カルチャは ResourceManager に任せる (CurrentUICulture)。明示的に渡さないのは、

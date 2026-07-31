@@ -97,8 +97,8 @@ internal static class PropertyReader
     /// <summary>
     /// 全監視対象プロパティのスナップショットを取得する。
     ///
-    /// 個別の get_Current* で読むと <b>16 往復</b>になり、それがプロパティ変化イベントの
-    /// たびに走ることになる。BuildUpdatedCache + get_Cached* で <b>1 往復</b>にまとめる
+    /// 個別の get_Current* で読むと **16 往復**になり、それがプロパティ変化イベントの
+    /// たびに走ることになる。BuildUpdatedCache + get_Cached* で **1 往復**にまとめる
     /// (docs/DESIGN.md B1)。
     /// パスワード欄の値はここで落とす (C12)。
     /// </summary>

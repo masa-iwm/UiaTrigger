@@ -11,7 +11,7 @@ public partial class App : Application
     /// <summary>Creates the application and wires up the unhandled-exception logging.</summary>
     public App()
     {
-        // カルチャの上書きは<b>どのウィンドウを作るより前</b>に行う (docs/DESIGN.md §12)。
+        // カルチャの上書きは**どのウィンドウを作るより前**に行う (docs/DESIGN.md §12)。
         // HostOptions の static プロパティ初期化子は MainWindow から初めて触られたときに
         // 走るので、そこに任せると遅い
         HostOptions.ApplyCulture();

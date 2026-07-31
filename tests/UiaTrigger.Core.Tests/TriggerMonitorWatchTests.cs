@@ -10,7 +10,7 @@ namespace UiaTrigger.Tests;
 /// 購読は <c>PropertyReader.ToPropertyId</c> が <see cref="PropertyClause.Property"/> から作り
 /// <see cref="PropertyClause.Op"/> を一度も見ない。そのため「この要素が存在する」を
 /// <see cref="ComparisonOp.Always"/> の句で書いても、そのままでは
-/// <b>その句が名指ししたプロパティが変わるたびに発火する</b> — つまり
+/// **その句が名指ししたプロパティが変わるたびに発火する** — つまり
 /// 「A が存在していて、B の値が変化したとき」が書けない。それを埋めるのが Watch である。
 ///
 /// ここは要素が 1 つも解決しない定義で回す。<c>PropertyIds</c> は定義を追加した時点で
@@ -55,7 +55,7 @@ public sealed class TriggerMonitorWatchTests
     }
 
     /// <summary>
-    /// 監視しない句は購読を作らない。<b>この検査の要点である</b> —
+    /// 監視しない句は購読を作らない。**この検査の要点である** —
     /// これが落ちると「存在を見るだけ」の句が発火源のままになり、
     /// 「A が存在していて、B の値が変化したとき」が書けない状態に戻る。
     /// </summary>
