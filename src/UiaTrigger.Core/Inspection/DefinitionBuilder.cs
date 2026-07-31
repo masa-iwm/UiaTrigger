@@ -58,11 +58,19 @@ internal static class DefinitionBuilder
         // 解決はこちらを先に試すが、経路は「一意でなくなったとき」の退避路として残す
         definition.Locator.Search = TryRecordSearch(ctx, topLevel, chain[0], view, targetSnapshot.AutomationId);
 
-        definition.DisplayName = string.IsNullOrEmpty(targetSnapshot.Name)
-            ? targetSnapshot.ControlTypeName
-            : $"{targetSnapshot.ControlTypeName}: {targetSnapshot.Name}";
+        definition.DisplayName = BuildDisplayName(targetSnapshot);
         return definition;
     }
+
+    /// <summary>
+    /// 一覧に出す既定の表示名。**安定名から**組み立てる — DisplayName は永続化されるので、
+    /// LocalizedControlType (相手アプリのロケール) を混ぜると、対象アプリを別の言語で
+    /// 起動し直しただけで保存内容が変わる (docs/DESIGN.md L6)。
+    /// </summary>
+    internal static string BuildDisplayName(ElementPropertySnapshot targetSnapshot) =>
+        string.IsNullOrEmpty(targetSnapshot.Name)
+            ? targetSnapshot.ControlTypeName
+            : $"{targetSnapshot.ControlTypeName}: {targetSnapshot.Name}";
 
     /// <summary>
     /// 対象の <c>AutomationId</c> がウィンドウ内で一意なら Search 方式を記録する。

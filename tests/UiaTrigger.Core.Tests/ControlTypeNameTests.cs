@@ -1,4 +1,5 @@
 using System.Globalization;
+using UiaTrigger.Inspection;
 using UiaTrigger.Models;
 using Xunit;
 
@@ -88,6 +89,34 @@ public sealed class ControlTypeNameTests
         Assert.NotEqual(
             Snapshot().GetDisplayValue(TriggerProperty.ControlType),
             Snapshot().GetComparisonValue(TriggerProperty.ControlType).Value);
+    }
+
+    /// <summary>
+    /// 記録される既定の <see cref="TriggerDefinition.DisplayName"/> は安定名から作られること。
+    ///
+    /// DisplayName は永続化されるので、表示用のローカライズ名を混ぜると、
+    /// 対象アプリを別の言語で起動し直しただけで保存済みの定義が変わる (docs/DESIGN.md L6)。
+    /// 実 UIA での成立は T3 の Record_PutsTheStableNameInTheDisplayName が見ているが、
+    /// あちらは CI で continue-on-error である — ブロッキングの網はこちら
+    /// (規則は T1・実 UIA での成立は T3、の 2 段構え — docs/LOCALIZATION.md §6)。
+    /// </summary>
+    [Fact]
+    public void TheRecordedDisplayName_IsBuiltFromTheStableName()
+    {
+        var named = new ElementPropertySnapshot
+        {
+            ControlType = ButtonControlType,
+            ControlTypeName = UiaControlTypeNames.GetName(ButtonControlType),
+            LocalizedControlType = ProviderLocalizedName,
+            Name = "OK",
+        };
+
+        Assert.Equal("Button: OK", DefinitionBuilder.BuildDisplayName(named));
+        Assert.DoesNotContain(
+            ProviderLocalizedName, DefinitionBuilder.BuildDisplayName(named), StringComparison.Ordinal);
+
+        // Name の無い要素は型名だけになる
+        Assert.Equal("Button", DefinitionBuilder.BuildDisplayName(Snapshot()));
     }
 
     /// <summary>
