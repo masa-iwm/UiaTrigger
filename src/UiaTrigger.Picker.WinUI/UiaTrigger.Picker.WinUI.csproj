@@ -16,6 +16,7 @@
     <AssemblyName>UiaTrigger.Picker.WinUI</AssemblyName>
     <UseWinUI>true</UseWinUI>
     <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <!--
       Windows SDK 投影パッケージを明示する (docs/DESIGN.md §12)。
 
@@ -53,6 +54,18 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    IntelliSense の日本語化 (docs/LOCALIZATION.md §5)。他の 4 つと同じ置き方である。
+    bin へ置くのが ProjectReference の利用者ぶん、.nupkg へ入れるのは
+    Directory.Build.targets の AddJapaneseDocumentationToPackage が受け持つ。
+  -->
+  <ItemGroup>
+    <None Include="Resources\UiaTrigger.Picker.WinUI.ja.xml"
+          Link="ja\UiaTrigger.Picker.WinUI.xml"
+          CopyToOutputDirectory="PreserveNewest"
+          TargetPath="ja\UiaTrigger.Picker.WinUI.xml" />
   </ItemGroup>
 
 </Project>

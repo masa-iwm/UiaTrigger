@@ -99,11 +99,10 @@ jobs:
         shell: pwsh
         run: |
           $cjk = '[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}]'
-          # 日本語 IntelliSense ファイル (絞り込みの正) を持つ 4 つ。
-          # Picker.WinUI は GenerateDocumentationFile を立てていないので .xml を配らない
+          # 配る 5 つとも英語と日本語の .xml を持つ (docs/RELEASING.md §1)
           $expected = @(
             "UiaTrigger.Core", "UiaTrigger.Picker.Core",
-            "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms")
+            "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms", "UiaTrigger.Picker.WinUI")
           $seenNeutral = @()
           $seenJapanese = @()
           $bad = @()

@@ -35,6 +35,13 @@
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <!-- FakeTimeProvider。TimeProvider 化 (C10/B8) の効果はこれが無いと確かめられない -->
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
+    <!--
+      UiaTrigger.Picker.WinUI の公開面をメタデータとして読む (docs/LOCALIZATION.md §5)。
+      あれは slnx で Platform=x64 に固定されており、参照すると AnyCPU の T1 ごと x64 になって
+      Windows App SDK を引き込む。コードを動かさずに可視性と属性だけ見たいので、
+      参照ではなくメタデータで読む。
+    -->
+    <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

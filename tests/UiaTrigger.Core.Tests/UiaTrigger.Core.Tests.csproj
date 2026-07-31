@@ -19,6 +19,13 @@
       確かめられない — デバウンスもレート制限も「実時間を待つ」テストでしか触れない。
     -->
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <!--
+      UiaTrigger.Picker.WinUI の公開面を、参照せずにメタデータで読む
+      (PublicApiDocumentationTests)。参照すると x64 と Windows App SDK が
+      この AnyCPU のプロジェクトに乗り移り、T1 が「UIA にも GUI にも依らない層」で
+      なくなる (docs/TESTING.md §1)。
+    -->
+    <PackageReference Include="System.Reflection.MetadataLoadContext" />
   </ItemGroup>
 
   <ItemGroup>

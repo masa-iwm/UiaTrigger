@@ -1,6 +1,4 @@
-using System.CodeDom.Compiler;
 using System.Reflection;
-using System.Text.Json.Serialization;
 using System.Xml.Linq;
 
 namespace UiaTrigger.Tests;
@@ -60,7 +58,16 @@ internal static class PublicApiDoc
 
         if (kind == 'T')
         {
-            return exported.ContainsKey(body);
+            // 型ごと生成される道具の出力は翻訳の対象にしない。XAML マークアップコンパイラは
+            // XamlMetaDataProvider を、CsWinRT は起動用の型を**公開で**出すので、落とさないと
+            // 「ソースに存在しない型に日本語 doc を書け」と要求することになる。
+            //
+            // **[GeneratedCode] の有無だけでは割れない。**TriggerJsonContext のように
+            // 手で書いた partial に生成された partial が付く型にも属性は付いてしまい、
+            // 有無で判定すると本物の公開 API まで落ちる (実測: ja にのみ存在する残骸として現れた)。
+            // そこで**道具の名前**で挙げる。新しい道具が公開型を出したら、この一覧に無いので
+            // 「ja に無い公開 API」として名指しで落ちる — 黙って通ることはない。
+            return exported.TryGetValue(body, out Type? declared) && !IsWholeTypeGenerated(declared);
         }
 
         int split = body.LastIndexOf('.');
@@ -86,7 +93,7 @@ internal static class PublicApiDoc
         // コンストラクタ) は STJ のソースジェネレーターが doc ごと生成する。型宣言そのものは
         // 手書きなので残すが、メンバーを翻訳対象にすると
         // 「[JsonSerializable] を 1 行足すたびに ja の XML doc を書き足す」ことになる
-        if (typeof(JsonSerializerContext).IsAssignableFrom(type))
+        if (DerivesFromJsonSerializerContext(type))
         {
             return false;
         }
@@ -102,8 +109,70 @@ internal static class PublicApiDoc
         return found.Length > 0 && !found.All(IsGenerated);
     }
 
+    /// <summary>
+    /// 生成されたメンバー / 型かどうか。
+    ///
+    /// **判定は属性の名前で行う。**`IsDefined(typeof(...))` は実行中のランタイムに読み込んだ
+    /// 型としか照合できず、`MetadataLoadContext` から読んだアセンブリでは
+    /// 例外になるか、黙って false になる。参照できるアセンブリと参照できないアセンブリで
+    /// 検査の意味が変わってはいけないので、両方で同じに効く形にしてある。
+    /// </summary>
     private static bool IsGenerated(MemberInfo member) =>
-        member.IsDefined(typeof(GeneratedCodeAttribute), inherit: false);
+        GeneratorOf(member) is not null;
+
+    /// <summary>
+    /// 型そのものがソースに存在しない (道具が型ごと出した) かどうか。
+    /// 一覧の根拠は <see cref="IsPublicApi"/> のコメントにある。
+    /// </summary>
+    private static readonly string[] ToolsThatGenerateWholeTypes =
+    [
+        "Microsoft.UI.Xaml.Markup.Compiler", // XamlTypeInfo.g.cs の XamlMetaDataProvider
+        "CsWinRT",                           // WinRT の起動用の型
+    ];
+
+    private static bool IsWholeTypeGenerated(Type type)
+        => GeneratorOf(type) is string tool
+        && ToolsThatGenerateWholeTypes.Contains(tool, StringComparer.Ordinal);
+
+    /// <summary>
+    /// <c>[GeneratedCode]</c> を出した道具の名前。付いていなければ null。
+    ///
+    /// **属性の型は名前で照合する。**<c>IsDefined(typeof(...))</c> は実行中のランタイムに
+    /// 読み込んだ型としか照合できず、<c>MetadataLoadContext</c> から読んだアセンブリでは
+    /// 成立しない。参照できるアセンブリと参照できないアセンブリで検査の意味が変わっては
+    /// いけないので、両方で同じに効く形にしてある。
+    /// </summary>
+    private static string? GeneratorOf(MemberInfo member)
+    {
+        foreach (CustomAttributeData attribute in member.GetCustomAttributesData())
+        {
+            if (attribute.AttributeType.FullName != "System.CodeDom.Compiler.GeneratedCodeAttribute")
+            {
+                continue;
+            }
+            return attribute.ConstructorArguments.Count > 0
+                ? attribute.ConstructorArguments[0].Value as string ?? string.Empty
+                : string.Empty;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// <c>JsonSerializerContext</c> の派生かどうかを、基底の名前を辿って調べる。
+    /// 理由は <see cref="IsGenerated"/> と同じ — `typeof` との比較は
+    /// <c>MetadataLoadContext</c> をまたぐと成立しない。
+    /// </summary>
+    private static bool DerivesFromJsonSerializerContext(Type type)
+    {
+        for (Type? t = type; t is not null; t = t.BaseType)
+        {
+            if (t.FullName == "System.Text.Json.Serialization.JsonSerializerContext")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
 
     /// <summary>ID 末尾の引数リストとジェネリック引数の個数表記を落とす。</summary>
     private static string StripSignature(string body)

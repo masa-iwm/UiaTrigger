@@ -180,10 +180,19 @@ IDE は参照アセンブリの XML doc を探すとき、まず
 
 **ロールアップの単位は「メンバー」ではなく「ファイル」である。**`ja/` のファイルが存在する
 限りそちらが**丸ごと**使われ、そこに無いメンバーは英語に落ちるのではなく**説明が消える**。
-resx のキー集合一致 (docs/LOCALIZATION.md §3) と同じ理由で、ja.xml と公開 API の
-**過不足なし**を `TheJapaneseDocumentationCoversExactlyThePublicApi` が両方向で縛っている。
+resx のキー集合一致 (docs/LOCALIZATION.md §3) と同じ理由で、ja.xml と公開 API の過不足を
+`TheJapaneseDocumentationCoversExactlyThePublicApi` が見ている。
 `JsonSerializerContext` のメンバーは STJ のソースジェネレーターが doc ごと生成するので
 翻訳対象から外してある — `[JsonSerializable]` を 1 行足すたびに ja を書き足すことになるため。
+
+**ただし効くのは「過」の側だけである。**この検査が英語側として読むのは
+`KeepDistributedDocumentationPublic` が**ja のキー集合で絞ったあとの** `.xml` なので、
+ja からメンバーを 1 つ落とすと英語側からも同時に消え、両者は一致したままになる
+(意図的に落として実測した — 検査は緑のまま、配る `.xml` の member が 13 から 12 に減った)。
+**ja に在って公開 API に無いもの**は名指しで落ちるが、**公開 API に在って ja に無いもの**は
+誰も見ていない。ja は絞り込みの正であると同時に検査の対象でもあり、その 2 役が
+循環しているためである。塞ぐには絞り込み前の `.xml` を残して比べるか、
+可視性をリフレクションから直接引くかのどちらかが要る。
 
 ### 配布する `.xml` は公開 API だけに絞る
 
@@ -226,13 +235,31 @@ NuGet の利用者に届けるため、`Directory.Build.targets` の `AddJapanes
   TFM のフォルダ名 (`net10.0-windows` ではなく **`net10.0-windows7.0`**) を外しても
   pack は成功して**静かに間違った場所に入る**。こちらは NuGet が dll を置く場所が基準で、
   `%(TargetPath)` がその下の相対パスになる。
-- 配るのは**絞り込みの正そのもの**である。公開 API と 1:1 であることを
-  `TheJapaneseDocumentationCoversExactlyThePublicApi` が両方向で縛っているので、
-  英語側のような絞り込みは要らない。
+- 配るのは**絞り込みの正そのもの**である。英語側は ja のキー集合で絞られるので、
+  ja 自身に同じ絞り込みを掛ける意味は無い。
 
-`Picker.WinUI` は `GenerateDocumentationFile` を立てておらず `.xml` を配らない
-(立てると CS1591 + `TreatWarningsAsErrors` でドキュメント作業が発生する)。
-これは「配るものが変わる」話であり、変えるかどうかは利用者の判断を要する。
+### Picker.WinUI だけは参照せずにメタデータで読む
+
+上の検査は 5 つとも同じに掛かるが、**`Picker.WinUI` は T1 から参照できない。**あれは
+`UiaTrigger.slnx` で `Platform=x64` に固定されており、参照すると AnyCPU の
+`Core.Tests` ごと x64 になって Windows App SDK を引き込む。T1 は「UIA にも GUI にも
+依らない」層なので、そこは崩さない (docs/TESTING.md §1)。
+
+- 代わりに `MetadataLoadContext` でビルド出力を**読む**。コードは動かさないので x64 でも
+  構わない — 見るのは可視性と属性だけである。
+- そのため `PublicApiDoc` は **`typeof` との比較を使わない**。`IsDefined(typeof(...))` も
+  `typeof(JsonSerializerContext).IsAssignableFrom(...)` も、実行中のランタイムに読み込んだ
+  型としか照合できず、`MetadataLoadContext` から読んだアセンブリでは成立しない
+  (**黙って false になる**)。属性も基底も**名前で**照合する。
+- Windows App SDK 本体 (`Microsoft.WinUI.dll` / `WinRT.Runtime.dll`) は
+  `Picker.WinUI` の `bin` には並ばない (実測で 5 ファイルのみ)。属性の型を解決するのに
+  要るので、ソリューションビルドがそれらを置く唯一の場所である `App.WinUI` の出力から補う。
+- **型ごと生成される道具の出力は対象にしない。**XAML マークアップコンパイラの
+  `XamlMetaDataProvider` と CsWinRT の起動用の型は**公開**で出るので、落とさないと
+  「ソースに存在しない型に日本語 doc を書け」と要求することになる。判定は
+  `[GeneratedCode]` の**道具名**で行う — 属性の有無では割れない。`TriggerJsonContext` の
+  ように手で書いた partial に生成された partial が付く型にも属性は付いてしまい、
+  有無で判定すると本物の公開 API まで落ちる (実測)。
 
 ## §6 表示名と安定名
 

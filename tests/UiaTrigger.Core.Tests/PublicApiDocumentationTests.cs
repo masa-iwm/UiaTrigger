@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using Xunit;
 
@@ -29,7 +30,17 @@ public sealed class PublicApiDocumentationTests
         "UiaTrigger.Picker.Core",
         "UiaTrigger.Picker.Wpf",
         "UiaTrigger.Picker.WinForms",
+        WinUiAssemblyName,
     ];
+
+    /// <summary>
+    /// **このアセンブリだけは参照できない。**`Picker.WinUI` は slnx で `Platform=x64` に
+    /// 固定されており、参照すると AnyCPU のこのプロジェクトごと x64 になって
+    /// Windows App SDK を引き込む。T1 は「UIA にも GUI にも依らない」層なので、
+    /// そこを崩さずに検査だけ同じにするため、**ビルド出力をメタデータとして読む**
+    /// (<see cref="AssemblyFor"/>)。
+    /// </summary>
+    private const string WinUiAssemblyName = "UiaTrigger.Picker.WinUI";
 
     public static TheoryData<string> DocumentedAssemblies => [.. DocumentedAssemblyNames];
 
@@ -51,8 +62,89 @@ public sealed class PublicApiDocumentationTests
         "UiaTrigger.Picker.Core" => typeof(UiaTrigger.Picker.TriggerPickerPresenter).Assembly,
         "UiaTrigger.Picker.Wpf" => typeof(UiaTrigger.Picker.Wpf.TriggerPickerWindow).Assembly,
         "UiaTrigger.Picker.WinForms" => typeof(UiaTrigger.Picker.WinForms.TriggerPickerForm).Assembly,
+        WinUiAssemblyName => WinUiMetadata.Value,
         _ => throw new ArgumentOutOfRangeException(nameof(name)),
     };
+
+    /// <summary>
+    /// <see cref="WinUiAssemblyName"/> のビルド出力フォルダ。
+    ///
+    /// **「いちばん新しいものを採る」形にしない。**単体プロジェクトのビルドが作る
+    /// <c>bin\Debug</c> をソリューションビルドの <c>bin\x64\...</c> と取り違える罠が
+    /// このリポジトリには実在する (.claude/rules/build.md)。テスト自身と同じ構成の、
+    /// ソリューションビルドが出す場所だけを見て、無ければ場所を名指しして落とす。
+    /// </summary>
+    private static readonly Lazy<string> WinUiOutputDirectory = new(() =>
+    {
+        string configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        string root = RepoPaths.Combine("src", WinUiAssemblyName, "bin", "x64", configuration);
+
+        string[] found = Directory.Exists(root)
+            ? Directory.GetFiles(root, $"{WinUiAssemblyName}.dll", SearchOption.AllDirectories)
+            : [];
+
+        if (found.Length != 1)
+        {
+            throw new InvalidOperationException(
+                $"{WinUiAssemblyName}.dll が {root} の下に {found.Length} 個ありました (1 個であるべきです)。" +
+                "ソリューションビルド (dotnet build UiaTrigger.slnx) を先に通してください。");
+        }
+        return Path.GetDirectoryName(found[0])!;
+    });
+
+    /// <summary>
+    /// Windows App SDK のアセンブリが並ぶフォルダ。
+    ///
+    /// <c>App.WinUI</c> は <c>WindowsAppSDKSelfContained</c> なので、その出力にだけ
+    /// <c>Microsoft.WinUI.dll</c> / <c>WinRT.Runtime.dll</c> が揃う。
+    /// <see cref="WinUiAssemblyName"/> 自身の <c>bin</c> には並ばない (実測で 5 ファイルのみ)。
+    /// </summary>
+    private static readonly Lazy<string> WindowsAppSdkDirectory = new(() =>
+    {
+        string configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        string root = RepoPaths.Combine("src", "UiaTrigger.App.WinUI", "bin", "x64", configuration);
+
+        string[] found = Directory.Exists(root)
+            ? Directory.GetFiles(root, "Microsoft.WinUI.dll", SearchOption.AllDirectories)
+            : [];
+
+        if (found.Length != 1)
+        {
+            throw new InvalidOperationException(
+                $"Microsoft.WinUI.dll が {root} の下に {found.Length} 個ありました (1 個であるべきです)。" +
+                "ソリューションビルド (dotnet build UiaTrigger.slnx) を先に通してください。");
+        }
+        return Path.GetDirectoryName(found[0])!;
+    });
+
+    /// <summary>
+    /// <see cref="WinUiAssemblyName"/> のビルド出力を <c>MetadataLoadContext</c> で読む。
+    /// コードは動かさないので x64 でも Windows App SDK でも構わない — 見るのは可視性と
+    /// 属性だけである。<see cref="PublicApiDoc"/> 側は <c>typeof</c> との比較を使わない形に
+    /// してあるので、通常の <see cref="Assembly"/> と同じに扱える。
+    /// </summary>
+    private static readonly Lazy<Assembly> WinUiMetadata = new(() =>
+    {
+        string directory = WinUiOutputDirectory.Value;
+
+        // 同じ単純名が複数の場所に在ると解決が曖昧になる。**発行元のフォルダを優先する** —
+        // ここで見たいのは「あのビルド出力の中身」であって、テストが抱えている写しではない。
+        //
+        // Windows App SDK 本体 (Microsoft.WinUI / WinRT.Runtime) は **Picker.WinUI の bin には
+        // 並ばない** (あそこに出るのは 5 つだけ — 実測)。属性の型を解決するのに要るので、
+        // ソリューションビルドがそれらを置く唯一の場所である App.WinUI の出力から補う。
+        Dictionary<string, string> byName = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string dll in Directory.GetFiles(directory, "*.dll")
+            .Concat(Directory.GetFiles(WindowsAppSdkDirectory.Value, "*.dll"))
+            .Concat(Directory.GetFiles(AppContext.BaseDirectory, "*.dll"))
+            .Concat(Directory.GetFiles(RuntimeEnvironment.GetRuntimeDirectory(), "*.dll")))
+        {
+            byName.TryAdd(Path.GetFileName(dll), dll);
+        }
+
+        MetadataLoadContext context = new(new PathAssemblyResolver(byName.Values));
+        return context.LoadFromAssemblyPath(Path.Combine(directory, $"{WinUiAssemblyName}.dll"));
+    });
 
     /// <summary>
     /// XML ドキュメントを出すアセンブリが、**1 つ残らず**上の表に載っていること。
@@ -92,13 +184,20 @@ public sealed class PublicApiDocumentationTests
         RegexOptions.CultureInvariant | RegexOptions.NonBacktracking,
         TimeSpan.FromSeconds(1));
 
+    /// <summary>
+    /// XML ドキュメントを探すフォルダ。参照している 4 つはテストの出力に並ぶが、
+    /// <see cref="WinUiAssemblyName"/> は参照できないのでそのプロジェクトの出力を見る。
+    /// </summary>
+    private static string OutputDirectoryFor(string assembly)
+        => assembly == WinUiAssemblyName ? WinUiOutputDirectory.Value : AppContext.BaseDirectory;
+
     /// <summary>ビルド出力に並ぶ英語 (neutral) の XML ドキュメント。</summary>
     private static string NeutralXmlPath(string assembly)
-        => Path.Combine(AppContext.BaseDirectory, $"{assembly}.xml");
+        => Path.Combine(OutputDirectoryFor(assembly), $"{assembly}.xml");
 
     /// <summary>同じ出力の <c>ja/</c> サブフォルダ。IDE はここを先に見る。</summary>
     private static string JapaneseXmlPath(string assembly)
-        => Path.Combine(AppContext.BaseDirectory, "ja", $"{assembly}.xml");
+        => Path.Combine(OutputDirectoryFor(assembly), "ja", $"{assembly}.xml");
 
     /// <summary>
     /// XML ドキュメントがそもそも生成・配置されていること。

@@ -16,10 +16,11 @@ using UiaTrigger.Models;
 
 namespace UiaTrigger.Picker.WinUI;
 
-/// <summary>
-/// Accessibility Insights 風の要素選択 + トリガー条件設定ウィンドウ。
-/// 確定されたトリガーは TriggerCommitted で通知する (永続化はホスト側)。
-/// </summary>
+/// <summary>The picker as a WinUI 3 window: pick an element, then turn it into a trigger.</summary>
+/// <remarks>
+/// Holds no rules of its own — <see cref="TriggerPickerPresenter"/> does. Committed triggers are
+/// announced through <see cref="TriggerCommitted"/>; storing them is up to the host.
+/// </remarks>
 public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposable
 {
     private readonly TriggerPickerPresenter _presenter;
@@ -111,11 +112,10 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
 
     private void OnClosed(object sender, WindowEventArgs args) => Dispose();
 
-    /// <summary>
-    /// プレゼンター (タイマー・オーバーレイ・UIA セッション) を解放する。
-    /// 通常はウィンドウを閉じたときに <see cref="OnClosed"/> から呼ばれるため、
-    /// 呼び出し側が明示的に呼ぶ必要はない。複数回呼んでも安全。
-    /// </summary>
+    /// <summary>Releases the presenter: its timer, the overlay and the UI Automation session.</summary>
+    /// <remarks>
+    /// Closing the window does this already, so callers rarely need to. Safe to call more than once.
+    /// </remarks>
     public void Dispose()
     {
         if (_disposed)
@@ -501,9 +501,14 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => TrySelect(0));
     }
 
-    /// <summary>x:Bind に bool → Visibility の暗黙変換が無いため、XAML はここを関数束縛で呼ぶ。</summary>
+    /// <summary>Turns a bool into a <see cref="Visibility"/> for the XAML to bind to.</summary>
     /// <param name="value">Whether the element should be visible.</param>
     /// <returns>The matching <see cref="Visibility"/>.</returns>
+    /// <remarks>
+    /// Public because <c>x:Bind</c> has no implicit bool-to-<see cref="Visibility"/> conversion and
+    /// calls this as a function binding. The WPF variant keeps the same helper private — there the
+    /// converter is a XAML resource — so this one member is public API in the WinUI package only.
+    /// </remarks>
     public static Visibility ToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
 }
 
