@@ -1,0 +1,963 @@
+// サンプルホストの子プロセスと、その中のピッカーウィンドウ (docs/TESTING.md §1 T4)。
+//
+// <b>このファイル自身は入力を 1 つも起こさない。</b>駆動は UIA のコントロールパターンだけで行う。
+// T5 (tests/UiaTrigger.Input.Tests) はこれをリンク共有したうえで、舞台が整ってから
+// 検査対象そのもの (キー・クリック) だけを最下層から撃つ — 撃つ口はあちらにしか無い
+// (docs/TESTING.md §3)。
+//
+// ホバー捕捉は T4 でも T5 でも --pick-at / FixedCursorSource のままである。
+// 差し替えているのは入力<b>イベント</b>ではなくカーソルの<b>取得元</b> (ICursorSource) であり、
+// 入力経路そのものは検証対象ではない (滞留の算術は T1 の TriggerPickerPresenterTests が見ている)。
+// 実カーソルを動かして捕捉させないのは、座標の円環が戻るからである (docs/TESTING.md §4)。
+using System.Diagnostics;
+using System.Globalization;
+using System.Windows.Automation;
+using UiaTrigger.Interop;
+using UiaTrigger.Models;
+using UiaTrigger.Persistence;
+using UiaTrigger.Tests;
+using Xunit;
+
+namespace UiaTrigger.Picker.UiTests;
+
+internal sealed class PickerHostProcess : IDisposable
+{
+    private static readonly TimeSpan WindowTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>ホストの窓が出るのを見張る間隔。滞留 1000ms に対して十分に細かくとる。</summary>
+    private static readonly TimeSpan PlacePollInterval = TimeSpan.FromMilliseconds(5);
+
+    private readonly Process _process;
+    private readonly string _logPath;
+    private readonly IReadOnlyList<System.Windows.Point> _pickPoints;
+    private bool _disposed;
+
+    /// <summary>
+    /// このホストが読み書きするトリガーファイル。<b>ホストごとに別の一時ファイル</b>である。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>--triggers</c> を<b>どの起動口からも必ず渡す</b>。既定は
+    /// <c>%LOCALAPPDATA%\UiaTrigger\triggers.json</c> という実ファイルなので、
+    /// 省くと<b>自動テストが開発機のトリガーを書き換える</b> (docs/DESIGN.md §12)。
+    /// </para>
+    /// <para>
+    /// 起動口ごとに渡すかどうかを決める形にはしない。「このテストはコミットしないから要らない」は
+    /// 今日は正しくても、そのテストに 1 行足した瞬間に嘘になる。
+    /// </para>
+    /// </remarks>
+    public string TriggerFile { get; }
+
+    public PickerHostProfile Profile { get; }
+
+    /// <summary>ホストのメインウィンドウ。所有関係に頼らず HWND から掴む。</summary>
+    public AutomationElement MainWindow { get; }
+
+    /// <summary>
+    /// ホストのプロセス ID。オーバーレイのウィンドウを<b>外から</b>数えるのに要る
+    /// (docs/DESIGN.md §10)。
+    /// </summary>
+    /// <remarks>
+    /// オーバーレイはトップレベルウィンドウだが、ピッカーのウィンドウの子ではない。
+    /// 所有関係を辿るのではなく、pid + クラス名で絞るのが唯一の見つけ方である。
+    /// </remarks>
+    public int ProcessId => _process.Id;
+
+    private PickerHostProcess(
+        Process process,
+        PickerHostProfile profile,
+        AutomationElement mainWindow,
+        string logPath,
+        string triggerFile,
+        IReadOnlyList<System.Windows.Point> pickPoints,
+        (int Left, int Top, int Width, int Height) hostRect)
+    {
+        _process = process;
+        Profile = profile;
+        MainWindow = mainWindow;
+        _logPath = logPath;
+        TriggerFile = triggerFile;
+        _pickPoints = pickPoints;
+        _hostRect = hostRect;
+    }
+
+    /// <summary>ホストの窓を置く矩形。既定は <see cref="DesktopLayout.Host"/>。</summary>
+    /// <remarks>
+    /// 差し替えられるようにしてあるのは、<b>表示域の広さそのものが検査対象</b>になる
+    /// テストがあるためである (<see cref="DesktopLayout.NarrowHost"/>)。
+    /// </remarks>
+    private readonly (int Left, int Top, int Width, int Height) _hostRect;
+
+    /// <summary>このホストが保存したトリガー。1 件も無ければ空。</summary>
+    public IReadOnlyList<TriggerDefinition> SavedTriggers() => TriggerStore.Load(TriggerFile);
+
+    /// <summary>
+    /// ホストを起動し、メインウィンドウが出るまで待つ。
+    /// </summary>
+    /// <param name="profile">起動するホストの種別。</param>
+    /// <param name="pickX">ピッカーに「カーソルはここに在る」と思わせる X (物理座標)。</param>
+    /// <param name="pickY">同じく Y。</param>
+    public static PickerHostProcess Start(
+        PickerHostProfile profile,
+        int pickX,
+        int pickY,
+        (int Left, int Top, int Width, int Height)? hostRect = null)
+    {
+        RequireCoordinateSafeProcess();
+        return StartCore(
+            profile,
+            ["--pick-at", string.Create(CultureInfo.InvariantCulture, $"{pickX},{pickY}")],
+            [new System.Windows.Point(pickX, pickY)],
+            preferPublished: false,
+            hostRect: hostRect);
+    }
+
+    /// <summary>
+    /// 複数の pick 点を渡してホストを起動する。<b>n 枚目のピッカーが n 番目</b>を受け取る。
+    /// </summary>
+    /// <remarks>
+    /// S1 (2 枚のピッカーがそれぞれ独立に追従すること) の前提である。
+    /// pick 点が 1 つだと 2 枚が同じ要素を捕捉するので、
+    /// オーバーレイを static singleton へ戻す退行が「枠が一致する」で素通りする
+    /// (docs/DESIGN.md §12)。
+    /// </remarks>
+    public static PickerHostProcess Start(PickerHostProfile profile, params (int X, int Y)[] pickPoints)
+        => Start(profile, culture: null, pickPoints);
+
+    /// <summary>
+    /// 表示カルチャを固定して起動する。<b>画面に出た文字列を検査するときはこちらを使う。</b>
+    /// </summary>
+    /// <remarks>
+    /// 固定しないとホストは OS の表示言語に従う。開発機が日本語で CI が英語だと、
+    /// <b>同じ assert が機械によって別の文字列と比べられる</b> — 通るほうの機械では
+    /// 気づかないまま、もう一方だけが赤くなる。
+    /// </remarks>
+    public static PickerHostProcess Start(
+        PickerHostProfile profile, string? culture, params (int X, int Y)[] pickPoints)
+    {
+        ArgumentNullException.ThrowIfNull(pickPoints);
+        Assert.NotEmpty(pickPoints);
+        RequireCoordinateSafeProcess();
+
+        var arguments = new List<string>();
+        if (culture is not null)
+        {
+            arguments.Add("--culture");
+            arguments.Add(culture);
+        }
+        foreach ((int x, int y) in pickPoints)
+        {
+            arguments.Add("--pick-at");
+            arguments.Add(string.Create(CultureInfo.InvariantCulture, $"{x},{y}"));
+        }
+        return StartCore(
+            profile,
+            [.. arguments],
+            [.. pickPoints.Select(p => new System.Windows.Point(p.X, p.Y))],
+            preferPublished: false);
+    }
+
+    /// <summary>
+    /// 「もう 1 つ開く」を押して<b>2 枚目</b>のピッカーを開く。
+    /// </summary>
+    /// <remarks>
+    /// 「ピッカーで追加」は既に開いていれば前面に出すだけなので、2 枚目はこちらでしか開かない。
+    /// <see cref="OpenPicker"/> と違ってツリーは待たない — 2 枚目のツリーを 1 枚目と区別する
+    /// 手段が AutomationId には無いためである。数えるのは呼び出し側の仕事。
+    /// <b>窓が出るのは待つ</b> (退かさなければならないため)。
+    /// </remarks>
+    public void OpenAnotherPicker()
+    {
+        OpenAndPlace("OpenAnotherPickerButton");
+        // 2 枚目こそ確かめる。カスケードは 1 枚目の<b>あと</b>なので、より右下へ出る
+        RequireThePickPointsAreNotCoveredByTheHost();
+    }
+
+    /// <summary>
+    /// 静的なラベルだけを読むために、<b>座標も対象アプリも無しで</b>ホストを起動する。
+    /// </summary>
+    /// <param name="profile">起動するホストの種別。</param>
+    /// <param name="culture">表示カルチャ (<c>--culture</c>)。</param>
+    /// <remarks>
+    /// <para>
+    /// S4 (発行レイアウトでのリソース解決) はホバー捕捉も pick 点も要らない。
+    /// それでも <see cref="Start"/> を使うと <see cref="RequireCoordinateSafeProcess"/> と
+    /// <c>--pick-at</c> が付いてきて、<b>座標と無関係なテストが座標由来の flake を継承する</b> —
+    /// T4 で実際に落ちるのは毎回その系統である。
+    /// </para>
+    /// <para>
+    /// <b>それでも <c>--pick-at</c> は渡す。画面の外を指すためである。</b>
+    /// 省くとピッカーは <c>Win32CursorSource</c> に落ち、<b>実マウスの下にあるものを
+    /// 1 秒の滞留で本当に捕捉しはじめる</b> — 相手が大きなツリーだと数秒かかり
+    /// (実測で 567 ノード / 2965ms)、その間ピッカーは UIA の問い合わせに答えない。
+    /// <b>「対象アプリを使わない」と「捕捉が起きない」は別のことである。</b>
+    /// </para>
+    /// <para>
+    /// <b>画面外を指しても捕捉の経路には入る</b> — 実測では <c>(-30000,-30000)</c> でも
+    /// <c>ElementFromPoint</c> は<b>デスクトップ (<c>class='#32769'</c>) を返す</b>。
+    /// ピッカーはそれを普通に捕捉し、画面いっぱいの枠を出す。
+    /// </para>
+    /// <para>
+    /// それでも<b>この起動口の目的は果たしている</b>。狙いは「捕捉を起こさないこと」ではなく
+    /// 「<b>結果がカーソルの置き場所で変わらないこと</b>」であり、
+    /// デスクトップは常にそこに在って中身も安定しているので、そちらは成立している。
+    /// 捕捉そのものも軽い (子を数千個持つツリーを歩くわけではない)。
+    /// </para>
+    /// <para>
+    /// <b>これは観測された失敗を直したものではなく、構造からの予防である。</b>
+    /// 実マウスに追随する経路は<b>カーソルがどこに在るかで結果が変わる</b>ので、
+    /// 通るとしてもたまたまでしかない。だから経路ごと消してある。
+    /// </para>
+    /// </remarks>
+    public static PickerHostProcess StartForLabels(PickerHostProfile profile, string culture)
+        => StartCore(
+            profile,
+            ["--culture", culture, "--pick-at", OffScreenPoint],
+            pickPoints: [],
+            preferPublished: true);
+
+    /// <summary>
+    /// 対象アプリも座標も使わずに起動する。<b>見るのはビルド成果物であって発行物ではない。</b>
+    /// </summary>
+    /// <remarks>
+    /// <see cref="StartForLabels"/> と起動口は同じで、違うのは <c>preferPublished</c> だけである。
+    /// 発行物を見てよいのは<b>「発行物を検査する」と主張しているテスト (S4) だけ</b>で、
+    /// <c>publish/</c> は一度作ると古いまま残るので、そうでないテストがそちらを見ると
+    /// <b>古い発行物を黙って検査しつづける</b>ことになる (<see cref="ExecutablePathFor"/> の注記)。
+    /// 配置を見るテスト (<c>SplitterTests</c>) はまさにそれで、
+    /// XAML を直しても発行し直すまで古い配置を通し続けてしまう。
+    /// </remarks>
+    public static PickerHostProcess StartWithoutATarget(PickerHostProfile profile, string culture)
+        => StartCore(
+            profile,
+            ["--culture", culture, "--pick-at", OffScreenPoint],
+            pickPoints: [],
+            preferPublished: false);
+
+    /// <summary>画面のどこでもない点。<see cref="StartForLabels"/> の remarks を参照。</summary>
+    private const string OffScreenPoint = "-30000,-30000";
+
+    private static PickerHostProcess StartCore(
+        PickerHostProfile profile,
+        string[] arguments,
+        IReadOnlyList<System.Windows.Point> pickPoints,
+        bool preferPublished,
+        (int Left, int Top, int Width, int Height)? hostRect = null)
+    {
+        // どの起動口からでも窓を退かすので、割り付けが成立していることはここで見る
+        DesktopLayout.RequireItFitsOnThisScreen();
+
+        string exe = ExecutablePathFor(profile, preferPublished);
+        var info = new ProcessStartInfo(exe) { UseShellExecute = false };
+        foreach (string argument in arguments)
+        {
+            info.ArgumentList.Add(argument);
+        }
+
+        // トリガーの保存先は必ず差し替える (TriggerFile の remarks を参照)
+        string triggerFile = Path.Combine(
+            Path.GetTempPath(), $"uiatrigger-t4-{Guid.NewGuid():N}.json");
+        info.ArgumentList.Add("--triggers");
+        info.ArgumentList.Add(triggerFile);
+
+        // 前回の実行のログが混ざると診断が嘘になる
+        string logPath = Path.Combine(Path.GetTempPath(), profile.LogFileName);
+        DeleteIfPresent(logPath);
+
+        Process process = Process.Start(info)
+            ?? throw new InvalidOperationException($"起動できませんでした: {exe}");
+
+        // ウィンドウの出現は MainWindowHandle を待つ。固定の Sleep では足りないことが
+        // 実測で分かっている
+        AutomationElement mainWindow = Ui.Until(
+            () =>
+            {
+                process.Refresh();
+                if (process.HasExited)
+                {
+                    throw new InvalidOperationException(FormattableString.Invariant(
+                        $"ホストが起動直後に終了しました (終了コード {process.ExitCode}): {exe}"));
+                }
+                nint handle = process.MainWindowHandle;
+                return handle == 0 ? null : AutomationElement.FromHandle(handle);
+            },
+            WindowTimeout,
+            $"{profile.Name} ホストのメインウィンドウ",
+            () => $"実行ファイル: {exe}");
+
+        var host = new PickerHostProcess(
+            process, profile, mainWindow, logPath, triggerFile, pickPoints, hostRect ?? DesktopLayout.Host);
+        // メインウィンドウはここで退かす。ピッカーはまだ無いので競争が無い
+        _ = Ui.Until(
+            () =>
+            {
+                host.PlaceHostWindows();
+                return host.PlacedHostWindowCount() > 0 ? "ok" : null;
+            },
+            WindowTimeout,
+            $"{profile.Name} ホストのメインウィンドウを pick 点から退かす",
+            host.Diagnostics);
+        return host;
+    }
+
+    /// <summary>
+    /// 「ピッカーで追加」を押してピッカーを開き、ツリーが出るまで待つ。
+    /// </summary>
+    /// <remarks>
+    /// ボタンは <b>AutomationId</b> で探す。表示名で探すと OS の表示言語に依存し、
+    /// 「英語環境で全部落ちる」形の壊れ方をする。
+    /// </remarks>
+    public void OpenPicker()
+    {
+        OpenAndPlace(
+            "OpenPickerButton",
+            thenWaitFor: () => Ui.Until(
+                FindTree,
+                WindowTimeout,
+                $"{Profile.Name} ホストのピッカーウィンドウ (要素ツリー '{Profile.TreeAutomationId}')",
+                Diagnostics));
+        RequireThePickPointsAreNotCoveredByTheHost();
+    }
+
+    /// <summary>
+    /// 「一覧を編集」を押してトリガ一覧エディタを開き、一覧が出るまで待つ
+    /// (docs/DESIGN.md §4)。
+    /// </summary>
+    /// <remarks>
+    /// <b>WinUI ホストでしか使えない。</b>WPF / Windows Forms のエディタは
+    /// <c>ShowDialog</c> による本物のモーダルなので、UIA の <c>Invoke()</c> が
+    /// <b>ダイアログが閉じるまで返らない</b>おそれがある。あちらの確認は MANUAL-CHECKS に置く。
+    /// </remarks>
+    public void OpenEditor()
+        => OpenAndPlace(
+            "EditListButton",
+            thenWaitFor: () => Ui.Until(
+                FindEditor,
+                WindowTimeout,
+                $"{Profile.Name} ホストのエディタウィンドウ (一覧 'EditorTriggerList')",
+                Diagnostics));
+
+    /// <summary>
+    /// トリガ一覧エディタの<b>ウィンドウ</b>。呼ぶたびに探し直す。
+    /// </summary>
+    /// <remarks>
+    /// 手掛かりは<b>トリガー一覧を持っていること</b>である。タイトルでは探さない —
+    /// ローカライズされているので、探す条件に使うと翻訳の検査と循環する
+    /// (<see cref="PickerWindow"/> と同じ理由)。
+    /// </remarks>
+    public AutomationElement EditorWindow() => Ui.Until(
+        FindEditor,
+        WindowTimeout,
+        $"{Profile.Name} ホストのエディタウィンドウ",
+        Diagnostics);
+
+    private AutomationElement? FindEditor()
+        => TopLevelWindows().FirstOrDefault(w => w.ById("EditorTriggerList") is not null);
+
+    /// <summary>エディタの窓が出ているか (閉じたことを待つのに使う)。</summary>
+    public bool EditorWindowIsShowing() => FindEditor() is not null;
+
+    /// <summary>
+    /// エディタのボタンを押して子ピッカーを開き、<b>出た窓を pick 点から退かす</b>。
+    /// </summary>
+    /// <param name="buttonId">押すボタン (<c>AddTriggerButton</c> / <c>EditTriggerButton</c>)。</param>
+    /// <returns>開いた子ピッカーのウィンドウ。</returns>
+    /// <remarks>
+    /// 退かすところまでを 1 つにしてあるのは、素の <c>Invoke()</c> で済ませると
+    /// カスケードが pick 点を覆う非決定性がそのまま戻るからである
+    /// (<see cref="OpenAndPlace(Func{AutomationElement}, string, Action)"/> の remarks を参照)。
+    /// </remarks>
+    public AutomationElement OpenPickerFromEditor(string buttonId)
+    {
+        OpenAndPlace(
+            EditorWindow,
+            buttonId,
+            thenWaitFor: () => Ui.Until(
+                FindTree,
+                WindowTimeout,
+                $"{Profile.Name} ホストの子ピッカー (要素ツリー '{Profile.TreeAutomationId}')",
+                Diagnostics));
+        RequireThePickPointsAreNotCoveredByTheHost();
+        return PickerWindow();
+    }
+
+    /// <summary>
+    /// ボタンを押し、そこで出てくるホストの窓を<b>出た瞬間に</b>退かす。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>これが T4 の非決定性への対処である</b> (docs/TESTING.md §1)。
+    /// ピッカーの窓はカスケードして開くので、pick 点を覆うかどうかが実行ごとに変わる。
+    /// 覆ったまま滞留 1 秒が明けると、ピッカーは自プロセスを掴んで捕捉を飛ばし、
+    /// <c>TickAsync</c> の「同じ点は再捕捉しない」により<b>二度と捕捉しない</b>。
+    /// </para>
+    /// <para>
+    /// <b>見張りを別スレッドに置くのは意図である。</b><c>Invoke()</c> はホストの UI スレッドが
+    /// 窓を組み立てるあいだ返らない (実測で WinUI は 652ms)。呼び出しスレッドで待ってから
+    /// 探しはじめると、その 652ms がまるごと猶予から引かれる。
+    /// </para>
+    /// <para>
+    /// <b>数えるのは「窓が出たか」ではなく「退かし終えたか」である。</b>
+    /// 最初はウィンドウの数で待っていたが、それだと<b>現れた瞬間に見張りを止めて</b>
+    /// しまい、退かす前のものが残った。実際にそれで落ちている
+    /// ((182,182)-(1382,800) がそのまま残り、pick 点を覆っていた)。
+    /// 見張りが止まってよいのは、退かした結果がこちらから見えたときである。
+    /// </para>
+    /// <para>
+    /// 見張りを <paramref name="thenWaitFor"/> のあいだも走らせ続けるのは、
+    /// フレームワークが自前の配置を<b>あとから</b>当てることがあるためである。
+    /// ツリーが出るころには窓の組み立てが終わっているので、そこまで持たせれば足りる。
+    /// </para>
+    /// <para>
+    /// <b>正直に書く: これは競争であって、構造的な保証ではない。</b>実測の余裕は
+    /// 「窓が現れてから退かし終えるまで」が WinUI 21ms / WPF 139ms で、滞留の 1000ms に対して
+    /// 桁がひとつ違う。それでも保証ではないので、もし将来ここが揺れたら、
+    /// ホスト側に窓の位置を渡す口を足して競争ごと消すこと
+    /// (<c>HostOptions</c> の 4 つ目のオプションになるので、そのときは共有プロジェクトへ移す)。
+    /// </para>
+    /// </remarks>
+    private void OpenAndPlace(string buttonId, Action? thenWaitFor = null)
+        => OpenAndPlace(() => MainWindow, buttonId, thenWaitFor);
+
+    /// <summary>
+    /// 同じことを、<b>メインウィンドウ以外</b>の窓のボタンに対して行う。
+    /// </summary>
+    /// <remarks>
+    /// エディタの [追加] / [条件を編集] から子ピッカーを開く経路がこれである。
+    /// <b>ここを素の <c>Invoke()</c> にするとカスケードの非決定性がそのまま戻る</b> —
+    /// 実測で 1 度踏んだ (子ピッカーがカスケードして pick 点を覆い、
+    /// 滞留が明けた瞬間にピッカーが自分の
+    /// <c>DesktopChildSiteBridge</c> を掴んで、以後 <c>TickAsync</c> の
+    /// 「同じ点は再捕捉しない」で二度と捕捉しなかった)。
+    /// 根 (<paramref name="root"/>) を遅延で受けるのは、退かした直後の WinUI では
+    /// <b>既に在る窓の要素が一時的に UIA から消える</b>ため、掴み直せるようにするためである。
+    /// </remarks>
+    private void OpenAndPlace(Func<AutomationElement> root, string buttonId, Action? thenWaitFor = null)
+    {
+        int before = PlacedHostWindowCount();
+        // 停止の合図は素の bool にしてある。CancellationTokenSource だと、見張りが
+        // SetWindowPos の中で相手のスレッドを待っているあいだに Dispose が走りうる
+        var stop = new StopFlag();
+        var watcher = new Thread(() =>
+        {
+            while (!stop.Requested)
+            {
+                PlaceHostWindows();
+                Thread.Sleep(PlacePollInterval);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "picker window placer",
+        };
+        watcher.Start();
+        try
+        {
+            // <b>待つこと。</b>素の RequireById (一発の FindFirst) にすると、フル実行のとき
+            // だけ「AutomationId 'OpenPickerButton' の要素が見つかりません」という顔で
+            // 間欠に落ちる。<b>WinUI では、レイアウトが動いた直後に既に在る要素が
+            // 一時的に UIA から消える</b>ためで、実際には<b>まだ出ていないだけ</b>である。
+            // 待っても出てこなければ結局落ちるので、本当に無い場合を見逃すことはない。
+            root().RequireByIdEventually(buttonId, Diagnostics).Invoke();
+            // Invoke が返っても窓はまだ無いことがある (実測で WPF は 47ms で返り、窓は 381ms)
+            _ = Ui.Until(
+                () => PlacedHostWindowCount() > before ? "ok" : null,
+                WindowTimeout,
+                $"{Profile.Name} ホストの新しいウィンドウを pick 点から退かす",
+                Diagnostics);
+            thenWaitFor?.Invoke();
+        }
+        finally
+        {
+            stop.Requested = true;
+            _ = watcher.Join(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    /// <summary>
+    /// ホストのトップレベルウィンドウを、割り付けで決めた場所へ退かす。
+    /// </summary>
+    /// <remarks>
+    /// <b>オーバーレイは動かさない。</b>あれは選択された要素の上に出るのが仕事であり、
+    /// 退かしたら検査対象そのものを壊す。
+    /// 既にその場所に在る窓は触らない — 5ms ごとに呼ばれるので、
+    /// 毎回動かすとホストの UI スレッドに <c>WM_WINDOWPOSCHANGING</c> を撒き続けることになる。
+    /// </remarks>
+    private void PlaceHostWindows()
+    {
+        (int left, int top, int width, int height) = _hostRect;
+        foreach (nint hwnd in NativeWindows.TopLevelWindowsOf(_process.Id))
+        {
+            if (IsOverlay(hwnd) || IsPlaced(hwnd))
+            {
+                continue;
+            }
+            _ = NativeWindows.MoveTo(hwnd, left, top, width, height);
+        }
+    }
+
+    /// <summary>割り付けの場所へ退かし終えた、ホストのトップレベルウィンドウの数。</summary>
+    private int PlacedHostWindowCount()
+        => NativeWindows.TopLevelWindowsOf(_process.Id).Count(h => !IsOverlay(h) && IsPlaced(h));
+
+    /// <summary>見張りを止める合図。</summary>
+    private sealed class StopFlag
+    {
+        private volatile bool _requested;
+
+        public bool Requested
+        {
+            get => _requested;
+            set => _requested = value;
+        }
+    }
+
+    private bool IsPlaced(nint hwnd)
+    {
+        (int left, int top, int width, int height) = _hostRect;
+        return NativeWindows.RectOf(hwnd) is { } r &&
+               r.Left == left && r.Top == top && r.Right == left + width && r.Bottom == top + height;
+    }
+
+    private static bool IsOverlay(nint hwnd)
+        => string.Equals(NativeWindows.ClassOf(hwnd), OverlayClassName, StringComparison.Ordinal);
+
+    /// <summary>
+    /// pick 点がホストの窓に覆われていないこと。
+    /// </summary>
+    /// <remarks>
+    /// ハーネス自身の検証である (docs/TESTING.md §4 の教訓 (b))。覆われていると捕捉は
+    /// <b>例外も診断も出さずに</b>起きないので、20 秒のタイムアウトとして受け取ると
+    /// 原因が「実体化しなかった」に見える。ここで落とせば理由が残る。
+    /// オーバーレイは対象要素の上に出るのが仕事なので数えない。
+    /// </remarks>
+    public void RequireThePickPointsAreNotCoveredByTheHost()
+    {
+        foreach (System.Windows.Point point in _pickPoints)
+        {
+            foreach (nint hwnd in NativeWindows.TopLevelWindowsOf(_process.Id))
+            {
+                if (IsOverlay(hwnd) || NativeWindows.RectOf(hwnd) is not { } r)
+                {
+                    continue;
+                }
+                Assert.False(
+                    point.X >= r.Left && point.X < r.Right && point.Y >= r.Top && point.Y < r.Bottom,
+                    string.Create(
+                        CultureInfo.InvariantCulture,
+                        $"pick 点 ({point.X},{point.Y}) がホストの窓 ({r.Left},{r.Top})-({r.Right},{r.Bottom}) に覆われています ({NativeWindows.Describe(hwnd)})。") +
+                    "この状態ではホバー捕捉が起きず、しかも同じ点は再捕捉されないので、" +
+                    "テストは 20 秒待ってから「実体化しなかった」という顔で落ちます。");
+            }
+        }
+    }
+
+    /// <summary>
+    /// ピッカーの要素ツリー。<b>呼ぶたびに探し直す</b>。
+    /// </summary>
+    /// <remarks>
+    /// 要素をキャッシュしないのは実 UIA のテストの基本規律である。UIA の要素は
+    /// 相手プロセスの状態への参照であり、掴んだまま使い続けると<b>古い答えを返し続ける</b>
+    /// (実際にそうなった — WPF で選択が反映されているのに、掴んでおいた
+    /// <c>TreeView</c> の要素からは永遠に「未選択」に見えた)。
+    /// </remarks>
+    public AutomationElement Tree() => Ui.Until(
+        FindTree,
+        WindowTimeout,
+        $"要素ツリー ('{Profile.TreeAutomationId}')",
+        Diagnostics);
+
+    /// <summary>
+    /// ピッカーの<b>ウィンドウ</b>。<c>Tree()</c> と同じく呼ぶたびに探し直す。
+    /// </summary>
+    /// <remarks>
+    /// メインウィンドウと区別する手掛かりは<b>要素ツリーを持っていること</b>である。
+    /// タイトルでは探さない — ローカライズされており、S4 はまさにその翻訳を
+    /// 検査対象にしているので、探す条件に使うと循環する。
+    /// </remarks>
+    public AutomationElement PickerWindow() => Ui.Until(
+        () => TopLevelWindows().FirstOrDefault(w => w.ById(Profile.TreeAutomationId) is not null),
+        WindowTimeout,
+        $"{Profile.Name} ホストのピッカーウィンドウ",
+        Diagnostics);
+
+    /// <summary>
+    /// 開いているピッカーのウィンドウ<b>すべて</b>。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="PickerWindow"/> は 1 枚目しか返さない。K5 (フックを有効にしている
+    /// ピッカーだけに ←/→ が届くこと) は 2 枚を別々に操作するので、全部要る。
+    /// </para>
+    /// <para>
+    /// <b>どれがどのオーバーレイのものかは、ここでも言えない。</b>ピッカーの窓と
+    /// オーバーレイを対応づける手段が無いのは <see cref="Overlays"/> と同じ理由である。
+    /// 言えるのは「n 枚ある」ことと「そのうち 1 枚を操作した」ことまでで、
+    /// assert は<b>集合か個数</b>で書く。
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<AutomationElement> PickerWindows()
+        => [.. TopLevelWindows().Where(w => w.ById(Profile.TreeAutomationId) is not null)];
+
+    /// <summary>
+    /// このホストが出している<b>枠</b>のウィンドウ (docs/DESIGN.md §10)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// オーバーレイはトップレベルウィンドウで、ピッカーのウィンドウの子ではない。
+    /// 所有関係は辿れないので <b>pid + クラス名</b>で絞る。
+    /// </para>
+    /// <para>
+    /// <b>1 枚のピッカーはウィンドウを 2 つ出す</b> (docs/DESIGN.md §10)。枠と確定アイコンは別の窓で、
+    /// クラス名だけが唯一の見分ける手掛かりである。ここが返すのは<b>枠だけ</b>で、
+    /// アイコンは <see cref="IconOverlays"/> が返す。
+    /// <b>どちらを数えているのかを呼ぶ側に明示させる</b>のが狙いである —
+    /// 1 つの関数で両方返すと「オーバーレイが 2 つある」がピッカー 2 枚なのか
+    /// 枠 + アイコンなのか区別できなくなり、A18 の退行検査が意味を失う。
+    /// </para>
+    /// <para>
+    /// <b>どのオーバーレイがどのピッカーのものかは言えない。</b>タイトルも AutomationId も
+    /// 持たず、同じ種類の窓どうしではクラス名も共通なので、<b>矩形以外に見分ける手段が無い</b>。
+    /// だから S1 の assert は「対応付け」ではなく<b>集合の一致</b>で書く。
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<AutomationElement> Overlays() => WindowsOfClass(OverlayClassName);
+
+    /// <summary>
+    /// このホストが出している<b>確定アイコン</b>のウィンドウ (docs/DESIGN.md §10)。
+    /// </summary>
+    /// <remarks>
+    /// <b>クリックを受け取るのはこちらだけである。</b>枠の窓は <c>WS_EX_TRANSPARENT</c> で
+    /// ヒットテストから外れているので、押せるかどうかを見る検査はこちらを見る。
+    /// </remarks>
+    public IReadOnlyList<AutomationElement> IconOverlays() => WindowsOfClass(IconOverlayClassName);
+
+    private List<AutomationElement> WindowsOfClass(string className)
+    {
+        var found = new List<AutomationElement>();
+        foreach (AutomationElement e in AutomationElement.RootElement.FindAll(
+            TreeScope.Children,
+            new AndCondition(
+                new PropertyCondition(AutomationElement.ProcessIdProperty, _process.Id),
+                new PropertyCondition(AutomationElement.ClassNameProperty, className))))
+        {
+            found.Add(e);
+        }
+        return found;
+    }
+
+    /// <summary>枠のウィンドウクラス (<c>OverlayController.WindowClassName</c> と同じ綴り)。</summary>
+    /// <remarks>
+    /// 定数を共有しないのは意図である。<c>Picker.Core</c> 側を変えたらここも落ちるべきで、
+    /// 共有すると「両方いっしょに動いて何も守らないテスト」(docs/TESTING.md §2) になる。
+    /// </remarks>
+    private const string OverlayClassName = "UiaTriggerOverlay";
+
+    /// <summary>
+    /// アイコンのウィンドウクラス (<c>OverlayController.IconWindowClassName</c> と同じ綴り)。
+    /// </summary>
+    /// <remarks>
+    /// 上と同じ理由で綴りを写している。<b>枠のクラス名の前方一致では絞れない</b> —
+    /// <c>"UiaTriggerOverlay"</c> は <c>"UiaTriggerOverlayIcon"</c> の接頭辞なので、
+    /// 前方一致にすると枠を数えるつもりでアイコンまで数える。完全一致で絞ること。
+    /// </remarks>
+    private const string IconOverlayClassName = "UiaTriggerOverlayIcon";
+
+    /// <summary>
+    /// このプロセスのトップレベルウィンドウのうち、要素ツリーを持つものの、そのツリー。
+    /// </summary>
+    /// <remarks>
+    /// ウィンドウのタイトルでは探さない — ローカライズされているからである。
+    /// 「要素ツリーがある」ことをピッカーの定義にすれば、言語にもクラス名にも依存しない。
+    /// </remarks>
+    private AutomationElement? FindTree()
+    {
+        foreach (AutomationElement window in TopLevelWindows())
+        {
+            if (window.ById(Profile.TreeAutomationId) is { } tree)
+            {
+                return tree;
+            }
+        }
+        return null;
+    }
+
+    private List<AutomationElement> TopLevelWindows()
+    {
+        AutomationElementCollection children = AutomationElement.RootElement.FindAll(
+            TreeScope.Children,
+            new PropertyCondition(AutomationElement.ProcessIdProperty, _process.Id));
+        var list = new List<AutomationElement>(children.Count);
+        for (int i = 0; i < children.Count; i++)
+        {
+            list.Add(children[i]);
+        }
+        return list;
+    }
+
+    /// <summary>失敗したときに読む状態。これが無いと実 UIA のテストは原因が分からない。</summary>
+    public string Diagnostics()
+    {
+        var lines = new List<string>
+        {
+            FormattableString.Invariant($"ホスト: {Profile.Name} (pid {_process.Id})"),
+            // 「捕捉が起きなかった」の原因はほぼ常に<b>指した先に何が居たか</b>である。
+            // ピッカー自身 (= 自プロセス) を指してしまうと、例外も診断も出ずに何も起きない
+            DescribePickPoint(),
+        };
+
+        try
+        {
+            List<AutomationElement> windows = TopLevelWindows();
+            lines.Add($"UIA から見えるトップレベルウィンドウ: {windows.Count} 個");
+            foreach (AutomationElement window in windows)
+            {
+                lines.Add(FormattableString.Invariant(
+                    $"  name='{window.Current.Name}' class='{window.Current.ClassName}' rect={window.Current.BoundingRectangle}"));
+                // ヒント欄はピッカー自身のエラー通知先である (捕捉の失敗・DPI の問題・
+                // オーバーレイの生成失敗)。読まずに「捕捉されなかった」とだけ言っても原因が分からない
+                foreach (string id in new[] { "HintText", "AutoSelectToggle", "ConfirmedText", "CommitStatus" })
+                {
+                    if (window.ById(id) is { } label)
+                    {
+                        lines.Add($"  {id}: '{label.NameOf()}'");
+                    }
+                }
+                if (window.ById(Profile.TreeAutomationId) is { } tree)
+                {
+                    lines.Add($"  ツリーの行 ({Profile.TreeAutomationId}) — * は選択されている行:");
+                    lines.Add(tree
+                        .Descendants(ControlType.TreeItem)
+                        .Select(r => (r.IsSelected() ? "* " : "  ") + r.NameOf())
+                        .ToArray()
+                        .Describe());
+                }
+            }
+        }
+        catch (ElementNotAvailableException ex)
+        {
+            lines.Add($"  (ウィンドウの列挙に失敗: {ex.Message})");
+        }
+
+        lines.Add(ReadLog());
+        return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>指した座標に、いま実際に何が居るか。</summary>
+    private string DescribePickPoint()
+    {
+        var lines = new List<string>();
+        foreach (System.Windows.Point point in _pickPoints)
+        {
+            try
+            {
+                AutomationElement? at = AutomationElement.FromPoint(point);
+                string what = at is null
+                    ? "(要素なし)"
+                    : FormattableString.Invariant(
+                        $"pid {at.Current.ProcessId} '{at.Current.Name}' class='{at.Current.ClassName}'");
+                lines.Add(FormattableString.Invariant(
+                    $"--pick-at ({point.X},{point.Y}) の位置に居る要素: {what}"));
+            }
+            catch (Exception ex) when (ex is ElementNotAvailableException or ArgumentException)
+            {
+                lines.Add($"--pick-at の位置を調べられませんでした: {ex.Message}");
+            }
+        }
+        return lines.Count == 0
+            ? "--pick-at は画面の外を指しています (捕捉は起きません)。"
+            : string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// ホストの未処理例外ログだけを読む。<b>UIA を一切触らない</b>。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Diagnostics"/> は使えない場面がある。あれはデスクトップの子を列挙するので、
+    /// <b>応答しない窓が 1 つでも在ると一緒に詰まる</b> (実測で 12 秒。しかも
+    /// <c>Win32Exception</c> を投げることがあり、<c>Ui.Until</c> の診断収集はそれを捕まえないので
+    /// <b>本当の失敗を置き換えて消す</b> — docs/TESTING.md §1)。
+    /// 塞がれたアプリを相手にするテストは、こちらとあらかじめ掴んだ HWND だけで診断を組む。
+    /// </remarks>
+    public string HostLog() => ReadLog();
+
+    /// <summary>
+    /// ホストの未処理例外ログ。<b>空であることに意味がある</b> — WinUI の
+    /// 「黙って失敗する層」はここにしか痕跡を残さないことがある (docs/DESIGN.md §12)。
+    /// </summary>
+    private string ReadLog()
+    {
+        try
+        {
+            return File.Exists(_logPath)
+                ? $"ホストのログ ({_logPath}):{Environment.NewLine}{File.ReadAllText(_logPath)}"
+                : $"ホストのログ ({_logPath}): 出力なし";
+        }
+        catch (IOException ex)
+        {
+            return $"ホストのログを読めませんでした: {ex.Message}";
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+        try
+        {
+            // メインウィンドウを閉じるとホストが開いているピッカーも閉じ、
+            // オーバーレイの低レベルキーボードフックが外れる
+            _process.CloseMainWindow();
+            if (!_process.WaitForExit(5000))
+            {
+                _process.Kill(entireProcessTree: true);
+                _process.WaitForExit(5000);
+            }
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or SystemException)
+        {
+        }
+        _process.Dispose();
+        // ホストが終わってから消す。動いているうちに消すと、コミットで書き直されて残る
+        DeleteIfPresent(TriggerFile);
+    }
+
+    private static void DeleteIfPresent(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// テストプロセスを PerMonitorV2 にする。
+    ///
+    /// DPI 非認識のままだと Windows が座標を仮想化するため、<c>--pick-at</c> に渡した座標が
+    /// 狙った要素の外を指し、<b>例外にならずに別の要素を捕捉する</b> (docs/DESIGN.md A19)。
+    /// T3 の <c>TestTargetProcess.RequireCoordinateSafeProcess</c> と同じ理由・同じ形である。
+    /// </summary>
+    private static void RequireCoordinateSafeProcess()
+    {
+        DpiAwareness.TryEnablePerMonitorV2();
+        Assert.True(
+            DpiAwareness.IsCoordinateSafe(),
+            "テストプロセスを PerMonitorV2 にできませんでした。" +
+            "この状態では --pick-at に渡した座標が別の要素を指すため、T4 の結果は信用できません: " +
+            DpiAwareness.DescribeProblem());
+    }
+
+    /// <summary>
+    /// ホストの実行ファイルを探す。テストと同じ構成 (Debug/Release) の出力を選ぶ。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// T3 の <c>TestTargetProcess.FindExecutable</c> とは 2 点違う。どちらも
+    /// 実際に踏んだ失敗の形である:
+    /// </para>
+    /// <list type="number">
+    /// <item><description>
+    /// <c>bin/**/native/</c> を除く。これは Native AOT の中間生成物で、隣に
+    /// WindowsAppSDK ランタイムも <c>resources.pri</c> も無く<b>起動しない</b>。
+    /// </description></item>
+    /// <item><description>
+    /// 候補が無ければ「1 つ目」で妥協せず<b>落ちる</b>。妥協すると、別構成の古いビルドを
+    /// 黙って起動して「なぜか動かない」だけが残る。
+    /// </description></item>
+    /// </list>
+    /// <para>
+    /// <b>候補が複数あるときは、いちばん新しいものを採る。</b>
+    /// 同じ Release 構成でも出力先は 1 つではない — ソリューションからビルドすると
+    /// <c>bin/x64/Release/…</c> に、プロジェクト単体でビルドすると <c>bin/Release/…</c> に出る。
+    /// <b>列挙順で先に来たほう</b>を採ると、一度でも単体ビルドをしたあとは
+    /// T4 が<b>古いバイナリを黙って起動しつづけ</b>、「直したはずの挙動が直っていない」
+    /// という誤った観測になる (実際に踏んだ)。
+    /// これは T4 全体を<b>間違った理由で緑</b>にしうる形なので、時刻で選ぶ。
+    /// </para>
+    /// </remarks>
+    private static string ExecutablePathFor(PickerHostProfile profile, bool preferPublished)
+    {
+        // 発行レイアウトを見るのは<b>それを主張しているテストだけ</b>である (S4)。
+        //
+        // 全体の既定にはしない。publish/ は一度作ると古いまま残るので、既定にすると
+        // 他の T4 が「古い発行物を黙って検査しつづける」ことになる (実際に踏んだ)。
+        //
+        // S4 の側では逆に、時刻で選んではいけない。CI では bin/ と publish/ の両方が在り、
+        // どちらが後にできるかはジョブの並びで変わる。「発行物を検査する」ことが
+        // テストの主張そのものなので、そこを実行順に委ねられない
+        if (preferPublished && PublishedExecutable(profile) is { } published)
+        {
+            return published;
+        }
+
+        string binDir = RepoPaths.Combine("src", profile.ProjectDirectory, "bin");
+        if (!Directory.Exists(binDir))
+        {
+            throw new InvalidOperationException(
+                $"{profile.ProjectDirectory} がビルドされていません ({binDir} がありません)。" +
+                "ソリューション全体 (dotnet build UiaTrigger.slnx) をビルドしてから走らせてください。");
+        }
+
+        string configuration = AppContext.BaseDirectory.Contains(
+            Path.Combine("bin", "Debug"), StringComparison.OrdinalIgnoreCase) ? "Debug" : "Release";
+        string configurationSegment =
+            $"{Path.DirectorySeparatorChar}{configuration}{Path.DirectorySeparatorChar}";
+        string nativeSegment = $"{Path.DirectorySeparatorChar}native{Path.DirectorySeparatorChar}";
+
+        string[] candidates =
+        [
+            .. Directory.EnumerateFiles(binDir, profile.ExecutableName, SearchOption.AllDirectories)
+                .Where(p => !p.Contains(nativeSegment, StringComparison.OrdinalIgnoreCase))
+                .Where(p => p.Contains(configurationSegment, StringComparison.OrdinalIgnoreCase))
+                .Where(p => profile.RequiredSiblingFile.Length == 0 ||
+                            File.Exists(Path.Combine(Path.GetDirectoryName(p)!, profile.RequiredSiblingFile)))
+                // 新しい順。列挙順に任せると、単体ビルドの古い出力を掴みつづける (上の remarks)
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+        ];
+
+        return candidates.Length > 0
+            ? candidates[0]
+            : throw new InvalidOperationException(
+                $"起動できる {profile.ExecutableName} ({configuration} 構成" +
+                (profile.RequiredSiblingFile.Length == 0
+                    ? ""
+                    : $"・隣に {profile.RequiredSiblingFile} が在るもの") +
+                $") が {binDir} 以下に見つかりません。" +
+                "ソリューション全体 (dotnet build UiaTrigger.slnx) をビルドしてから走らせてください。");
+    }
+
+    /// <summary>
+    /// <c>publish/&lt;profile&gt;/</c> に発行レイアウトが在ればその実行ファイル。無ければ null。
+    /// </summary>
+    /// <remarks>
+    /// CI の <c>aot</c> ジョブがここへ発行し、S4 がそれを起動する。
+    /// <c>RequiredSiblingFile</c> (WinUI なら <c>.pri</c>) の判定は発行レイアウトにもそのまま効く —
+    /// <b>むしろここが本番である</b>。<c>.pri</c> が落ちるのは発行のときだからで、
+    /// <c>bin/</c> ではまず起きない。
+    /// </remarks>
+    internal static string? PublishedExecutable(PickerHostProfile profile)
+    {
+        string path = RepoPaths.Combine("publish", profile.PublishDirectory, profile.ExecutableName);
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+        if (profile.RequiredSiblingFile.Length > 0 &&
+            !File.Exists(Path.Combine(Path.GetDirectoryName(path)!, profile.RequiredSiblingFile)))
+        {
+            // 「発行はされたが .pri が落ちている」— S4 が捕まえたい失敗そのものである。
+            // ここで黙って bin/ へ落ちると、検査対象を取り違えて緑になる
+            throw new InvalidOperationException(
+                $"発行レイアウト ({path}) の隣に {profile.RequiredSiblingFile} がありません。" +
+                "この状態のアプリはリソースを解決できません (ラベルがキー名になる)。" +
+                "bin/ へは落とさずここで落とします — 検査対象を取り違えて緑になるためです。");
+        }
+        return path;
+    }
+}

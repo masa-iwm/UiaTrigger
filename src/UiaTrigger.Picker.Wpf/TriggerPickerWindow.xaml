@@ -1,0 +1,213 @@
+<!--
+    ユーザー向け文字列はここに書かない (docs/DESIGN.md L3)。
+    WPF には x:Uid の実行時解決が無いので、ラベルはコードビハインドが
+    PickerStringKeys 経由で代入する。LocBaml は入れない — ビルド時の BAML 書き換えであり、
+    同期しなければならない仕組みが 1 つ増えるだけだからである。
+    XamlLocalizationTests がここへの直書きを検出して失敗する。
+-->
+<Window
+    x:Class="UiaTrigger.Picker.Wpf.TriggerPickerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:picker="clr-namespace:UiaTrigger.Picker;assembly=UiaTrigger.Picker.Core"
+    Width="1100" Height="700">
+    <Window.Resources>
+        <!-- bool → Visibility。WPF には標準のコンバーターがあるので自前では書かない -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <!--
+            ツリーと右側の境界はユーザーが動かせる (下の GridSplitter)。
+            MinWidth は<b>畳み潰せないようにするため</b>で、これが無いと片側を 0 まで
+            引き切れてしまい、戻す掴み代も無くなる。
+        -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="6*" MinWidth="240" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="5*" MinWidth="240" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 上部バー -->
+        <WrapPanel Grid.ColumnSpan="3" Orientation="Horizontal" Margin="0,0,0,8">
+            <!--
+                WinUI の ToggleSwitch は「見出し」と「ON/OFF の文字」を別に持つ。
+                CheckBox にその 2 つ目は無いので、内容を切り替えて同じ 3 つの文字列を使う —
+                でないと変種ごとに使うキーが違うことになり、キー表の突き合わせが緩む。
+            -->
+            <TextBlock x:Name="AutoSelectLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <CheckBox x:Name="AutoSelectToggle" VerticalAlignment="Center" Margin="0,0,12,0"
+                      Checked="OnAutoSelectToggled" Unchecked="OnAutoSelectToggled" />
+            <TextBlock x:Name="ViewComboLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <ComboBox x:Name="ViewCombo" Width="120" Margin="0,0,12,0" SelectionChanged="OnViewChanged" />
+            <TextBlock x:Name="SearchBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+            <TextBox x:Name="SearchBox" Width="200" Margin="0,0,4,0" KeyDown="OnSearchKeyDown" />
+            <Button x:Name="SearchNextButton" Margin="0,0,12,0" Padding="8,2" Click="OnSearchNext" />
+            <TextBlock x:Name="HintText" VerticalAlignment="Center" Opacity="0.7"
+                       TextWrapping="Wrap" MaxWidth="520" />
+        </WrapPanel>
+
+        <!--
+            要素ツリー。
+
+            WinUI と違い、ここでは ScrollViewer.* の添付プロパティが<b>そのまま効く</b> —
+            WPF の TreeView 既定テンプレートは内側の ScrollViewer へ TemplateBinding で
+            中継しているためである。中継しないのは WinUI の TreeView だけで、
+            そちらはコードビハインドで実物の ListControl に付けている。
+            「同じ名前の添付プロパティが、片方では効いて片方では黙って無視される」
+            という差そのものが、View を共通化しない理由である。
+        -->
+        <TreeView x:Name="ElementTree" Grid.Row="1"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  SelectedItemChanged="OnTreeSelectionChanged">
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <!--
+                        IsExpanded は TwoWay。ユーザーが開いた段だけ子の全列挙が起きるように
+                        なっており、表示のための展開 (ExpandForDisplay) と型で分けてある。
+                        プレゼンターはこれを絶対に書かない (docs/DESIGN.md §12)。
+                    -->
+                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                    <!--
+                        行が UIA に名乗る名前。既定では ItemAutomationPeer が束縛した項目の
+                        ToString() を返すので、<b>どの行も "UiaTrigger.Picker.PickerTreeNode" と
+                        名乗る</b> (実測)。スクリーンリーダーはそれを読み上げるし、
+                        UIA から駆動するテストも行を見分けられない。
+                        WinUI 側は同じことを AutomationProperties.Name="{x:Bind Display}" で既にしている。
+                    -->
+                    <Setter Property="AutomationProperties.Name" Value="{Binding Display}" />
+                    <EventSetter Event="MouseDoubleClick" Handler="OnTreeItemDoubleClick" />
+                </Style>
+            </TreeView.ItemContainerStyle>
+            <TreeView.ItemTemplate>
+                <HierarchicalDataTemplate DataType="{x:Type picker:PickerTreeNode}"
+                                          ItemsSource="{Binding Children}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding Display}" VerticalAlignment="Center" />
+                        <!--
+                            Focusable / IsTabStop を落とす。既定のままだと、ツリーを
+                            キーボードの上下で辿ったときに<b>行ごとにこのボタンが停留点になる</b>
+                            (1 行進むのに 2 回押す必要がある)。マウスでのクリックは効いたままで、
+                            キーボードからの確定は枠の ✓ と条件欄の[トリガーを追加]が担う。
+                        -->
+                        <Button Margin="4,0,0,0" Padding="6,0" FontSize="11"
+                                Focusable="False" IsTabStop="False"
+                                Visibility="{Binding CanConfirm, Converter={StaticResource BoolToVisibility}}"
+                                Click="OnTreeConfirmClick" Tag="{Binding}"
+                                Content="{DynamicResource ConfirmNodeGlyph}"
+                                ToolTip="{DynamicResource ConfirmNodeButtonToolTip}" />
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+
+        <!--
+            ツリーと右側の境界。窓を縮めるとどちらも狭くなるので、どちらを優先するかを
+            ユーザーが決められるようにする。
+
+            WPF は標準で GridSplitter を持つ。3 変種のうち<b>持っていないのは WinUI3 だけ</b>で、
+            そちらは CommunityToolkit の Sizers を足してある。
+
+            Focusable / IsTabStop は既定 (true) のままにする。行の確定ボタンではこれを落としたが
+            (キーボードで 1 行進むのに 2 回押すことになるため)、こちらは逆で、
+            <b>キーボードだけで寸法を変えられる唯一の手段</b>である。Tab の停留点は 1 つ増える。
+
+            AutomationProperties.Name はコードビハインドが代入する (この XAML に
+            表示文字列は書かない)。名前が無いと、スクリーンリーダーには "Thumb" としか
+            聞こえない。
+        -->
+        <GridSplitter x:Name="TreeSplitter" Grid.Row="1" Grid.Column="1" Width="6"
+                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      ResizeDirection="Columns" ResizeBehavior="PreviousAndNext"
+                      ShowsPreview="False" />
+
+        <!-- 右: プロパティ + 条件設定 -->
+        <Grid x:Name="RightPane" Grid.Row="1" Grid.Column="2" Margin="2,0,0,0"
+              SizeChanged="OnRightPaneSizeChanged">
+            <!--
+                条件欄の行は Auto のままにする。<b>掴まれるまでは内容ぶんの高さ</b>で、
+                掴んだ時点で GridSplitter が固定 px に変える。
+                既定の見た目を変えずに「動かせる」だけを足すのが狙いである。
+            -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="80" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" MinHeight="80" />
+            </Grid.RowDefinitions>
+
+            <ListBox x:Name="PropsList"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     HorizontalContentAlignment="Left" />
+
+            <!--
+                プロパティ一覧と条件欄の境界。<b>ここは縦の分割である。</b>
+
+                条件欄を縮められるようにすると、そのぶん中身がはみ出す。窓を狭めると
+                WrapPanel が折り返して<b>さらに背が高くなる</b>ので、固定 px に変わった後は
+                なおさらである。下の ScrollViewer はそのためにあり、無いと黙って切れる。
+            -->
+            <GridSplitter x:Name="ConditionSplitter" Grid.Row="1" Height="6"
+                          HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                          ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="False" />
+
+            <ScrollViewer x:Name="ConditionScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <TextBlock x:Name="ConditionHeading" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock x:Name="ConfirmedText" Opacity="0.8" TextWrapping="Wrap" Margin="0,0,0,4" />
+                <WrapPanel Margin="0,0,0,4">
+                    <TextBlock x:Name="KeyBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <TextBox x:Name="KeyBox" Width="160" Margin="0,0,8,0" />
+                    <TextBlock x:Name="OnComboLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="OnCombo" Width="150" Margin="0,0,8,0" SelectionChanged="OnCondUiChanged" />
+                    <TextBlock x:Name="PropComboLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="PropCombo" Width="150" Margin="0,0,8,0" SelectionChanged="OnCondUiChanged" />
+                    <TextBlock x:Name="CondComboLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                    <ComboBox x:Name="CondCombo" Width="140" SelectionChanged="OnCondUiChanged" />
+                </WrapPanel>
+                <WrapPanel Margin="0,0,0,4">
+                    <StackPanel x:Name="TextOperandPanel" Orientation="Horizontal" Margin="0,0,8,0"
+                                Visibility="Collapsed">
+                        <TextBlock x:Name="TextOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="TextOperand" Width="200" />
+                    </StackPanel>
+                    <StackPanel x:Name="ValueOperandPanel" Orientation="Horizontal" Margin="0,0,8,0"
+                                Visibility="Collapsed">
+                        <TextBlock x:Name="ValueOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="ValueOperand" Width="100" />
+                    </StackPanel>
+                    <StackPanel x:Name="LowOperandPanel" Orientation="Horizontal" Margin="0,0,8,0"
+                                Visibility="Collapsed">
+                        <TextBlock x:Name="LowOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="LowOperand" Width="100" />
+                    </StackPanel>
+                    <StackPanel x:Name="HighOperandPanel" Orientation="Horizontal" Margin="0,0,8,0"
+                                Visibility="Collapsed">
+                        <TextBlock x:Name="HighOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="HighOperand" Width="100" />
+                    </StackPanel>
+                    <StackPanel x:Name="ToleranceOperandPanel" Orientation="Horizontal" Margin="0,0,8,0"
+                                Visibility="Collapsed">
+                        <TextBlock x:Name="ToleranceOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="ToleranceOperand" Width="100" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="MinIntervalOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="MinIntervalOperand" Width="100" />
+                    </StackPanel>
+                </WrapPanel>
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="CommitButton" IsEnabled="False" Padding="10,3" Margin="0,0,8,0"
+                            Click="OnCommit" />
+                    <TextBlock x:Name="CommitStatus" VerticalAlignment="Center" Opacity="0.8" />
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>

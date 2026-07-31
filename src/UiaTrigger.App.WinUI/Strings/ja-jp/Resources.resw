@@ -1,0 +1,149 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.App (サンプルホスト) のユーザー向け文字列 (ja-JP)。
+  キー集合は ..\en-us\Resources.resw と一致していなければならない。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="WindowTitle" xml:space="preserve">
+    <value>UiaTrigger サンプルホスト</value>
+  </data>
+  <data name="OpenPickerButton.Content" xml:space="preserve">
+    <value>ピッカーで追加</value>
+  </data>
+  <data name="OpenAnotherPickerButton.Content" xml:space="preserve">
+    <value>ピッカーをもう 1 つ開く</value>
+  </data>
+  <data name="DeleteButton.Content" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="ReloadButton.Content" xml:space="preserve">
+    <value>再読込</value>
+  </data>
+  <data name="EditListButton.Content" xml:space="preserve">
+    <value>一覧を編集…</value>
+  </data>
+  <data name="StartMonitorButton.Content" xml:space="preserve">
+    <value>監視を開始</value>
+  </data>
+  <data name="StopMonitorButton.Content" xml:space="preserve">
+    <value>監視を停止</value>
+  </data>
+  <data name="CombineButton.Content" xml:space="preserve">
+    <value>選択をまとめる</value>
+  </data>
+  <data name="ListSplitter.AutomationProperties.Name" xml:space="preserve">
+    <value>トリガー一覧の高さを変える</value>
+  </data>
+  <data name="ExpressionLabel.Text" xml:space="preserve">
+    <value>式 (&amp;&amp;, ||, !, 括弧。空欄ならすべてを要求):</value>
+  </data>
+  <data name="UnwatchedLabel.Text" xml:space="preserve">
+    <value>絞るだけで発火させない条件 (名前をカンマ区切り):</value>
+  </data>
+
+  <data name="TriggerCount" xml:space="preserve">
+    <value>{0} 件</value>
+    <comment>{0} = number of triggers</comment>
+  </data>
+  <data name="TriggerCountSaved" xml:space="preserve">
+    <value>{0} 件 (保存済み)</value>
+    <comment>{0} = number of triggers</comment>
+  </data>
+  <data name="LoadFailed" xml:space="preserve">
+    <value>トリガーファイルを読み込めませんでした: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="SaveFailed" xml:space="preserve">
+    <value>トリガーファイルを保存できませんでした: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="NoClauses" xml:space="preserve">
+    <value>(条件なし)</value>
+  </data>
+  <data name="TriggerRow" xml:space="preserve">
+    <value>[{0}] {1} — {2} / {3} : {4}</value>
+    <comment>{0} = id, {1} = display name, {2} = process name, {3} = TriggerOn, {4} = clauses</comment>
+  </data>
+  <data name="CompositeRow" xml:space="preserve">
+    <value>[{0}] 条件 {1} 個 / {2} : {3}</value>
+    <comment>{0} = id, {1} = number of clauses, {2} = TriggerOn, {3} = expression</comment>
+  </data>
+  <data name="CombineFailed" xml:space="preserve">
+    <value>まとめられませんでした: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="CombineDone" xml:space="preserve">
+    <value>{1} 件から '{0}' を作りました。</value>
+    <comment>{0} = new trigger id, {1} = number of source triggers</comment>
+  </data>
+
+  <data name="MonitorStarted" xml:space="preserve">
+    <value>{0} 件 (要素 {1} 個) を監視中</value>
+    <comment>{0} = number of triggers, {1} = number of distinct elements (ElementSlotCount)</comment>
+  </data>
+  <data name="MonitorStopped" xml:space="preserve">
+    <value>監視を停止しました</value>
+  </data>
+  <data name="MonitorStartFailed" xml:space="preserve">
+    <value>監視を開始できませんでした: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="MonitorRowFired" xml:space="preserve">
+    <value>{0:T}  ★発火  [{1}] {2} : '{3}' → '{4}'</value>
+    <comment>{0} = timestamp, {1} = trigger id, {2} = TriggerOn, {3} = old value, {4} = new value</comment>
+  </data>
+  <data name="MonitorRowResolved" xml:space="preserve">
+    <value>{0:T}  解決  [{1}] : {2}</value>
+    <comment>{0} = timestamp, {1} = trigger id, {2} = reason</comment>
+  </data>
+  <data name="MonitorRowUnresolved" xml:space="preserve">
+    <value>{0:T}  未解決  [{1}] : {2}</value>
+    <comment>{0} = timestamp, {1} = trigger id, {2} = reason</comment>
+  </data>
+  <data name="MonitorRowError" xml:space="preserve">
+    <value>{0:T}  例外  {1}</value>
+    <comment>{0} = timestamp, {1} = exception message</comment>
+  </data>
+</root>

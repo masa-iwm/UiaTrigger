@@ -1,0 +1,40 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- WinUI 3 / Windows App SDK -->
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="2.3.1" />
+    <!-- Win32 P/Invoke 生成 (Picker のみ。Core は DisableRuntimeMarshalling のため手書き) -->
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.298" />
+    <!--
+      GridSplitter (docs/DESIGN.md §12)。WinUI3 だけが標準で持っていない —
+      WPF には System.Windows.Controls.GridSplitter が、Windows Forms には SplitContainer がある。
+      自作しない理由は、掴み代・カーソル・キーボードでの寸法変更・テーマ追従を
+      自分で持つことになり、それは<b>この道具の題材ではない</b>ためである。
+      Sizers はそのコントロールだけの小さなパッケージ (MIT / .NET Foundation) である。
+
+      版は 8.2.251219 (安定)。8.3-preview は Microsoft.WindowsAppSDK.WinUI という
+      別 ID へ依存が割れており、こちらが直に参照している Microsoft.WindowsAppSDK と
+      統合されない。安定版のほうは同じ ID の下限 (1.6) なので 2.3.1 に吸われる。
+    -->
+    <PackageVersion Include="CommunityToolkit.WinUI.Controls.Sizers" Version="8.2.251219" />
+    <!--
+      ログの抽象だけ (docs/DESIGN.md C9)。Core が取る唯一の実行時依存で、
+      実装は取らない — ホストが既に持っている ILogger をそのまま渡せるようにするため。
+    -->
+    <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.10" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test">
+    <PackageVersion Include="xunit.v3" Version="3.0.0" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.0" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <!-- FakeTimeProvider。TimeProvider 化 (C10/B8) の効果はこれが無いと確かめられない -->
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,80 @@
+<Project>
+
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <!--
+    Platform / PlatformTarget
+
+    PlatformTarget はここで強制しない。Core は純 IL なので AnyCPU として発行し、
+    x64 固定でしか読み込めないアセンブリにしないため (docs/DESIGN.md D5)。
+    x64 が必要なプロジェクト (WinUI 3 の App / Picker) は UiaTrigger.slnx で
+    Platform=x64 に固定しており、SDK が Platform から PlatformTarget を導出する。
+  -->
+  <PropertyGroup>
+    <Platforms>AnyCPU;x64;ARM64</Platforms>
+  </PropertyGroup>
+
+  <!--
+    ローカライズ (docs/LOCALIZATION.md §1)
+    en-US をプライマリ (neutral) とし、ja はサテライトアセンブリで供給する。
+    InvariantGlobalization=true にするとサテライトが一切使えなくなる
+    (docs/LOCALIZATION.md §2 で実測確認済み) ため、
+    個々のプロジェクトで有効化しないこと。
+  -->
+  <PropertyGroup>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <SatelliteResourceLanguages>en;ja</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <!-- 警告はエラーとして扱う (docs/DESIGN.md D3) -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+  </PropertyGroup>
+
+  <!-- 再現可能ビルド / シンボル (NuGet 配布向け, docs/DESIGN.md D4) -->
+  <PropertyGroup>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- 既定では発行しない。パッケージ化するプロジェクトが個別に true にする -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!--
+    パッケージの共通メタデータ (docs/DESIGN.md D4 / docs/RELEASING.md §1)
+
+    版数は 0.1.0-preview.1 から始める。0.x のあいだ公開 API は安定化前で、
+    破壊的に変わりうる (README / CHANGELOG がそう告知している)。1.0.0 で出すと
+    「安定している」という約束になるので出さない。プレリリース札を付けてあるので、
+    利用者が明示的に選ばない限り復元されない。
+
+    Description と PackageTags は<b>プロジェクトごと</b>に書く (中身が違うため)。
+  -->
+  <PropertyGroup>
+    <Version>0.1.0-preview.1</Version>
+    <Authors>masa-iwm</Authors>
+    <Product>UiaTrigger</Product>
+    <Copyright>Copyright (c) 2026 masa-iwm</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/masa-iwm/UiaTrigger</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/masa-iwm/UiaTrigger</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+  </PropertyGroup>
+
+</Project>

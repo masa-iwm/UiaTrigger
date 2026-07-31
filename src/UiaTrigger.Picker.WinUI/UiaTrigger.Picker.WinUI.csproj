@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ピッカーの WinUI 3 View (docs/DESIGN.md §12)。
+
+    振る舞いは UiaTrigger.Picker.Core の TriggerPickerPresenter が持ち、ここに残るのは
+    「WinUI3 の事実」だけである: TreeViewItem の実体化待ち・NumberBox の空欄 (NaN)・
+    bool → Visibility の変換・MRT Core からの文字列解決。
+
+    CsWin32 への参照は無い。GetCursorPos は ICursorSource として Picker.Core 側にある。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>UiaTrigger.Picker.WinUI</RootNamespace>
+    <AssemblyName>UiaTrigger.Picker.WinUI</AssemblyName>
+    <UseWinUI>true</UseWinUI>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!--
+      Windows SDK 投影パッケージを明示する (docs/DESIGN.md §12)。
+
+      .NET SDK が既定で引くのは 10.0.19041.<b>57</b> で、そこの CsWinRT は
+      CsWinRTAotWarningLevel を知らない。<b>AOT の警告を上げるための前提である。</b>
+      版を上げること自体が目的ではない — 上げないと下の警告レベルが黙って無視される。
+    -->
+    <WindowsSdkPackageVersion>10.0.19041.87</WindowsSdkPackageVersion>
+    <!--
+      <b>AOT で壊れる WinRT の使い方を警告として出させる</b> (docs/DESIGN.md §12)。
+
+      A23 (WinUI の GridSplitter が発行物で動かない) がこの層の不具合の実例である。
+      TreatWarningsAsErrors と組み合わせると、同じ形は<b>ビルドで止まる</b>。
+      既定のレベルでは何も出ず、<b>発行して人が掴んで初めて分かる</b>。
+    -->
+    <CsWinRTAotWarningLevel>3</CsWinRTAotWarningLevel>
+  </PropertyGroup>
+
+  <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>The WinUI 3 view for the UiaTrigger element picker (TriggerPickerWindow). Holds no behaviour of its own - all of it lives in UiaTrigger.Picker.Core. Use this package if your own application is WinUI 3 / Windows App SDK.</Description>
+    <PackageTags>uiautomation;uia;automation;windows;picker;winui;windowsappsdk</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <!--
+      GridSplitter。<b>この変種だけが標準で持っていない</b>ので、ここだけが依存を 1 つ増やす
+      (Directory.Packages.props に理由がある)。このプロジェクトは IsPackable なので、
+      利用者の側にもこの依存が伝播する。
+    -->
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.Sizers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,59 @@
+<!--
+    ユーザー向け文字列は Strings\<culture>\Resources.resw から x:Uid で解決する
+    (docs/DESIGN.md L3)。ここに文字列リテラルを直接書かないこと —
+    XamlLocalizationTests がハードコードを検出して失敗する。
+    Window.Title だけは Window が FrameworkElement ではないため x:Uid が効かず、
+    コードビハインドで設定している。
+
+    CommunityToolkit の Sizers は使わない。この窓に割る境界が無いので要らず、
+    足せば利用者へ伝播する第三者依存の面が広がるだけである (docs/DESIGN.md §4)。
+-->
+<Window
+    x:Class="UiaTrigger.Picker.WinUI.TriggerListEditorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Padding="8" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 一覧に対する操作 -->
+        <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button x:Name="AddTriggerButton" x:Uid="AddTriggerButton" Click="OnAdd" />
+            <Button x:Name="EditTriggerButton" x:Uid="EditTriggerButton" Click="OnEdit" />
+            <Button x:Name="DeleteTriggerButton" x:Uid="DeleteTriggerButton" Click="OnDelete" />
+        </StackPanel>
+
+        <!--
+            トリガー一覧。複数選択にするのは「まとめる」と「まとめて削除」のためである。
+            見出しを持たないので、読み上げに出るのは x:Uid で入る
+            AutomationProperties.Name だけになる。
+        -->
+        <ListView x:Name="EditorTriggerList" x:Uid="EditorTriggerList" Grid.Row="1"
+                  SelectionMode="Extended" />
+
+        <!-- まとめる / ほどく -->
+        <StackPanel Grid.Row="2" Spacing="4">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBox x:Name="ExpressionBox" x:Uid="ExpressionBox" Width="300" />
+                <TextBox x:Name="UnwatchedBox" x:Uid="UnwatchedBox" Width="240" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="CombineTriggersButton" x:Uid="CombineTriggersButton" Click="OnCombine" />
+                <Button x:Name="DecomposeTriggerButton" x:Uid="DecomposeTriggerButton" Click="OnDecompose" />
+            </StackPanel>
+        </StackPanel>
+
+        <TextBlock x:Name="EditorStatus" Grid.Row="3" Opacity="0.8" TextWrapping="Wrap" />
+
+        <!-- 確定 / 取り消し -->
+        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+            <Button x:Name="AcceptButton" x:Uid="AcceptButton" MinWidth="88" Click="OnAccept" />
+            <Button x:Name="CancelButton" x:Uid="CancelButton" MinWidth="88" Click="OnCancel" />
+        </StackPanel>
+    </Grid>
+</Window>

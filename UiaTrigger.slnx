@@ -1,0 +1,36 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/UiaTrigger.App.WinUI/UiaTrigger.App.WinUI.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/UiaTrigger.Core/UiaTrigger.Core.csproj" />
+    <Project Path="src/UiaTrigger.App.WinForms/UiaTrigger.App.WinForms.csproj" />
+    <Project Path="src/UiaTrigger.App.Wpf/UiaTrigger.App.Wpf.csproj" />
+    <Project Path="src/UiaTrigger.Picker.Core/UiaTrigger.Picker.Core.csproj" />
+    <Project Path="src/UiaTrigger.Picker.WinForms/UiaTrigger.Picker.WinForms.csproj" />
+    <Project Path="src/UiaTrigger.Picker.Wpf/UiaTrigger.Picker.Wpf.csproj" />
+    <Project Path="src/UiaTrigger.Picker.WinUI/UiaTrigger.Picker.WinUI.csproj">
+      <Platform Project="x64" />
+    </Project>
+    <Project Path="src/UiaTrigger.TestHost/UiaTrigger.TestHost.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/UiaTrigger.Core.Tests/UiaTrigger.Core.Tests.csproj" />
+    <Project Path="tests/UiaTrigger.Input.Tests/UiaTrigger.Input.Tests.csproj" />
+    <Project Path="tests/UiaTrigger.Picker.UiTests/UiaTrigger.Picker.UiTests.csproj" />
+    <Project Path="tests/UiaTrigger.RealUia.Tests/UiaTrigger.RealUia.Tests.csproj" />
+    <Project Path="tests/UiaTrigger.TestTarget/UiaTrigger.TestTarget.csproj" />
+    <Project Path="tests/UiaTrigger.TestTarget.Wpf/UiaTrigger.TestTarget.Wpf.csproj" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path="docs/DESIGN.md" />
+    <File Path="docs/TESTING.md" />
+    <File Path="docs/LOCALIZATION.md" />
+    <File Path="docs/RELEASING.md" />
+    <File Path="docs/MANUAL-CHECKS.md" />
+  </Folder>
+</Solution>

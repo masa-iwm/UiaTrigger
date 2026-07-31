@@ -1,0 +1,445 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  # ---------------------------------------------------------------
+  # 常時必須のゲート (docs/TESTING.md §1 T1 / T2)
+  # ---------------------------------------------------------------
+  build-and-test:
+    name: build & unit tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # TreatWarningsAsErrors=true のため、警告が 1 つでもあれば失敗する
+      - name: Build
+        run: dotnet build UiaTrigger.slnx -c Release
+
+      # DpiManifestTests はビルド済みの obj/**/Manifests を読むため、build の後に実行する。
+      # 実 UIA テスト (T3) はここには含めない — 可視のデスクトップを要するため別ジョブに隔離する
+      # (docs/TESTING.md §2)。
+      - name: Test (T1/T2)
+        run: dotnet test tests/UiaTrigger.Core.Tests -c Release --no-build
+
+  # ---------------------------------------------------------------
+  # 実 UIA テスト (docs/TESTING.md §1 T3)
+  #
+  # 対象アプリ (tests/UiaTrigger.TestTarget) を子プロセスで起動し、ウィンドウを画面に出して
+  # 座標から要素を記録する。対話セッションに依存するため必須ジョブにはせず、まずは観測する。
+  # 安定したら continue-on-error を外して必須化すること。
+  # ---------------------------------------------------------------
+  real-uia:
+    name: real UIA tests (observing)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: dotnet build UiaTrigger.slnx -c Release
+
+      # 直列実行 (AssemblyInfo.cs で並列を止めてある)。1 回 2 分程度
+      - name: Test (T3)
+        run: dotnet test tests/UiaTrigger.RealUia.Tests -c Release --no-build
+
+  # ---------------------------------------------------------------
+  # ピッカーの UI テスト (docs/TESTING.md §1 T4)
+  #
+  # サンプルホスト (src/UiaTrigger.App.WinUI / .Wpf) を子プロセスで起動し、ピッカーの窓を
+  # 画面に出して UIA のコントロールパターンで駆動する。見ているのは「行のコントロールが
+  # 生成されるのを待つ経路」で、これはウィンドウを表示しないと再現しない (docs/DESIGN.md §12)。
+  # real-uia と同じく対話セッションに依存するため必須ジョブにはせず、まずは観測する。
+  #
+  # real-uia とは<b>別ジョブ = 別ランナー</b>である必要がある。どちらも画面にウィンドウを出して
+  # 座標から要素を掴むので、同じデスクトップで同時に走らせると互いの窓を掴む。
+  # ---------------------------------------------------------------
+  picker-ui:
+    name: picker UI tests (observing)
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # ホストへの ProjectReference は張っていない (AnyCPU から x64 への参照が
+      # TreatWarningsAsErrors で落ちるため)。実行ファイルはソリューションのビルド出力から探す
+      - name: Build
+        run: dotnet build UiaTrigger.slnx -c Release
+
+      # T4 の割り付けは画面の広さに依存する (docs/RELEASING.md §2)。
+      #
+      # 既定のランナーは 1024x768 で、そこでは DesktopLayout.NarrowHost (幅 1100px 固定) が
+      # 対象アプリの窓に掛かり、pick 点を覆う。覆われるとピッカーは自プロセスを掴んで
+      # 捕捉を飛ばし、二度と捕捉しない = 原因を名指ししない 30 秒のタイムアウトになる。
+      # TreePresentationTests の 4 件が実際にこれで落ちる (ランナーで実測)。
+      #
+      # 狭い画面では<b>原理的に成立しない</b>ため、テスト側では直せない —
+      # 1024x768 で使えるホスト幅は 620px、ツリーは約 322px で、
+      # 「畳んだ 1 行が収まる」下限 (346px) を下回るので対照のほうが壊れる。
+      # 必要な幅は 1481px 以上 (1100 + 380 + 1)。余裕を見て 1920x1080 にする。
+      - name: Set the display resolution
+        shell: pwsh
+        run: |
+          # 設定は Windows Server 付属の Set-DisplayResolution (ServerCore モジュール) を使う。
+          # cmdlet が無い環境では警告に留める — T4 側の
+          # RequireTheNarrowHostFitsOnThisScreen が「幅が N px 要る」と名指しで落ちるので、
+          # 失敗の説明は失われない。
+          #
+          # 読み取りに Get-DisplayResolution / EnumDisplaySettings は使わない。
+          # <b>ランナーでは EnumDisplaySettings(ENUM_CURRENT_SETTINGS) が 0x0 を返す</b>
+          # (実測)。GetSystemMetrics は常に生きた値を返す。
+          Add-Type -Name Metrics -Namespace Win32 -MemberDefinition `
+            '[DllImport("user32.dll")] public static extern int GetSystemMetrics(int nIndex);'
+          function Show-Size([string]$label) {
+            # SM_CXSCREEN = 0 / SM_CYSCREEN = 1
+            $w = [Win32.Metrics]::GetSystemMetrics(0)
+            $h = [Win32.Metrics]::GetSystemMetrics(1)
+            Write-Host "${label}: ${w}x${h}"
+            return $w
+          }
+
+          [void](Show-Size "変更前")
+
+          if (Get-Command Set-DisplayResolution -ErrorAction SilentlyContinue) {
+            try {
+              Set-DisplayResolution -Width 1920 -Height 1080 -Force
+              Write-Host "Set-DisplayResolution を実行しました"
+            } catch {
+              Write-Host "::warning::Set-DisplayResolution が失敗しました: $($_.Exception.Message)"
+            }
+          } else {
+            Write-Host "::warning::Set-DisplayResolution がありません (ServerCore モジュール未搭載のランナー)。"
+          }
+
+          $width = Show-Size "変更後"
+
+          if ($width -lt 1481) {
+            Write-Host "::warning::画面幅が ${width}px です。TreePresentationTests は 1481px 以上を要求します (docs/RELEASING.md §2)。"
+          } else {
+            Write-Host "OK: 画面幅は ${width}px です"
+          }
+          exit 0
+
+      # 直列実行 (AssemblyInfo.cs で並列を止めてある)。1 回 1〜2 分程度。
+      # ウィンドウの実体化待ちが固まると期限で落ちずに止まりうるので blame で打ち切る
+      - name: Test (T4)
+        run: dotnet test tests/UiaTrigger.Picker.UiTests -c Release --no-build --blame-hang-timeout 5m
+
+  # ---------------------------------------------------------------
+  # T5: 合成入力 (docs/TESTING.md §1 T5 / §3)
+  #
+  # picker-ui と<b>別のジョブ = 別のランナー</b>である。同居させてはいけない —
+  # 低レベルフックはグローバルで、撃ったキーは同じデスクトップのすべてのプロセスに届く。
+  # ウィンドウを分けても分離できない。
+  #
+  # <b>ブロッキングにしてある</b> — hosted runner で連続して緑になることを実測で確認済み。
+  # SendInput は呼び出しスレッドが入力デスクトップに居ることを追加で要求するが
+  # (docs/TESTING.md §3)、ランナーはこの要件を満たす。
+  # 入力を奪うテストなので、揺れ始めたら continue-on-error: true を戻してよい (1 行である)。
+  # ---------------------------------------------------------------
+  input:
+    name: synthetic input tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build
+        run: dotnet build UiaTrigger.slnx -c Release
+
+      # 直列実行 (AssemblyInfo.cs)。キーとマウスを実際に奪うので、
+      # 詰まったときに期限で落ちず止まりうる。blame で打ち切る
+      - name: Test (T5)
+        run: dotnet test tests/UiaTrigger.Input.Tests -c Release --no-build --blame-hang-timeout 5m
+
+  # ---------------------------------------------------------------
+  # Native AOT 発行 (docs/DESIGN.md D2)
+  # interop / リソースの問題は AOT 発行時にしか露見しないものがあるため独立ジョブにする
+  # ---------------------------------------------------------------
+  aot:
+    name: AOT publish & localization
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # ILCompiler のネイティブリンクに MSVC が必要。vswhere が PATH に無いと失敗する
+      - name: Add vswhere to PATH
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
+      - name: Publish TestHost (win-x64)
+        run: dotnet publish src/UiaTrigger.TestHost -c Release -r win-x64 -o publish/TestHost
+
+      - name: Publish App.WinUI (win-x64)
+        run: dotnet publish src/UiaTrigger.App.WinUI -c Release -o publish/App
+
+      # WPF ホストはここでしか publish されない。resx の実行時解決そのものは T1 が
+      # 見ているが、発行時に ja/ サテライトが落ちないことは S4 でしか見られない
+      # (Directory.Build.props の SatelliteResourceLanguages)
+      - name: Publish App.Wpf
+        run: dotnet publish src/UiaTrigger.App.Wpf -c Release -o publish/AppWpf
+
+      # WinForms ホストも同じ理由で publish する。ここに無いと、GitHub Release が
+      # 「サンプルホスト 3 つ」と称して<b>CI が一度も通していない経路の成果物</b>を配ることになる。
+      # DpiManifestTests.EveryHostDeclaresPerMonitorV2SomeWay が塞いでいるのと同じ形
+      # 「どの表にも載っていないから緑」である (docs/RELEASING.md §2)
+      - name: Publish App.WinForms
+        run: dotnet publish src/UiaTrigger.App.WinForms -c Release -o publish/AppWinForms
+
+      # 発行後のネイティブバイナリでサテライトリソースが解決されることを確認する (docs/LOCALIZATION.md §2)。
+      # ファイルの有無ではなく実際の出力で判定する — AOT ではサテライトが
+      # ネイティブイメージに取り込まれ、ja/ フォルダが出力されないことがあるため。
+      - name: Verify localized messages from the AOT binary
+        shell: pwsh
+        run: |
+          $exe = "publish/TestHost/UiaTrigger.TestHost.exe"
+          $broken = "$env:RUNNER_TEMP/broken-trigger.json"
+          # ProcessName が空 = Core が検証エラーを投げる定義
+          '{"FormatVersion":1,"Triggers":[{"Id":"bad","Window":{"ProcessName":""},"Locator":{"View":"Control","Steps":[]},"On":"ElementAppeared"}]}' |
+            Out-File $broken -Encoding utf8
+
+          $en = (& $exe monitor --file $broken --culture en-US 2>&1 | Out-String)
+          $enCode = $LASTEXITCODE
+          $ja = (& $exe monitor --file $broken --culture ja-JP 2>&1 | Out-String)
+          $jaCode = $LASTEXITCODE
+
+          Write-Host "en-US output (exit=$enCode): $en"
+          Write-Host "ja-JP output (exit=$jaCode): $ja"
+
+          # 壊れた定義を渡しているので、TestHost は 0 以外を返すのが正しい。
+          # ここを見ておかないと「メッセージは出ているが検証を素通りしていた」を見逃す
+          if ($enCode -eq 0 -or $jaCode -eq 0) {
+            throw "壊れた定義なのに TestHost が成功を返しました (en=$enCode / ja=$jaCode)."
+          }
+          if ($en -notmatch 'Window\.ProcessName is required') {
+            throw "en-US: neutral リソースが解決されていません."
+          }
+          if ($ja -notmatch '必須') {
+            throw "ja-JP: サテライトリソースが解決されていません (AOT 発行でローカライズが壊れています)."
+          }
+          Write-Host "OK: neutral / satellite ともに AOT 発行後も解決されました"
+
+          # GitHub Actions の pwsh シェルは、最後に走ったネイティブコマンドの $LASTEXITCODE を
+          # そのままステップの結果にする。このステップは<b>意図的に</b>失敗する定義を渡すので、
+          # 明示的に 0 で終わらないと、検証が全部通っていてもステップが赤になる
+          # (実際にこれで落ちる — 製品が正しくてもである)。
+          exit 0
+
+      # L7: 表示用の数値は現在のカルチャ、オプションの解釈とログの時刻は invariant。
+      # この 3 つは「同じ 1 つの文字列を作る」ように見えて規則が違い、混ぜても例外が出ないので
+      # 実行して出力を見るしかない (docs/LOCALIZATION.md §7)。
+      - name: Verify display formats follow the culture but logs do not
+        shell: pwsh
+        run: |
+          $exe = "publish/TestHost/UiaTrigger.TestHost.exe"
+          $file = "$env:RUNNER_TEMP/format-trigger.json"
+          '{"Version":1,"Triggers":[{"Id":"fmt","Window":{"ProcessName":"no-such-process.exe"},"Locator":{"View":"Control","Steps":[]},"On":"ElementAppeared"}]}' |
+            Out-File $file -Encoding utf8
+
+          # --duration は invariant で解釈される (1.5)。表示は de-DE で 1,5 にならねばならない
+          $de = (& $exe monitor --file $file --culture de-DE --duration 1.5 2>&1 | Out-String)
+          $en = (& $exe monitor --file $file --culture en-US --duration 1.5 2>&1 | Out-String)
+          Write-Host "de-DE output: $de"
+          Write-Host "en-US output: $en"
+
+          if ($de -notmatch '1,5') {
+            throw "de-DE: 表示用の数値が現在のカルチャに従っていません (invariant のままです)."
+          }
+          if ($en -notmatch '1\.5') {
+            throw "en-US: 表示用の数値が壊れています."
+          }
+          # 発火ログの時刻は開発者向けなので、どのカルチャでも同じ書式であること
+          if ($de -notmatch '\d\d:\d\d:\d\d\.\d\d\d' -or $en -notmatch '\d\d:\d\d:\d\d\.\d\d\d') {
+            throw "ログの時刻書式がカルチャで変わっています (invariant 固定であるべきです)."
+          }
+          Write-Host "OK: 表示はカルチャ依存・オプション解釈とログは invariant"
+          # $LASTEXITCODE の持ち越しでステップが赤にならないようにする (上のステップの注記を参照)
+          exit 0
+
+      # 診断ログ (docs/DESIGN.md C9) が AOT 発行後も出ること。
+      # [LoggerMessage] 生成コードと ILogger の抽象は AOT でしか露見しない形で壊れうるため、
+      # ここで実際に監視を開始させてログ行を見る。
+      - name: Verify diagnostic logging from the AOT binary
+        shell: pwsh
+        run: |
+          $exe = "publish/TestHost/UiaTrigger.TestHost.exe"
+          $file = "$env:RUNNER_TEMP/log-trigger.json"
+          # 実在しないプロセスを指す定義。解決はしないが監視は開始する
+          '{"Version":1,"Triggers":[{"Id":"log","Window":{"ProcessName":"no-such-process.exe"},"Locator":{"View":"Control","Steps":[]},"On":"ElementAppeared"}]}' |
+            Out-File $file -Encoding utf8
+
+          $out = (& $exe monitor --file $file --log Debug --duration 2 2>&1 | Out-String)
+          Write-Host $out
+
+          if ($out -notmatch 'Monitoring started with 1 trigger') {
+            throw "AOT 発行後に ILogger 経由の診断ログが出ていません (C9)."
+          }
+          Write-Host "OK: 診断ログが AOT 発行後も出力されました"
+          # $LASTEXITCODE の持ち越しでステップが赤にならないようにする (上のステップの注記を参照)
+          exit 0
+
+      # S4: ピッカーのラベルが「発行レイアウトで」解決されること (docs/TESTING.md §1)。
+      #
+      # picker-ui ジョブに置かないのは、あちらが continue-on-error: true で
+      # 構造的にシグナルが弱いためである。S4 は座標も対象アプリも使わないので、
+      # あの非決定性 (ElementFromPoint が重なった WinUI3 の窓を返す) を継承しない。
+      #
+      # ここへ置く理由はもう 1 つある: このジョブだけが publish/ を作る。
+      # PickerHostProcess は publish/ が在れば必ずそちらを起動するので、
+      # 発行物そのものが検査対象になる。
+      #
+      # continue-on-error は付けない。ランナーでの全件緑を確認済みで、上記のとおり
+      # picker-ui の非決定性を継承しないので、ブロッキングにしても
+      # 手元で再現できない赤に潰される形にはならない。
+      - name: Verify picker resources resolve in the published layout (S4)
+        shell: pwsh
+        run: >
+          dotnet test tests/UiaTrigger.Picker.UiTests -c Release
+          --filter "FullyQualifiedName~PublishedResourceTests"
+
+  # ---------------------------------------------------------------
+  # ARM64 (docs/DESIGN.md D5 / docs/RELEASING.md §5)
+  #
+  # RuntimeIdentifier はハードコード (win-x64) ではなく Platform から導く。
+  # この導出が元へ戻っても x64 のビルドもテストも<b>すべて緑のまま</b>なので、
+  # このジョブを建てておかないと誰も気づかない。
+  #
+  # 走らせるのは<b>ビルドだけ</b>である。windows-latest は x64 なので ARM64 の
+  # バイナリは実行できないし、Native AOT の ARM64 へのクロス発行には ARM64 の
+  # MSVC ツールチェーンが要る (docs/RELEASING.md §5 に実測がある)。
+  # 「建つこと」と「動くこと」を混同しないため、ジョブ名にも build と書いてある。
+  #
+  # <b>ランナーで緑になることを確認済みなので、ブロッキングにしてある</b>
+  # (ARM64 の WinUI / Windows App SDK は windows-latest で問題なく復元できる)。
+  # 画面も対話セッションも要らない決定的なビルドなので、real-uia / picker-ui / input の
+  # ような非決定性は持たない。
+  # ---------------------------------------------------------------
+  arm64-build:
+    name: ARM64 build (no execution)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build App.WinUI (ARM64)
+        run: dotnet build src/UiaTrigger.App.WinUI -c Release -p:Platform=ARM64
+
+      # 建っただけでは足りない。RID の導出が効かないと「ARM64 を指定したのに
+      # win-x64 が出る」で通ってしまうので、PE ヘッダの機種を実際に読む
+      - name: Verify the output really is ARM64
+        shell: pwsh
+        run: |
+          $dir = "src/UiaTrigger.App.WinUI/bin/ARM64/Release/net10.0-windows10.0.19041.0/win-arm64"
+          $exe = "$dir/UiaTrigger.App.WinUI.exe"
+          if (-not (Test-Path $exe)) {
+            throw "ARM64 の出力が想定の場所にありません: $exe"
+          }
+          $fs = [IO.File]::OpenRead((Resolve-Path $exe))
+          $br = New-Object IO.BinaryReader($fs)
+          $fs.Position = 0x3C
+          $fs.Position = $br.ReadInt32() + 4
+          $machine = $br.ReadUInt16()
+          $br.Close()
+          Write-Host ("machine = 0x{0:X4}" -f $machine)
+          if ($machine -ne 0xAA64) {
+            throw ("apphost が ARM64 ではありません (machine=0x{0:X4})。RuntimeIdentifier の導出が効いていません." -f $machine)
+          }
+          Write-Host "OK: apphost は ARM64 です"
+
+  # ---------------------------------------------------------------
+  # 規約チェック (docs/TESTING.md §2)
+  # ---------------------------------------------------------------
+  lint:
+    name: conventions
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 合成入力の規則は 2 本ある (docs/TESTING.md §2 / §3)。
+      #
+      # 1 本ではなく 2 本なのは意図的である。真の失敗形は「合成入力を使ったこと」ではなく
+      # 「座標に依存する合成入力で、座標系そのものの不具合を診断した円環」なので、
+      # 規則は入力スタックのどこに入るかで割ってある (docs/TESTING.md §4)。
+
+      # (1) 入力経路を迂回する 2 つと、その非推奨の綴り 2 つ。
+      #     ヒットテスト・フォーカス判定・低レベルフック・DPI 仮想化を一切通らないので、
+      #     緑になっても「入力がどこへ届くか」について何も言えない。
+      #     T5 (tests/UiaTrigger.Input.Tests) も**例外ではない**。
+      #
+      #     この 4 語は文字列として禁止である。テストのコメントに書くだけでも落ちる —
+      #     不便だが、そのおかげで綴りが混入しない。理由の説明は docs/ 側に置き、
+      #     テストからは節番号で参照すること。
+      - name: Forbid input APIs that bypass the input stack
+        shell: pwsh
+        run: |
+          $forbidden = 'keybd_event|mouse_event|PostMessage|SendMessage'
+          $hits = Get-ChildItem -Path tests -Recurse -Include *.cs -ErrorAction SilentlyContinue |
+            Select-String -Pattern $forbidden
+          if ($hits) {
+            $hits | ForEach-Object { Write-Host "::error file=$($_.Path),line=$($_.LineNumber)::入力経路を迂回する API はテストで使用禁止です: $($_.Line.Trim())" }
+            throw @"
+          テストコードで、入力経路を迂回する API が使われています。
+          これらはヒットテスト・フォーカス判定・低レベルフック・DPI 仮想化を通らないため、
+          緑になっても「入力がどこへ届くか」について何も言えません (docs/TESTING.md §4)。
+          UIA のコントロールパターンで駆動するか、tests/UiaTrigger.Input.Tests から
+          最下層へ入る形 (docs/TESTING.md §3 の政策で解禁された経路) を使うか、
+          docs/MANUAL-CHECKS.md の手動確認に回してください。
+          "@
+          }
+          Write-Host "OK: 入力経路を迂回する API の使用はありません"
+
+      # (2) 最下層へ入る合成入力は T5 のディレクトリだけで許可する。
+      #     ハードウェア入力と同じコードが処理するので配送について主張できるが、
+      #     解禁の条件 (円環を作らない / ネガティブコントロール / 人の確認を消さない /
+      #     注入フラグを読まない不変条件) は T5 の中でしか守られていない。
+      #     ディレクトリ名ではなくパスで除外する — 同名のファイルが他所に置かれても
+      #     免除しないため。
+      - name: Restrict synthetic input to the input test project
+        shell: pwsh
+        run: |
+          $allowed = '[\\/]UiaTrigger\.Input\.Tests[\\/]'
+          $hits = Get-ChildItem -Path tests -Recurse -Include *.cs -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -notmatch $allowed } |
+            Select-String -Pattern 'SendInput'
+          if ($hits) {
+            $hits | ForEach-Object { Write-Host "::error file=$($_.Path),line=$($_.LineNumber)::合成入力は tests/UiaTrigger.Input.Tests の中だけで使えます: $($_.Line.Trim())" }
+            throw @"
+          tests/UiaTrigger.Input.Tests の外で合成入力が使われています。
+          解禁の条件 (撃つ前に狙いを独立に検算する / ネガティブコントロール /
+          人の確認を補助として残す / HookProc が注入フラグを読まない不変条件) は
+          あのプロジェクトの中でしか守られていません (docs/TESTING.md §3)。
+          "@
+          }
+          Write-Host "OK: 合成入力は T5 の外で使われていません"

@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ピッカーの WPF View (docs/DESIGN.md §12)。
+
+    振る舞いは UiaTrigger.Picker.Core の TriggerPickerPresenter が持ち、ここに残るのは
+    「WPF の事実」だけである: ItemContainerGenerator の実体化待ち・TextBox の空欄 (= null)・
+    BooleanToVisibilityConverter・Dispatcher と DispatcherTimer。
+
+    IsAotCompatible は<b>付けない</b>。WPF は Native AOT に対応しておらず、
+    TreatWarningsAsErrors=true のこの repo では宣言した時点でビルドが落ちる。
+    AOT 発行の対象は Core / Picker.Core と WinUI ホストのままである。
+
+    net10.0-windows / AnyCPU なので、WinUI と違って<b>T1 から普通に参照できる</b>。
+    T1 に読み込めない障害は「View だから」ではなく WinUI3 / x64 / WindowsAppSDK に
+    由来する (docs/DESIGN.md §12)。だからこの View の中身は手動チェックではなく
+    単体テストで覆える (TriggerPickerWpfWindowTests)。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.Picker.Wpf</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>The WPF view for the UiaTrigger element picker (TriggerPickerWindow). Holds no behaviour of its own - all of it lives in UiaTrigger.Picker.Core. Use this package if your own application is WPF.</Description>
+    <PackageTags>uiautomation;uia;automation;windows;picker;wpf</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="UiaTrigger.Core.Tests" />
+  </ItemGroup>
+
+  <!--
+    IntelliSense の日本語化 (docs/LOCALIZATION.md §4)。公開面はウィンドウ 1 つぶんしかないが、
+    ロールアップの単位はファイルなので過不足なく覆う必要がある。
+    対象から漏れていないことは PublicApiDocumentationTests が見ている。
+  -->
+  <ItemGroup>
+    <None Include="Resources\UiaTrigger.Picker.Wpf.ja.xml"
+          Link="ja\UiaTrigger.Picker.Wpf.xml"
+          CopyToOutputDirectory="PreserveNewest"
+          TargetPath="ja\UiaTrigger.Picker.Wpf.xml" />
+  </ItemGroup>
+
+</Project>

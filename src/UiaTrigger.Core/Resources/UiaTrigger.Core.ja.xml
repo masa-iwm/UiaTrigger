@@ -1,0 +1,1996 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.Core の日本語 IntelliSense (docs/LOCALIZATION.md §5)。
+
+  ビルド時に <出力>\ja\UiaTrigger.Core.xml へ複製される。IDE / Roslyn は参照アセンブリの
+  XML ドキュメントを探すとき、まず <アセンブリのフォルダ>\<カルチャ>\<アセンブリ名>.xml を
+  見て、無ければ隣の <アセンブリ名>.xml に落ちる。サテライトアセンブリと同じ置き方だが
+  仕組みは別物で、ResourceManager は一切関与しない。
+
+  ロールアップの単位は「メンバー」ではなく「ファイル」である。
+  このファイルが存在する限りこちらが丸ごと使われ、ここに無いメンバーは
+  英語に落ちるのではなく <b>説明が消える</b>。だから公開 API を過不足なく覆う必要があり、
+  PublicApiDocumentationTests がそれを検査している。
+
+  入れてよいのは公開 API のぶんだけ。実装内部のコメントは英語版
+  (csc が生成する UiaTrigger.Core.xml) に日本語のまま入っており、ここには写さない。
+-->
+<doc>
+  <assembly>
+    <name>UiaTrigger.Core</name>
+  </assembly>
+  <members>
+    <!-- ================= イベント ================= -->
+    <member name="E:UiaTrigger.Monitoring.TriggerMonitor.ResolutionChanged">
+      <summary>
+        トリガーの対象要素の解決状態が変わったときに発生する (診断・表示用)。
+        <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired" /> と同じ直列ワーカーで配送されるので、
+        2 つのイベントの相対順序は保たれる。
+      </summary>
+      <remarks>
+        トリガーが鳴らないときに最初に見る場所である。理由が書かれており、
+        症状からは分からない理由 — 昇格したアプリケーションのウィンドウは、
+        昇格していないクライアントからは調べられない — もここに出る。
+      </remarks>
+    </member>
+    <member name="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired">
+      <summary>トリガーの条件が成立したときに発生する。</summary>
+      <remarks>
+        ハンドラーは単一のバックグラウンドワーカー上で、条件を検出した順に 1 件ずつ呼ばれる。
+        ハンドラーが投げた例外は捕捉して <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.UnhandledException" /> へ回すので、
+        プロセスは終了せず後続のイベントも配送され続ける。配送が直列である以上、
+        遅いハンドラーは後続のイベントを遅らせる — 困る場合は自前のキューへ受け流すこと。
+      </remarks>
+    </member>
+    <member name="E:UiaTrigger.Monitoring.TriggerMonitor.UnhandledException">
+      <summary>
+        他に行き場のない例外が発生したときに発生する。内部の UIA スレッド上での失敗と、
+        <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired" /> / <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.ResolutionChanged" />
+        のハンドラーが投げた例外の 2 つ。
+      </summary>
+    </member>
+    <member name="E:UiaTrigger.UiaSession.UnhandledException">
+      <summary>オートメーションスレッド上で発生した、他に行き場のない例外を通知する。</summary>
+    </member>
+
+    <!-- ================= 列挙メンバー・定数 ================= -->
+    <member name="F:UiaTrigger.Models.ClauseCombinator.All">
+      <summary>すべての句が成立すること (論理積)。句が空の場合は成立とみなす。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ClauseCombinator.Any">
+      <summary>いずれか 1 つの句が成立すること (論理和)。句が空の場合は成立とみなす。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.Always">
+      <summary>常に成立する。値を制約せずにプロパティを監視したいときに使う。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.Between">
+      <summary>[Low, High] の範囲内 (両端を含む)。数値のみ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.Equals">
+      <summary>被演算子と等しい。数値では <see cref="P:UiaTrigger.Models.PropertyClause.Tolerance" /> の幅まで等しいとみなす。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.GreaterOrEqual">
+      <summary><see cref="P:UiaTrigger.Models.PropertyClause.Value" /> 以上。数値のみ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.GreaterThan">
+      <summary><see cref="P:UiaTrigger.Models.PropertyClause.Value" /> より大きい。数値のみ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.LessOrEqual">
+      <summary><see cref="P:UiaTrigger.Models.PropertyClause.Value" /> 以下。数値のみ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.LessThan">
+      <summary><see cref="P:UiaTrigger.Models.PropertyClause.Value" /> より小さい。数値のみ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.NotBetween">
+      <summary>[Low, High] の範囲外。数値のみ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.NotEquals">
+      <summary><see cref="F:UiaTrigger.Models.ComparisonOp.Equals" /> の否定。許容差も同じように効く。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.RegexMatch">
+      <summary>値が <see cref="P:UiaTrigger.Models.PropertyClause.Text" /> の正規表現に一致する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ComparisonOp.RegexNotMatch">
+      <summary><see cref="F:UiaTrigger.Models.ComparisonOp.RegexMatch" /> の否定。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ElementPathStep.UnknownSiblingIndex">
+      <summary><see cref="P:UiaTrigger.Models.ElementPathStep.SiblingIndex" /> の「不明」を表す値。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.ElementPropertySnapshot.RedactedMarker">
+      <summary>パスワード欄であるために伏せた値の代わりに入る文字列。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.MatchStrength.Ignored">
+      <summary>属性は記録するが、候補の絞り込みにも順位付けにも使わない。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.MatchStrength.Preferred">
+      <summary>一致すれば候補の順位が上がる。一致しなくても候補から外れることはない。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.MatchStrength.Required">
+      <summary>この属性に一致しない候補は除外する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TreeViewMode.Content">
+      <summary>テキストや値など、情報を運ぶ要素だけ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TreeViewMode.Control">
+      <summary>ユーザーが操作できる要素と UI を構成する要素。通常はこれを選ぶ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TreeViewMode.Raw">
+      <summary>プロバイダーが公開する全要素。ユーザーには知覚できないものも含む。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerOn.ElementAppeared">
+      <summary>対象要素が解決できるようになったとき。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerOn.ElementRemoved">
+      <summary>対象要素が消えたとき、または別の要素に置き換わったとき。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerOn.PropertyChanged">
+      <summary>監視対象のプロパティが変化したとき。句を満たす変化のたびに発火する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerOn.WhileMatching">
+      <summary>
+        句が成立し始めたとき。立ち上がりでのみ発火し、成立し続けている間の変化では発火しない。
+      </summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.AcceleratorKey">
+      <summary>アクセラレーターキー ("Ctrl+S" 等)。プロバイダーが報告する形のまま。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.AccessKey">
+      <summary>アクセスキー ("Alt+F" 等)。プロバイダーが報告する形のまま。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.AutomationId">
+      <summary>要素の AutomationId。アプリケーションが設定していれば実行をまたいで安定する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.BoundingRectangle">
+      <summary>境界矩形。invariant な文字列 <c>(L,T)-(R,B)</c> として比較する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.ClassName">
+      <summary>クラス名。Win32 コントロールでは非常に安定しているが <see cref="P:UiaTrigger.Models.WindowIdentity.ClassName" /> も参照のこと。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.ControlType">
+      <summary>コントロール型。安定名 (<see cref="T:UiaTrigger.UiaControlTypeNames" /> 参照) と比較する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.Custom">
+      <summary>
+        任意の UI Automation プロパティ。<see cref="P:UiaTrigger.Models.PropertyClause.CustomPropertyId" /> で指定する。
+      </summary>
+      <remarks>
+        この列挙に名前が無いプロパティへの逃げ道である。名前付きのプロパティと違って
+        キャッシュ済みスナップショットからは読めず、句ごとに独立したクロスプロセス呼び出しが
+        発生するので、当てはまる名前付きプロパティがあるならそちらを使うこと。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.HelpText">
+      <summary>要素のヘルプテキスト。多くの場合ツールチップに出る文言。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.IsEnabled">
+      <summary>要素が入力を受け付けるか。<c>true</c> / <c>false</c> として比較する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.IsOffscreen">
+      <summary>要素がスクロールやクリップで画面外にあるか。<c>true</c> / <c>false</c> として比較する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.Name">
+      <summary>要素の名前。通常は画面に見えているラベルにあたる。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.RangeValue">
+      <summary>数値。<c>RangeValuePattern.Value</c> から読む。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.RangeValueMaximum">
+      <summary>要素が受け付ける最大値。<c>RangeValuePattern.Maximum</c> から読む。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.RangeValueMinimum">
+      <summary>要素が受け付ける最小値。<c>RangeValuePattern.Minimum</c> から読む。</summary>
+    </member>
+    <member name="F:UiaTrigger.Models.TriggerProperty.Value">
+      <summary>文字列の値。<c>ValuePattern.Value</c> から読む。パスワード欄では伏せられる。</summary>
+    </member>
+    <member name="F:UiaTrigger.Serialization.TriggerJson.FormatVersion">
+      <summary>
+        <see cref="P:UiaTrigger.Serialization.TriggerFile.Version" /> に書き込む版数であり、
+        このビルドが読める最大の版数でもある。
+      </summary>
+      <remarks>
+        版数 1 がモデルの最初の出荷形である。それより前の形式は存在せず、
+        移行すべき古いファイルが無い。それでも最初から版数を書くのは、
+        版数を持たないファイルは後から見分ける手段が無いためである。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.UiaSessionOptions.DefaultConnectionTimeout">
+      <summary><see cref="P:UiaTrigger.UiaSessionOptions.ConnectionTimeout" /> の既定値。</summary>
+    </member>
+    <member name="F:UiaTrigger.UiaSessionOptions.DefaultTransactionTimeout">
+      <summary><see cref="P:UiaTrigger.UiaSessionOptions.TransactionTimeout" /> の既定値。</summary>
+      <remarks>
+        UI Automation 自身の既定は 20 秒で、単一のオートメーションスレッドを占有させる時間としては長すぎる。
+      </remarks>
+    </member>
+
+    <!-- ================= メソッド ================= -->
+    <member name="M:UiaTrigger.DpiAwareness.DescribeProblem">
+      <summary>座標を信用できない理由をローカライズした説明。信用できる場合は null。</summary>
+      <remarks>
+        「たぶん大丈夫」で済ませずにこれを報告すること。ここを外したホストは
+        間違った要素を指す定義を記録し、しかもその定義は後から見ても正しく見える。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.DpiAwareness.IsCoordinateSafe">
+      <summary>このプロセスが物理スクリーン座標をそのまま UI Automation へ渡せるか。</summary>
+      <remarks>
+        true になるのはモニターごとの認識モードのときだけである。システム DPI 認識は
+        シングルモニターでは<b>たまたま</b>座標が仮想化されないだけで、倍率の異なる 2 台目が
+        つながった時点で破綻するため、安全とはみなさない。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.DpiAwareness.TryEnablePerMonitorV2">
+      <summary>
+        このプロセスをモニターごとの DPI 認識 (V2) として宣言する。ウィンドウを 1 つも作る前に呼ぶこと。
+      </summary>
+      <returns>
+        この呼び出しでモードが変わったとき true。変えられなかったときは false で、
+        マニフェストで既に宣言済みという通常のケースもこれに含まれる
+        (その場合 <see cref="M:UiaTrigger.DpiAwareness.IsCoordinateSafe" /> は true のままである)。
+      </returns>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.Equals(System.Object)">
+      <summary>序数比較による等値判定。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.Equals(UiaTrigger.Models.ComparisonString)">
+      <summary>序数比較による等値判定。「値なし」と「空文字列」は別物として扱う。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.FromBoolean(System.Boolean)">
+      <summary>真偽値を <c>true</c> / <c>false</c> として整形する。</summary>
+      <remarks>
+        小文字にしてあるのは意図的である。ユーザーは <c>true</c> と書くのに対し、
+        既定の <c>Boolean.ToString</c> の形 (<c>True</c>) はそれとの序数比較に静かに外れる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.FromDefinition(System.String)">
+      <summary>トリガー定義に書かれた文字列を包む。定義中の文字列は約束として invariant である。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.FromNumber(System.Double)">
+      <summary>数値を invariant カルチャで整形する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.FromNumber(System.Int32)">
+      <summary>数値を invariant カルチャで整形する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.FromText(System.String)">
+      <summary>UI 要素からそのまま読み取った文字列 (名前・AutomationId 等) を包む。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.GetHashCode">
+      <summary>序数比較に対応するハッシュ値。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.ToString">
+      <summary>
+        <see cref="P:UiaTrigger.Models.ComparisonString.Value" /> を返す。ログに出して安全であり、
+        ライブラリがこれを読み直すことはない。
+      </summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.op_Equality(UiaTrigger.Models.ComparisonString,UiaTrigger.Models.ComparisonString)">
+      <summary>序数比較による等値。<see cref="M:UiaTrigger.Models.ComparisonString.Equals(UiaTrigger.Models.ComparisonString)" /> を参照。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ComparisonString.op_Inequality(UiaTrigger.Models.ComparisonString,UiaTrigger.Models.ComparisonString)">
+      <summary>序数比較による非等値。<see cref="M:UiaTrigger.Models.ComparisonString.Equals(UiaTrigger.Models.ComparisonString)" /> を参照。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ElementPropertySnapshot.GetComparisonValue(UiaTrigger.Models.TriggerProperty)">
+      <summary>プロパティの値を比較形 (invariant・序数比較可能) で返す。</summary>
+      <remarks>
+        条件評価が使うのはこの形だけである。<see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> は
+        スナップショットには含まれないので <see cref="P:UiaTrigger.Models.ComparisonString.None" /> になる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.ElementPropertySnapshot.GetDisplayValue(UiaTrigger.Models.TriggerProperty)">
+      <summary>
+        プロパティの値を表示用に整形して返す。比較には決して使わないこと —
+        <see cref="M:UiaTrigger.Models.ElementPropertySnapshot.GetComparisonValue(UiaTrigger.Models.TriggerProperty)" /> を参照。
+      </summary>
+      <remarks>
+        カルチャに依存するのは意図的である。数値は現在のカルチャで整形され、
+        <see cref="F:UiaTrigger.Models.TriggerProperty.ControlType" /> は
+        同じプロパティの比較形とは別の <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.LocalizedControlType" /> を返す。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.ElementPropertySnapshot.GetNumericValue(UiaTrigger.Models.TriggerProperty)">
+      <summary>プロパティの値を数値として返す。数値でないときは null。</summary>
+      <remarks>
+        文字列のプロパティは invariant カルチャで解釈する。定義の意味がどのマシンでも同じになるようにするためである。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.ElementPropertySnapshot.Supports(UiaTrigger.Models.TriggerProperty)">
+      <summary>
+        要素がそのプロパティを公開していないこと (値が空であることとは別) を判定する。
+        公開されていないプロパティに対する句は決して成立しない。
+      </summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ElementRect.#ctor(System.Int32,System.Int32,System.Int32,System.Int32)">
+      <summary>要素の境界矩形 (スクリーン座標)。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.ElementRect.ToString">
+      <summary>invariant な <c>(L,T)-(R,B)</c> 形式。表示にも比較にも使われる。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String})">
+      <summary><paramref name="sources" /> を 1 つの複合トリガーにまとめる。</summary>
+      <param name="sources">まとめるトリガー (並び順のまま)。2 つ以上。</param>
+      <param name="expression">
+        条件名に対するブール式。null または空白だけなら「すべての条件を要求する」。
+        式で使う名前は展開後の条件名なので、条件を複数持ち込む元トリガーは
+        <c>id-1</c>、<c>id-2</c> のように指す。
+      </param>
+      <param name="unwatchedNames">
+        「絞るだけ」にする元トリガーの id。その条件は必要とはされるが購読されず、
+        その変化だけでは何も発火しない。照合は入力どおりの id に対して行われる —
+        式が使う <c>-1</c>/<c>-2</c> の展開より前の名前である。
+      </param>
+      <param name="existingIds">使用中の id。複合の id はこの中に無い最初の <c>composite-N</c> になる。</param>
+      <returns>ローカライズ済みの理由か、複合の定義のどちらかを運ぶ結果。</returns>
+      <remarks>
+        元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
+        経路を名指す — これが 1 つのトリガーを複数のアプリケーションにまたがらせる。
+        自分の条件を持たない元トリガーは「その要素が在ること」を持ち込む。複合は
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する:
+        まとめた条件が成立した瞬間に 1 回である。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerComposer.Decompose(UiaTrigger.Models.TriggerDefinition,System.Collections.Generic.IEnumerable{System.String})">
+      <summary>複合の定義をほどき、条件 1 つにつき独立したトリガー 1 件へ戻す。</summary>
+      <param name="composite">ほどく複合。それ自体には触れない。</param>
+      <param name="existingIds">使用中の id。id が衝突した復元トリガーは <c>-2</c>、<c>-3</c>… を得る。</param>
+      <returns>条件 1 つにつきトリガー 1 件 (条件の並び順のまま)。</returns>
+      <exception cref="T:System.ArgumentException">
+        <paramref name="composite" /> が複合ではない: 式が無く、条件も 1 つ以下である。
+      </exception>
+      <remarks>
+        <para>
+          まとめる前の元トリガーが失われたときの戻り道である。条件にはウィンドウ・経路・比較が
+          すべて残っているので、編集できるトリガーは常に取り出せる。復元されたトリガーの id は
+          条件の実効名 — 複合の式がその条件を指していた名前そのもの — なので、
+          もう一度まとめれば同じ名前に戻り、同じ式がそのまま使える。
+        </para>
+        <para>
+          複合が記録していないものは戻らない: 元トリガーの発火契機・レート制限・ポーリング間隔は
+          失われており、復元されたトリガーはどれも
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火し、間隔類を持たない。
+          式そのものは捨てられ、<see cref="P:UiaTrigger.Models.PropertyClause.Watch" /> も既定へ戻る —
+          「絞るだけ」は複合の中でだけ意味を持つ。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerCompositionResult.#ctor(System.String,UiaTrigger.Models.TriggerDefinition)">
+      <summary>複数のトリガーを 1 つの複合定義にまとめた結果。</summary>
+      <param name="Error">まとめられない理由 (ローカライズ済み)。まとめられるときは null。</param>
+      <param name="Definition">複合の定義。<paramref name="Error" /> があるときは null。</param>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftResult.#ctor(System.String,UiaTrigger.Models.PropertyClause,System.Nullable{System.TimeSpan})">
+      <summary><see cref="T:UiaTrigger.Models.TriggerDraft" /> を検証した結果。</summary>
+      <param name="Error">下書きが使えない理由 (ローカライズ済み)。使えるときは null。</param>
+      <param name="Clause">
+        定義に追加する句。下書きが「条件なし」を求めているときは null になり、
+        要素の出現・消滅だけを見るトリガーではそれが正しい。
+      </param>
+      <param name="MinInterval">適用するレート制限。制限しないときは null。</param>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.Apply(UiaTrigger.Models.TriggerDefinition,UiaTrigger.Models.TriggerDraft,UiaTrigger.Models.TriggerDraftResult@)">
+      <summary>検証済みの下書きを定義へ書き込む。既存の句は置き換えられる。</summary>
+      <exception cref="T:System.InvalidOperationException"><paramref name="result" /> が有効でない。</exception>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.IsValidClauseName(System.String)">
+      <summary>その文字列を <see cref="P:UiaTrigger.Models.PropertyClause.Name" /> に使えるか。</summary>
+      <remarks>
+        名前は空にできず、空白と <c>( ) ! &amp; |</c> も含められない。含められると
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> がそこで
+        2 つのものとして読んでしまうためである。入力し終えてからではなく入力中に示すこと —
+        名前は一度決めると、以後のすべての式がそれを指す。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.ValidateExpression(System.String,System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.PropertyClause})">
+      <summary>
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> を、それが適用される句に対して検証する。
+      </summary>
+      <param name="expression">式。null または空白だけなら「すべてを結合する」を意味する。</param>
+      <param name="clauses">定義の句 (並び順のまま)。</param>
+      <returns>その式が使えない理由 (ローカライズ済み)。使えるときは null。</returns>
+      <remarks>
+        同じ検査はトリガーをモニターに追加するときにも走る。ここにあるのは、式を入力している
+        最中に理由を返せるようにするためで、構文の誤りを直すのがいちばん安いのはその時点だからである。
+        式が一度も参照しない句も報告する — そうした句も解決され購読されるのに、結果には一切効かない。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.IsNumericProperty(UiaTrigger.Models.TriggerProperty)">
+      <summary>そのプロパティに対して大小比較・範囲比較が意味を持つか。</summary>
+      <remarks>
+        それ以外のプロパティで許すと、値が数値として解釈できない以上
+        決して成立しない条件をユーザーが組み立てられてしまう。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.IsOrderingOp(UiaTrigger.Models.ComparisonOp)">
+      <summary>その演算子が大小または範囲を比較するものか。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.NeedsClause(UiaTrigger.Models.TriggerOn,UiaTrigger.Models.ComparisonOp)">
+      <summary>この組み合わせがそもそも句を必要とするか。</summary>
+      <remarks>
+        要素の出現・消滅だけを見るトリガーは値に対する条件を持たなくてよいので、
+        ピッカーは句が空の定義を作れなければならない。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesRange(UiaTrigger.Models.ComparisonOp)">
+      <summary>その演算子が <see cref="P:UiaTrigger.Models.TriggerDraft.Low" /> と <see cref="P:UiaTrigger.Models.TriggerDraft.High" /> を取るか。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesText(UiaTrigger.Models.ComparisonOp)">
+      <summary>その演算子が <see cref="P:UiaTrigger.Models.TriggerDraft.Text" /> を取るか。取る場合はテキスト入力欄を出すこと。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesTolerance(UiaTrigger.Models.ComparisonOp)">
+      <summary><see cref="P:UiaTrigger.Models.TriggerDraft.Tolerance" /> がその演算子の結果に影響するか。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesValue(UiaTrigger.Models.ComparisonOp)">
+      <summary>その演算子が <see cref="P:UiaTrigger.Models.TriggerDraft.Value" /> を取るか。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.Validate(UiaTrigger.Models.TriggerDraft,System.TimeSpan)">
+      <summary>下書きを検証する。</summary>
+      <param name="draft">ユーザーから集めた値。</param>
+      <param name="regexTimeout">
+        監視側が使う正規表現の制限時間。ここで通ったパターンが監視側でもコンパイルできるように、
+        同じ値を渡すこと。
+      </param>
+      <returns>
+        下書きが使えない理由 (ローカライズ済み) か、適用すべき句とレート制限のいずれかを持つ結果。
+      </returns>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.#ctor(UiaTrigger.Monitoring.TriggerMonitorOptions)">
+      <summary><see cref="T:UiaTrigger.UiaSession" /> を自分で所有するモニターを作る。</summary>
+      <param name="options">
+        設定。null なら既定値。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session" /> が
+        このモニターの作るセッションの設定になる。
+      </param>
+      <remarks>
+        ホストが既にセッションを持っているなら <see cref="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)" />
+        を使うこと。セッションが 1 つ増えるごとにオートメーションスレッドと UIA オブジェクト一式が 1 組増える。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)">
+      <summary>トリガーを 1 件追加する。監視が既に開始されていれば即座に解決を試みる。</summary>
+      <remarks>
+        トリガーの増減はそのトリガーの購読しか触らない。他のトリガーの動いている購読は
+        そのまま維持される。
+      </remarks>
+      <exception cref="T:System.ArgumentException">
+        定義が不正であるか、その <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> が既に監視されている。
+      </exception>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.DisposeAsync">
+      <summary>
+        監視を停止する。既に検出済みのイベントはハンドラーへ配送し終えてから完了するので、
+        戻ってこないハンドラーがあると破棄も止まる。
+      </summary>
+      <remarks>
+        セッションを破棄するのは、このモニター自身がセッションを作った場合だけである。
+        共有されたセッションはモニターより長く生きる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.GetDiagnostics">
+      <summary>モニターが今どう動いているかのスナップショット。</summary>
+      <remarks>
+        このカウンターは、ライブラリが前提としながら肯定形では述べられない性質 —
+        必要のないイベントを<b>受け取っていない</b>こと — を外から観測する唯一の手段である。
+        購読範囲が広すぎると、忙しいアプリケーションでは処理量を食い、
+        関係のない変化しか起きていないのに構造変化イベント数が増え続ける形でここに現れる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.GetTriggerIdsAsync(System.Threading.CancellationToken)">
+      <summary>現在監視しているトリガーの Id 一覧。</summary>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.RemoveAsync(System.String,System.Threading.CancellationToken)">
+      <summary>トリガーを 1 件削除し、そのトリガーの購読だけを解放する。</summary>
+      <returns>その Id のトリガーを監視していたとき true。</returns>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.StartAsync(System.Collections.Generic.IEnumerable{UiaTrigger.Models.TriggerDefinition},System.Threading.CancellationToken)">
+      <summary>
+        監視を開始する。定義の誤りは UIA の処理を 1 つも投入する前に、
+        呼び出し元スレッド上の <see cref="T:System.ArgumentException" /> として返る。
+      </summary>
+      <param name="triggers">
+        トリガー定義。null なら空で開始し、<see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />
+        で足していく。各 <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は空でなく一意であること。
+      </param>
+      <param name="cancellationToken">
+        開始要求がまだ待ち行列にある間だけキャンセルできる。オートメーションスレッド上で
+        開始処理が走り始めた後は最後まで実行される — 中途半端に開始された状態は作らない。
+      </param>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.TriggerMonitor.StopAsync(System.Threading.CancellationToken)">
+      <summary>監視を停止し、UIA の購読をすべて解放する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Persistence.AtomicFile.Write(System.String,System.Action{System.IO.Stream})">
+      <summary>
+        <paramref name="writeContent" /> が生成した内容を <paramref name="path" /> へ書き込む。
+        既存のファイルの置き換えは 1 回の操作で行う。
+      </summary>
+      <param name="path">書き込み先。ディレクトリが無ければ作成する。</param>
+      <param name="writeContent">
+        渡されたストリームへ新しい内容を最後まで書くコールバック。例外を投げた場合、
+        書き込み先のファイルは元のまま残り、一時ファイルは削除される。
+      </param>
+      <remarks>
+        内容はまず書き込み先と同じディレクトリの一時ファイルへ書いてディスクへ確定させ、
+        そのうえで差し替える。どの時点でクラッシュしても、残るのは以前の内容か新しい内容の
+        どちらかであって、両者が混ざったものにはならない。一時ファイルは書き込み先と同じ
+        ボリュームに無ければならないので、書き込み先のディレクトリを使っている。
+      </remarks>
+      <exception cref="T:System.ArgumentException"><paramref name="path" /> が null または空。</exception>
+      <exception cref="T:System.ArgumentNullException"><paramref name="writeContent" /> が null。</exception>
+    </member>
+    <member name="M:UiaTrigger.Persistence.TriggerStore.Load(System.String)">
+      <summary>トリガーファイルを読み込む。ファイルが無ければ空のリストを返す。</summary>
+      <exception cref="T:System.Text.Json.JsonException">ファイルの形式が壊れている。</exception>
+      <exception cref="T:System.NotSupportedException">
+        このライブラリが解釈できるより新しい版数の形式で書かれている。
+      </exception>
+    </member>
+    <member name="M:UiaTrigger.Persistence.TriggerStore.Save(System.String,System.Collections.Generic.IEnumerable{UiaTrigger.Models.TriggerDefinition})">
+      <summary>トリガーファイルを書き込む。既存のファイルは原子的に置き換える。</summary>
+    </member>
+    <member name="M:UiaTrigger.UiaControlTypeNames.GetName(System.Int32)">
+      <summary>コントロール型 ID の安定名。未知の ID には <c>ControlType(n)</c> 形式を返す。</summary>
+    </member>
+    <member name="M:UiaTrigger.UiaElement.Dispose">
+      <summary>要素のクロスプロセス参照を解放する。複数回呼んでも安全。</summary>
+    </member>
+    <member name="M:UiaTrigger.UiaElement.ToString">
+      <summary>
+        <see cref="P:UiaTrigger.UiaElement.Label" /> を返す。診断向けなので安定形のほうである。
+      </summary>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.#ctor(UiaTrigger.UiaSessionOptions)">
+      <summary>セッションを作り、そのオートメーションスレッドを開始する。</summary>
+      <param name="options">設定。null なら既定値。</param>
+      <exception cref="T:System.ArgumentOutOfRangeException">
+        <paramref name="options" /> の制限時間または上限値が範囲外である。
+      </exception>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.AreSameAsync(UiaTrigger.UiaElement,UiaTrigger.UiaElement)">
+      <summary>2 つのハンドルが同じ要素を指しているか。</summary>
+      <remarks>
+        UI Automation は同じ要素を求められるたびに別のオブジェクトを返すので参照の等値には意味がなく、
+        ここではランタイム ID を比較する。どちらかが既に消えている場合は false。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.BuildDefinitionAsync(UiaTrigger.UiaElement,UiaTrigger.Models.TreeViewMode)">
+      <summary>
+        要素からトリガー定義を記録する。記録するのは「そのウィンドウの見つけ方」と
+        「そのウィンドウの中での要素の見つけ方」である。
+      </summary>
+      <param name="element">記録する要素。</param>
+      <param name="view">
+        経路を記録するツリービュー。解決時にも同じビューが使われるので、
+        あるビューで記録した経路を別のビューで解決することはできない。
+      </param>
+      <returns>定義。記録中に要素が消えた場合は null。</returns>
+      <remarks>
+        返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
+        句は空である。監視にかける前にどちらも埋めること。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.BuildDefinitionFromCursorAsync(UiaTrigger.Models.TreeViewMode)">
+      <summary>マウスカーソル下の要素からトリガー定義を記録する。</summary>
+      <exception cref="T:System.InvalidOperationException">カーソル下に要素が見つからなかった。</exception>
+      <remarks>
+        返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
+        句は空である。監視にかける前にどちらも埋めること。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.BuildDefinitionFromPointAsync(System.Int32,System.Int32,UiaTrigger.Models.TreeViewMode)">
+      <summary>物理スクリーン座標にある要素からトリガー定義を記録する。</summary>
+      <exception cref="T:System.InvalidOperationException">その座標に要素が見つからなかった。</exception>
+      <remarks>
+        返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
+        句は空である。監視にかける前にどちらも埋めること。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)">
+      <summary>このセッションのオートメーションスレッドと UIA オブジェクトを共有するモニターを作る。</summary>
+      <param name="options">
+        モニターの設定。null なら既定値。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session" /> は
+        無視される — このセッションの設定が使われる。
+      </param>
+      <remarks>
+        ホストが要素の調査も行うなら <c>new TriggerMonitor(...)</c> よりこちらを使うこと。
+        単独のモニターは 2 本目のオートメーションスレッドと 2 組目の UIA オブジェクトを作る。
+        モニターを破棄してもこのセッションは破棄されないが、モニターが動いている間に
+        このセッションを破棄するとそのモニターは動かなくなる — 先にモニターを破棄すること。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.DisposeAsync">
+      <summary>オートメーションスレッドを停止し、セッションの UIA オブジェクトを解放する。</summary>
+      <remarks>
+        このセッションから作ったモニターを先に破棄すること。モニターは UI Automation の処理を
+        このセッションのスレッド上で行っており、スレッドが無くなると解決も購読解除もできなくなる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.ElementFromCursorAsync">
+      <summary>マウスカーソル下の要素。無ければ null。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" /> が有効なとき、
+        呼び出し元プロセスの要素に対しては null を返す。UI Automation 自身も、
+        一部の座標に対して失敗ではなく「要素なし」を返すので、null は正常な答えである。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.ElementFromPointAsync(System.Int32,System.Int32)">
+      <summary>物理スクリーン座標にある要素。無ければ null。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" /> が有効なとき、
+        呼び出し元プロセスの要素に対しては null を返す。UI Automation 自身も、
+        一部の座標に対して失敗ではなく「要素なし」を返すので、null は正常な答えである。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.GetAncestorChainAsync(UiaTrigger.UiaElement,UiaTrigger.Models.TreeViewMode,System.Boolean)">
+      <summary>要素のトップレベルウィンドウから要素自身までの鎖。</summary>
+      <param name="element">起点となる要素。</param>
+      <param name="view">辿るツリービュー。</param>
+      <param name="normalize">
+        要素を <paramref name="view" /> に属する最も近い祖先へ丸めるかどうか。
+        同じ祖先に丸められてしまう要素どうしを区別する必要があるとき — ヒットテストで得た
+        重なり合う要素などのとき — は false にする。
+      </param>
+      <returns>
+        先頭がトップレベルウィンドウ、末尾が要素となる鎖。辿れなかった場合は空。
+      </returns>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.GetChildrenAsync(UiaTrigger.UiaElement,UiaTrigger.Models.TreeViewMode,System.Nullable{System.Int32})">
+      <summary>指定したツリービューでの子要素。クロスプロセス呼び出し 1 回で読む。</summary>
+      <param name="parent">子を読み取る対象の要素。</param>
+      <param name="view">列挙するツリービュー。</param>
+      <param name="max">
+        返す最大件数。null なら <see cref="P:UiaTrigger.UiaSessionOptions.MaxChildren" />。
+      </param>
+      <returns>子要素。要素が消えている場合や子が無い場合は空のリスト。</returns>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.GetOverlapStackAsync(System.Int32,System.Int32)">
+      <summary>物理スクリーン座標を覆っているすべての要素を、下にあるものから順に返す。</summary>
+      <remarks>
+        <para>
+          ウィンドウとプロセスをまたぐ。その座標を含む可視のトップレベルウィンドウごとに、
+          ウィンドウを先頭・最も深い要素を末尾としたヒット鎖を連結する。
+          <see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" /> が有効なときは
+          呼び出し元プロセスのウィンドウを飛ばす。
+        </para>
+        <para>
+          最前面のウィンドウには UI Automation 自身のヒットテストを使う (これが正である)。
+          その後ろのウィンドウは子の境界矩形による近似のヒットテストで辿る。
+          UI Automation は一番上にあるものしかヒットテストしないためである。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.GetProcessImagePath(System.Int32)">
+      <summary>プロセスの実行ファイルのフルパス。読めない場合は null。</summary>
+      <remarks>
+        null になるのは、対象プロセスがこちらより高い整合性レベルで動いている — つまり
+        昇格したアプリケーションである — 場合がほとんどである。そのウィンドウも同様に
+        調べられないため、これがトリガーの解決に失敗する最も多い原因になる。
+        <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.ResolutionChanged" /> を参照。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.GetRootAsync">
+      <summary>デスクトップのルート要素。</summary>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.GetSupportsTimeoutsAsync">
+      <summary>設定した呼び出し制限時間が実際に効いているか。</summary>
+      <remarks>
+        <c>IUIAutomation2</c> の無い環境 (Windows 8 より前) では false になり、
+        UI Automation 自身の既定である 20 秒が適用される — 応答しないアプリケーションが
+        1 つあるだけでセッション全体が止まりうる。まだ接続していなければ、
+        この呼び出しが UI Automation への接続を行う。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.IndexOfAsync(System.Collections.Generic.IReadOnlyList{UiaTrigger.UiaElement},UiaTrigger.UiaElement)">
+      <summary>
+        <paramref name="elements" /> の中で <paramref name="target" /> が何番目かを返す。無ければ -1。
+      </summary>
+      <remarks>
+        <see cref="M:UiaTrigger.UiaSession.AreSameAsync(UiaTrigger.UiaElement,UiaTrigger.UiaElement)" /> をループで呼ぶよりこちらを使うこと。
+        比較全体がオートメーションスレッドへの 1 回の往復で済み、候補ごとに 1 回にはならない。
+        列挙し直した子のリストを現在の選択要素と突き合わせる、という使い方が典型で、
+        そのリストは長くなりうる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.UiaSession.ReadSnapshotAsync(UiaTrigger.UiaElement)">
+      <summary>要素の監視対象プロパティ一式を、クロスプロセス呼び出し 1 回で読む。</summary>
+      <returns>スナップショット。要素が消えている場合は null。</returns>
+      <remarks>
+        パスワード欄の値は伏せられる。<see cref="F:UiaTrigger.Models.ElementPropertySnapshot.RedactedMarker" /> を参照。
+      </remarks>
+    </member>
+
+    <!-- ================= プロパティ ================= -->
+    <member name="P:UiaTrigger.Models.ComparisonString.HasValue">
+      <summary>プロパティを読み取れなかったとき false。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ComparisonString.None">
+      <summary>「値なし」。プロパティをまったく読み取れなかったときに使う。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ComparisonString.Value">
+      <summary>文字列。<see cref="P:UiaTrigger.Models.ComparisonString.HasValue" /> が false のときは空文字列。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementLocator.Search">
+      <summary>対象を直接探す方式。記録できなかった場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementLocator.Steps">
+      <summary>
+        トップレベルウィンドウの子から対象までの各段。空のリストは
+        「対象がトップレベルウィンドウそのもの」を意味する。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementLocator.View">
+      <summary>経路を記録したツリービュー。解決も同じビューで行わなければならない。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPathStep.AutomationId">
+      <summary>この段の要素の AutomationId。持っていなかった場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPathStep.ClassName">
+      <summary>この段の要素のクラス名。Win32 コントロールでは非常に安定している。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPathStep.ControlType">
+      <summary>UI Automation のコントロール型 ID (例: 50000 = Button)。0 は未記録。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPathStep.Name">
+      <summary>この段の要素の名前。持っていなかった場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPathStep.SiblingIndex">
+      <summary>
+        記録時のビューにおける兄弟の中での 0 始まりの位置。判定できなかった場合は
+        <see cref="F:UiaTrigger.Models.ElementPathStep.UnknownSiblingIndex" />。
+      </summary>
+      <remarks>
+        同点の候補どうしのタイブレークにしか使わない。候補を除外することも、スコアに加わることもない。
+        判定できない位置を黙って 0 に落とすと以後の解決精度が静かに下がるため、
+        <see cref="F:UiaTrigger.Models.ElementPathStep.UnknownSiblingIndex" /> として明示的に記録する。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.AcceleratorKey">
+      <summary>要素のアクセラレーターキー。持っていない場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.AccessKey">
+      <summary>要素のアクセスキー。持っていない場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.AutomationId">
+      <summary>要素の AutomationId。持っていない場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.BoundingRectangle">
+      <summary>物理スクリーン座標での境界矩形。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.ClassName">
+      <summary>要素のクラス名。持っていない場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.ControlType">
+      <summary>UI Automation のコントロール型 ID。読み取れなかった場合は 0。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.ControlTypeName">
+      <summary>
+        <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.ControlType" /> の安定名 (英語固定)。
+        <see cref="T:UiaTrigger.UiaControlTypeNames" /> を参照。
+      </summary>
+      <remarks>
+        識別用の形である。<see cref="F:UiaTrigger.Models.TriggerProperty.ControlType" /> に対する句が
+        比較するのはこの値なので、どのカルチャにも従ってはならない。
+        コントロール型をユーザーに見せるときは
+        <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.LocalizedControlType" /> を使うこと。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.HelpText">
+      <summary>要素のヘルプテキスト。持っていない場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.IsEnabled">
+      <summary>要素が入力を受け付けるか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.IsOffscreen">
+      <summary>要素がスクロールやクリップで画面外にあるか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.IsPassword">
+      <summary>
+        要素がパスワードを保持しているとき true。
+        <see cref="F:UiaTrigger.Models.ElementPropertySnapshot.RedactedMarker" /> を参照。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.LocalizedControlType">
+      <summary>UI Automation がローカライズしたコントロール型名 (例: <c>button</c>)。</summary>
+      <remarks>
+        表示用の形である。プロバイダーが<b>対象アプリケーションの</b>言語で返すため安定せず、
+        比較には一切関与しない。プロバイダーが何も返さない場合は
+        <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.ControlTypeName" /> で埋める。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.Name">
+      <summary>要素の名前。持っていない場合は null。パスワード欄では伏せられる。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.RangeValue">
+      <summary>RangeValuePattern.Value。非対応の場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.RangeValueMaximum">
+      <summary>RangeValuePattern.Maximum。非対応の場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.RangeValueMinimum">
+      <summary>RangeValuePattern.Minimum。非対応の場合は null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.SupportsRangeValuePattern">
+      <summary>要素が <c>RangeValuePattern</c> に対応しているか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.SupportsValuePattern">
+      <summary>要素が <c>ValuePattern</c> に対応しているか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementPropertySnapshot.Value">
+      <summary>ValuePattern.Value。非対応の場合は null。パスワード欄では伏せられる。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementRect.Height">
+      <summary>高さ (物理ピクセル)。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementRect.Width">
+      <summary>幅 (物理ピクセル)。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.ElementSearch.AutomationId">
+      <summary>探索する AutomationId。序数比較で照合する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.CustomPropertyId">
+      <summary>
+        UI Automation のプロパティ ID。<see cref="P:UiaTrigger.Models.PropertyClause.Property" /> が
+        <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> のときに使う。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.DisplayName">
+      <summary>この句に付ける、人間が読むためのラベル。照合には使わない。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.High">
+      <summary>
+        <see cref="F:UiaTrigger.Models.ComparisonOp.Between" /> /
+        <see cref="F:UiaTrigger.Models.ComparisonOp.NotBetween" /> の上限。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Locator">
+      <summary>
+        この句が読む要素を、そのウィンドウの中でどう見つけるか。null なら
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Locator" /> を使う。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Low">
+      <summary>
+        <see cref="F:UiaTrigger.Models.ComparisonOp.Between" /> /
+        <see cref="F:UiaTrigger.Models.ComparisonOp.NotBetween" /> の下限。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Name">
+      <summary>
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> からこの句を指すときの名前。
+        null なら位置から決まる — 1 つめの句が <c>c1</c>、2 つめが <c>c2</c>、以下同様。
+      </summary>
+      <remarks>
+        名前が任意なのは、句を <see cref="P:UiaTrigger.Models.TriggerDefinition.Combine" /> で
+        まとめるトリガーが句を指すことはないためである。式が指すようになったら名前を付けること —
+        位置由来の名前は、句を並べ替えても削っても構文としては通ってしまい、黙って別の意味になる。
+        名前ならそうはならない。1 つのトリガーの中で一意であること。空白と
+        <c>( ) ! &amp; |</c> は名前に使えない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Op">
+      <summary>そのプロパティの値に対して行う比較。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Property">
+      <summary>要素から読み取るプロパティ。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Text">
+      <summary>
+        <see cref="F:UiaTrigger.Models.ComparisonOp.Equals" /> /
+        <see cref="F:UiaTrigger.Models.ComparisonOp.NotEquals" /> と正規表現演算子の被演算子。
+        常に invariant カルチャで解釈される。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Tolerance">
+      <summary>数値比較で「等しい」とみなす帯の半幅。既定は 0 (厳密一致)。</summary>
+      <remarks>
+        <c>RangeValuePattern</c> が返す double はちょうどの値に乗ることがまずないので、
+        厳密な <see cref="F:UiaTrigger.Models.ComparisonOp.Equals" /> は実用上まず成立しない。
+        許容差は等しいとみなす領域を広げ、それに伴って
+        <see cref="F:UiaTrigger.Models.ComparisonOp.LessOrEqual" /> /
+        <see cref="F:UiaTrigger.Models.ComparisonOp.GreaterOrEqual" /> と
+        <see cref="F:UiaTrigger.Models.ComparisonOp.Between" /> の境界も緩め、
+        逆に厳密な大小比較は同じ幅だけ締める。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Value">
+      <summary>大小比較演算子の被演算子。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Watch">
+      <summary>この句のプロパティの変化がトリガーを発火させうるか。既定は true。</summary>
+      <remarks>
+        <para>
+          監視する句は購読され、その変化が
+          <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが報告するものになる。
+          監視しない句は条件を絞るだけで、購読されず、その句だけが変化しても何も上がらない。
+          「これが変わったら鳴らす」と「ほかが変わったとき、これが成立していれば鳴らす」の違いである。
+        </para>
+        <para>
+          要素を監視せずに要求したいときに false にする。購読は
+          <see cref="P:UiaTrigger.Models.PropertyClause.Property" /> から作られ
+          <see cref="P:UiaTrigger.Models.PropertyClause.Op" /> は見ないので、「この要素が存在する」を
+          <see cref="F:UiaTrigger.Models.ComparisonOp.Always" /> の句で書いても、
+          これを false にするまでは、その句が名指ししたプロパティが変わるたびに発火する。
+        </para>
+        <para>
+          監視しない句が読み直されるのは、ほかの何かがトリガーを再評価したときだけである。
+          値は発火した瞬間のものではなく、その要素について最後に取ったスナップショットのものになる。
+        </para>
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.PropertyClause.Window">
+      <summary>
+        この句が読む要素を含むウィンドウをどう見つけるか。null なら
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Window" /> を使う。
+      </summary>
+      <remarks>
+        これと <see cref="P:UiaTrigger.Models.PropertyClause.Locator" /> が、1 つのトリガーを
+        複数の要素、複数のウィンドウにまたがらせる。同じウィンドウと同じ経路を指す句は
+        解決も購読も 1 つを共有するので、両方 null のまま — つまり通常のケース — なら
+        単一要素のトリガーと同じ費用で済む。両方 null にすることは「ほかの句と同じ要素」を
+        ずれようのない形で述べることでもある。句ごとに経路を書き写すとそうはならない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerCompositionResult.Definition">
+      <summary>複合の定義。まとめられなかったときは null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerCompositionResult.Error">
+      <summary>まとめられない理由 (ローカライズ済み)。まとめられるときは null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerCompositionResult.IsValid">
+      <summary>トリガーをまとめられたか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.Clauses">
+      <summary>
+        要素のプロパティに対する条件。空のリストは「値に対する条件なし」を意味し、
+        <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> では不正である —
+        購読すべきものが決まらないためである。
+      </summary>
+      <remarks>
+        リストが入れ子にならないのは意図的で、句は単一の
+        <see cref="T:UiaTrigger.Models.ClauseCombinator" /> だけで結合する。
+        これによりモデルは、どのシリアライザーでも往復できる素の POCO のままでいられる。
+        入れ子が要る条件は <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> に
+        文字列として書く。リスト自体は平坦なままになる。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.Combine">
+      <summary>
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> が null のときに
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Clauses" /> をどう結合するか。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.Expression">
+      <summary>
+        句の名前に対するブール式。null なら
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Combine" /> ですべての句を結合する。
+      </summary>
+      <remarks>
+        <para>
+          演算子は <c>&amp;&amp;</c> / <c>||</c> / <c>!</c> で、括弧でまとめ、その順に強く結び付く。
+          対象は <see cref="P:UiaTrigger.Models.PropertyClause.Name" /> の名前である —
+          たとえば <c>(ready || idle) &amp;&amp; !busy</c>。
+          <see cref="P:UiaTrigger.Models.TriggerDefinition.Combine" /> だけでは表せない条件、
+          たとえば「かつ」と「または」が混ざるものを、これが表す。
+        </para>
+        <para>
+          オブジェクトの木ではなく文字列なのは意図的である。モデルは、どのシリアライザーでも
+          往復できる素の POCO のままでいられる — 再帰的な形にするとそれを失う。
+          解析はトリガーをモニターに追加するときの 1 回だけで、どの句も式から参照されていなければならない。
+          参照されない句も解決され購読されるのに、結果には一切効かないためである。
+        </para>
+        <para>
+          評価は短絡する。演算子の評価されない側にある句は読まれない。これが観測できるのは
+          <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> だけで、こちらは評価のたびに
+          クロスプロセス呼び出しが 1 回かかる。
+        </para>
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.DisplayName">
+      <summary>人間が読むためのラベル。照合には使わない。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.Id">
+      <summary>
+        このトリガーが上げるすべてのイベントに載る識別子。1 つのモニターの中で一意であること。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.Locator">
+      <summary>
+        そのウィンドウの中で対象要素をどう見つけるか。自前の
+        <see cref="P:UiaTrigger.Models.PropertyClause.Locator" /> を持たない句が使う。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.MinInterval">
+      <summary>このトリガーが 2 回発火する間隔の下限。これより早く来た発火は捨てられる。</summary>
+      <remarks>
+        バースト的に変化するプロパティがある — <c>BoundingRectangle</c> はウィンドウを
+        ドラッグしている間ずっと発火し続ける — ので、制限が無いとそのすべてがホストへのイベントになる。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.PollInterval">
+      <summary>
+        UI Automation が変化を伝えてくるのを待つ代わりに、このトリガーの要素を読み直す間隔。
+        既定の null または <see cref="F:System.TimeSpan.Zero" /> はイベントだけを待つ。
+      </summary>
+      <remarks>
+        <para>
+          監視はイベント駆動である。つまり<b>対象アプリが UI Automation のイベントを上げなければ
+          トリガーは鳴らない</b>。画面上では変化しているのに <c>PropertyChanged</c> を
+          一度も上げないアプリが実在し、それをこちらから上げさせる手段は無い。
+          これがその逃げ道である — 間隔を指定すると、解決済みの要素がその周期で読み直され、
+          誰も知らせてくれなくても変化に気づける。
+        </para>
+        <para>
+          <b>これは利用者が頼んだ費用であって、ライブラリが自分の判断で負うものではない。</b>
+          1 周につき、このトリガーが解決している要素の数だけクロスプロセス読みが走り、
+          しかもセッションを共有しているすべてと同じオートメーションスレッドの上で走る。
+          全部ではなく必要なトリガーにだけ指定し、変化に間に合う範囲でいちばん長い間隔を選び、
+          <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PollCount" /> と
+          <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PolledReadCount" /> で
+          実際の費用を見ること。
+        </para>
+        <para>
+          ポーリングが変えるのは<b>いつ発火するか</b>ではなく<b>いつ変化に気づくか</b>である。
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> は今までどおり立ち上がりだけで鳴り、
+          <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> は監視値が実際に違ったときだけ鳴る。
+          何も変わっていない周は何も起こさない。例外は
+          <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> で、
+          これはスナップショットに含まれないため評価ごとにさらに 1 往復を要する。
+        </para>
+        <para>
+          読み直すのは解決済みの要素だけである。要素を最初に見つけるところはイベント駆動のままなので、
+          影響を与えようのない <see cref="F:UiaTrigger.Models.TriggerOn.ElementAppeared" /> と
+          <see cref="F:UiaTrigger.Models.TriggerOn.ElementRemoved" /> では拒否される。
+        </para>
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.On">
+      <summary>このトリガーを評価するライフサイクル上の契機。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.Window">
+      <summary>
+        対象要素を含むトップレベルウィンドウをどう見つけるか。自前の
+        <see cref="P:UiaTrigger.Models.PropertyClause.Window" /> を持たない句が使う。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.High">
+      <summary>上限。範囲演算子で使う。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Id">
+      <summary>トリガーの識別子。必須。前後の空白は除去してから使う。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Low">
+      <summary>下限。範囲演算子で使う。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.MinIntervalSeconds">
+      <summary>発火間隔の下限 (秒)。null または 0 以下なら制限しない。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.On">
+      <summary>トリガーが発火するライフサイクル上の契機。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Op">
+      <summary>行う比較。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Property">
+      <summary>条件の対象となるプロパティ。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Text">
+      <summary>文字列の被演算子。等値演算子と正規表現演算子で使う。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Tolerance">
+      <summary>数値比較で等しいとみなす帯の半幅。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.Value">
+      <summary>数値の被演算子。大小比較演算子で使う。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraftResult.Clause">
+      <summary>
+        定義に追加する句。下書きが「条件なし」を求めているときは null になり、
+        要素の出現・消滅だけを見るトリガーではそれが正しい。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraftResult.Error">
+      <summary>下書きが使えない理由 (ローカライズ済み)。使えるときは null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraftResult.IsValid">
+      <summary>下書きを定義に変換できるか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraftResult.MinInterval">
+      <summary>適用するレート制限。制限しないときは null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.ClassName">
+      <summary>Win32 のウィンドウクラス名。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.ClassNameMatch">
+      <summary>記録した属性が探索をどれだけ強く制約するか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.ProcessName">
+      <summary>実行ファイル名 (例: <c>notepad.exe</c>)。大文字小文字を区別せずに比較する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.ProcessNameMatch">
+      <summary>記録した属性が探索をどれだけ強く制約するか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.ProcessPath">
+      <summary>実行ファイルのフルパス。大文字小文字を区別せずに比較する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.ProcessPathMatch">
+      <summary>記録した属性が探索をどれだけ強く制約するか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.WindowName">
+      <summary>ウィンドウタイトル。表示のために記録するだけで、強さを上げない限り照合では無視する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.WindowIdentity.WindowNameMatch">
+      <summary>記録した属性が探索をどれだけ強く制約するか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue">
+      <summary>
+        最初の条件が対象とするプロパティの、このイベント時点での値。
+        <see cref="F:UiaTrigger.Models.TriggerOn.ElementRemoved" /> と、条件を持たないトリガーでは値なし。
+      </summary>
+      <remarks>
+        「変化後の値」ではなく「このイベント時点での値」である: 複数の要素にまたがるトリガーでは、
+        ここで読む値が<b>変化した値とは限らない</b>。クラスの remarks を参照。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.OldValue">
+      <summary>
+        最初の条件が対象とするプロパティの、変化前の値 (比較形)。
+        このイベントがその値の変化そのものでない限り、値なしである。
+      </summary>
+      <remarks>
+        したがって値が入らないのは次の場合である:
+        <see cref="F:UiaTrigger.Models.TriggerOn.ElementAppeared" /> (変化前の値が存在しない)、
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> (条件全体が成立したことで鳴るので、
+        1 つの値の変化ではない)、そして
+        <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
+        <b>最初以外の条件</b>の変化で鳴ったとき (その条件が変わったことは、
+        最初の条件が何だったかを何も語らない)。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.On">
+      <summary>このイベントを生んだライフサイクル上の契機。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Properties">
+      <summary>
+        <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue" /> の出どころとなった要素の、
+        観測できるプロパティ<b>すべて</b>を 1 往復で読んだもの。
+        <see cref="F:UiaTrigger.Models.TriggerOn.ElementRemoved" /> の場合は、
+        その要素が存在していた間に取った最後のスナップショットである。
+        パスワード欄の値は伏せられる — <see cref="F:UiaTrigger.Models.ElementPropertySnapshot.RedactedMarker" /> を参照。
+      </summary>
+      <remarks>
+        <b>監視対象のものだけではなく、観測できるプロパティすべてである。</b>1 往復で全部読めるので、
+        条件が使うプロパティだけに絞っても費用は同じで、ホストに渡る情報が減るだけである。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Timestamp">
+      <summary>条件を検出した時刻 (UTC)。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.UiaSessionOptions.TimeProvider" /> から取得し、常に UTC である。
+        ローカル時計を読むライブラリは、マシンをまたいで比較できない時刻を作り、
+        ホストが注入した時計も無視することになる。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.TriggerId">
+      <summary>発火したトリガーの <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" />。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitor.Session">
+      <summary>このモニターが処理を行うオートメーションスレッドを持つセッション。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.IsRunning">
+      <summary>現在監視を開始しているか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.OrphanedTriggerCount">
+      <summary>構造変化を購読しているべきなのに、1 件も購読できていないトリガーの数。</summary>
+      <remarks>
+        <para>
+          0 でないなら、対象アプリを購読できなかったということである。多くは、モニターが
+          購読しようとした時点でそのアプリが応答しなかった場合である。そのトリガーは要素の
+          出現を見られないので、購読が戻るまで間隔を広げながら再試行する。
+          <b>モニターが自分の判断でタイマーを回すのはこれだけ</b>であり、購読が戻れば止まる。
+          それ以外にタイマーで回っているものがあるなら、それは
+          <see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> で頼まれたものであり、
+          <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PollCount" /> に出る。
+        </para>
+        <para>
+          0 が正常であり、まだ起動していないアプリを待っている間も 0 である。
+          ウィンドウが無ければ購読する先も無く、出現は <c>WindowOpened</c> が知らせる。
+        </para>
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.ResolvedTriggerCount">
+      <summary>そのうち、読む要素がすべて解決できているトリガーの数。</summary>
+      <remarks>
+        句が複数の要素を名指ししているトリガーは、そのすべてが解決できてはじめて数に入る。
+        したがってこれは
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.TriggerCount" /> に対する比であって、
+        要素に対する比ではない。途中まで解決できているトリガーがどこまで進んだかは
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.ResolvedElementCount" /> と
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.ElementSlotCount" /> を合わせて読む。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.StructureEventCount">
+      <summary>受け取った構造変化イベントの数。</summary>
+      <remarks>
+        モニターの購読範囲の広さを直接測る値である。すべてのトリガーが解決済みになれば、
+        対象アプリケーションの無関係な部分が変化している間もこの値はほぼ増えないはずで、
+        増え続けるならどれかの購読がウィンドウ全体を対象にしている。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.StructureIsPathScoped">
+      <summary>
+        構造変化の購読がすべて、ウィンドウ全体ではなく解決済み要素の経路を対象にしているか。
+      </summary>
+      <remarks>
+        実際に購読を持っているトリガーだけを数えるので、購読が 1 件も無いトリガーはこの値を
+        false にしない。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.OrphanedTriggerCount" />
+        と併せて読むこと。経路購読でありながら孤立が 0 でないなら、
+        どれかのトリガーが何も見ていない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.StructureSubscriptionCount">
+      <summary>現在、構造変化を購読している要素の数。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.ElementSlotCount">
+      <summary>モニターが解決する相異なる要素の数 (全トリガーの合計)。</summary>
+      <remarks>
+        同じウィンドウと同じ経路を指す句は 1 つの要素を共有するので、これは句ではなく対象を数える。
+        句が自前の要素を名指ししはじめるまでは
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.TriggerCount" /> に等しい。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.ResolvedElementCount">
+      <summary>そのうち、いま解決できている要素の数。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.WatchedPropertyCount">
+      <summary>モニターが購読している要素プロパティの数 (全トリガーの合計)。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.Models.PropertyClause.Watch" /> が true の句から導くので、
+        トリガーを追加した時点で決まり、要素が現れるのを待たない。
+        条件を絞るだけの句と、発火させうる句を見分けるのに使う —
+        要素を監視せずに要求するつもりの句が、この数を増やしていてはいけない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.SuppressedFireCount">
+      <summary>
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.MinInterval" /> のレート制限で捨てられた発火の数。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PollCount">
+      <summary>
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> を指定したトリガーのために
+        回したポーリングの周回数。
+      </summary>
+      <remarks>
+        トリガーが頼まないかぎり 0 のままである。これが
+        「ライブラリは自分の判断でポーリングしない」という規則の観測できる形になっている。
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PolledReadCount" /> と
+        合わせて読むこと — 1 周はそのトリガーが解決している要素の数だけ読むので、
+        周の数だけでは費用を言えない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.PolledReadCount">
+      <summary>ポーリングが実行したクロスプロセス読みの回数。</summary>
+      <remarks>
+        1 周あたり解決済み要素 1 つにつき 1 回なので、トリガーの数ではなく
+        <b>ポーリングされるトリガーがまたぐ要素の数</b>に比例して増える。間隔を決めるときに見る数字はこれである。
+        <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> の句は評価ごとにさらに 1 回読むが、
+        それはここに数えていないので、その場合は下限として読むこと。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.SweepCount">
+      <summary>これまでに実行した解決パスの回数。パスはデバウンスされるのでイベント数ではない。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorDiagnostics.TriggerCount">
+      <summary>監視しているトリガーの数。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Debounce">
+      <summary>構造変化をまとめてから、トリガーの解決をやり直すまでの時間。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorOptions.FireOnInitialMatch">
+      <summary>監視開始時点で既に成立している条件について発火するかどうか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorOptions.RegexTimeout">
+      <summary>正規表現の句を評価するときの制限時間。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Resolver">
+      <summary>要素探索の調整値。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session">
+      <summary>
+        単独のモニターが自分のために作る <see cref="T:UiaTrigger.UiaSession" /> の設定。
+      </summary>
+      <remarks>
+        UI Automation の呼び出し制限時間・時計・ログはここにある。
+        <see cref="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)" /> では無視され、
+        そのモニターが属するセッションの設定が使われる — 1 セッションにつき 1 組である。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerResolutionChangedEventArgs.IsResolved">
+      <summary>現時点で対象要素が解決できているか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerResolutionChangedEventArgs.Message">
+      <summary>状態が変わった理由の説明 (ローカライズ済み)。表示と診断のためのもの。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerResolutionChangedEventArgs.Timestamp">
+      <summary>状態の変化を検出した時刻 (UTC)。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.UiaSessionOptions.TimeProvider" /> から取得し、常に UTC である。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerResolutionChangedEventArgs.TriggerId">
+      <summary>対象となるトリガーの <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" />。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.BeamWidth">
+      <summary>各段で次の段へ生き残る候補の数。</summary>
+      <remarks>
+        探索が行き止まりから後退できる理由がこれである (貪欲な探索はできない)。
+        代価は次の段で生き残りの数だけクロスプロセス往復が発生することで、
+        最悪の場合、段あたり 1 往復ではなく <c>BeamWidth</c> 往復になる。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxChildrenPerLevel">
+      <summary>1 つの段で調べる子要素の最大数。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxSearchDepth">
+      <summary>
+        <see cref="P:UiaTrigger.Models.ElementLocator.Search" /> が対象を見つけ、
+        その祖先が必要になったときに遡る段数の上限。
+      </summary>
+      <remarks>
+        探索は要素しか返さないが、構造変化の購読が対象とするのはその祖先なので、
+        親方向へ遡り直す必要がある。上限があるのは、親の連なりが循環するプロバイダーに
+        当たった場合に無限ループしないようにするためである。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxWindowCandidates">
+      <summary>1 回の解決パスで試すウィンドウの最大数。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepAcceptScore">
+      <summary>候補として検討されるために最低限必要なスコア。</summary>
+      <remarks>
+        0 は「記録した属性が差し引きでなおこの要素を指していること」という意味である。
+        品質の下限ではない: 何も記録しなかった段は 0 点になって全兄弟が候補に残り、
+        それが正しい — あとは兄弟の位置と経路の残りが決める。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepAutomationIdMismatchPenalty">
+      <summary>候補が空でない別の AutomationId を持っているときの減点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepAutomationIdMissingPenalty">
+      <summary>AutomationId を記録したのに候補が持っていないときの減点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepAutomationIdScore">
+      <summary>AutomationId が完全に一致したときの加点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepClassNameMismatchPenalty">
+      <summary>候補が空でない別のクラス名を持っているときの減点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepClassNameMissingPenalty">
+      <summary>クラス名を記録したのに候補が持っていないときの減点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepClassNameScore">
+      <summary>クラス名が完全に一致したときの加点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepControlTypeMismatchPenalty">
+      <summary>候補のコントロール型が記録したものと異なるときの減点。</summary>
+      <remarks>
+        除外ではなく減点にしてあるのは、状態によってコントロール型が変わる要素があるためである
+        (編集中は Text が Edit になる、など)。他に手掛かりの無い段なら不採用になる程度には重く、
+        AutomationId の一致が上回る程度には軽い、という重みにしてある。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepControlTypeScore">
+      <summary>候補のコントロール型が記録したものと一致したときの加点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepNameExactScore">
+      <summary>名前が完全に一致したときの加点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepNameMismatchPenalty">
+      <summary>無関係な名前に対する減点。名前は最も変わりやすい属性なので小さくしてある。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.StepNamePartialScore">
+      <summary>2 つの名前の一方が他方を含んでいるときの加点。</summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.WindowClassNameScore">
+      <summary>
+        <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> のクラス名が一致したときの順位加点。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.WindowNameExactScore">
+      <summary>
+        <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> のウィンドウタイトルが完全に一致したときの順位加点。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.WindowNamePartialScore">
+      <summary>
+        <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> のウィンドウタイトルが部分的に一致したときの順位加点。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.WindowProcessNameScore">
+      <summary>
+        <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> のプロセス名が一致したときの順位加点。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.WindowProcessPathScore">
+      <summary>
+        <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> の実行ファイルのパスが一致したときの順位加点。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Serialization.TriggerFile.Triggers">
+      <summary>保存されているトリガー。書き込まれた順に並ぶ。</summary>
+    </member>
+    <member name="P:UiaTrigger.Serialization.TriggerFile.Version">
+      <summary>形式の版数。古い読み手が扱えない形でモデルが変わったときに上げる。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.AutomationId">
+      <summary>AutomationId。持っていない場合は空文字列。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.BoundingRectangle">
+      <summary>物理スクリーン座標での境界。</summary>
+      <remarks>
+        スケールされていない物理座標である。モニターごとの DPI 認識でないプロセスは、
+        これを自分のウィンドウ座標と比較できない。<see cref="T:UiaTrigger.DpiAwareness" /> を参照。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.ClassName">
+      <summary>クラス名。持っていない場合は空文字列。Win32 コントロールでは非常に安定している。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.ControlType">
+      <summary>UI Automation のコントロール型 ID。読み取れなかった場合は 0。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.ControlTypeName">
+      <summary>
+        <see cref="P:UiaTrigger.UiaElement.ControlType" /> の安定名 (英語固定。例: <c>Button</c>)。
+      </summary>
+      <remarks>
+        識別用の形である。カルチャで変わることはなく、永続化されるのもこちらである。
+        コントロール型をユーザーに見せるときは
+        <see cref="P:UiaTrigger.UiaElement.LocalizedControlType" /> を使うこと。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.DisplayLabel">
+      <summary>
+        <see cref="P:UiaTrigger.UiaElement.Label" /> と同じ形のラベルだが、
+        コントロール型を対象アプリケーションの呼び方で表す。UI 表示用。
+      </summary>
+      <remarks>
+        <see cref="P:UiaTrigger.UiaElement.Label" /> と互換ではない。こちらは対象アプリケーションの
+        言語で変わるので、保存済みの文字列と比較したりファイルに書いたりしてはならない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.IsDisposed">
+      <summary>
+        <see cref="M:UiaTrigger.UiaElement.Dispose" /> が実行された後は true。以後このハンドルは使えない。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.IsOffscreen">
+      <summary>ハンドルを作った時点で要素が画面外にあったか。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.Label">
+      <summary>要素の安定した属性から組み立てたラベル。ツリー表示と診断のためのもの。</summary>
+      <remarks>
+        UI Automation のローカライズされたコントロール型ではなく
+        <see cref="P:UiaTrigger.UiaElement.ControlTypeName" /> から組み立てているのは意図的である。
+        この文字列は実行をまたいで要素を識別するためのものであって、見せるためのものではない。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.LocalizedControlType">
+      <summary>UI Automation がローカライズしたコントロール型名 (例: <c>button</c>)。</summary>
+      <remarks>
+        表示用の形であって、識別子では決してない。プロバイダーが返すのは呼び出し側ではなく
+        <b>対象アプリケーションの</b>言語であり、対象を別の言語で起動し直せば同じコントロールが
+        別の文字列を報告する。プロバイダーが何も返さない場合は
+        <see cref="P:UiaTrigger.UiaElement.ControlTypeName" /> で埋める。これを永続化しないこと —
+        <see cref="P:UiaTrigger.UiaElement.ControlTypeName" /> を参照。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.Name">
+      <summary>ハンドルを作った時点での名前。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.NativeWindowHandle">
+      <summary>要素のウィンドウハンドル。それ自体がウィンドウでない場合は 0。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaElement.ProcessId">
+      <summary>要素を所有するプロセスの ID。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaSession.CoordinateProblem">
+      <summary>
+        このプロセスでスクリーン座標を信用できない理由。信用できる場合は null。
+      </summary>
+      <remarks>
+        セッションを作った時点で、呼び出し元スレッドの DPI 認識から 1 度だけ評価する
+        (ホストが意図的に変えていない限り、それはプロセスの既定値である)。
+        ピッカーは、間違った要素を指す定義を記録する前にこれをユーザーへ見せること。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.ConnectionTimeout">
+      <summary>UI Automation がプロバイダーへの接続を待つ最大時間。</summary>
+      <remarks>
+        セッション内の呼び出しはすべて 1 本のスレッド上で走るので、この上限が無いと
+        応答しないアプリケーションが 1 つあるだけでセッション全体が無期限に塞がる。
+        Windows 8 以降 (<c>IUIAutomation2</c>) が必要で、それより古い環境では値が無視され、
+        <see cref="M:UiaTrigger.UiaSession.GetSupportsTimeoutsAsync" /> が false を返す。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.Logger">
+      <summary>診断メッセージの出力先。null なら破棄する。</summary>
+      <remarks>
+        メッセージは現在のカルチャに関わらず英語で書かれる。開発者どうしで検索・共有するためのもので、
+        エンドユーザーに見せるものではない。トリガーが解決できない理由を調べるにはここを見るのが
+        本来の道である — UI Automation の失敗はたいてい HRESULT として返り、
+        ライブラリはそれを「要素が消えた」として扱うしかないためである。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.MaxChildren">
+      <summary>
+        1 回の <see cref="M:UiaTrigger.UiaSession.GetChildrenAsync(UiaTrigger.UiaElement,UiaTrigger.Models.TreeViewMode,System.Nullable{System.Int32})" />
+        が返す子要素の最大数。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.MaxDepth">
+      <summary>祖先の鎖や重なりスタックを組み立てるときに遡る最大段数。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.MaxOverlapWindows">
+      <summary>
+        <see cref="M:UiaTrigger.UiaSession.GetOverlapStackAsync(System.Int32,System.Int32)" /> が対象とする
+        トップレベルウィンドウの最大数。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements">
+      <summary>座標による要素取得が、呼び出し元プロセス自身の UI を無視するかどうか。</summary>
+      <remarks>
+        既定で有効なのは、呼び出し元が通常ピッカーだからである。無効だと、
+        ピッカーの上にカーソルを乗せたときにピッカー自身が選択されてしまう。
+        自分のウィンドウを調べたいときは無効にすること。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.ThreadName">
+      <summary>セッションのオートメーションスレッドに付ける名前。デバッガーやプロファイラー向け。</summary>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.TimeProvider">
+      <summary>タイムスタンプ・レート制限・デバウンスのタイマーが使う時計。</summary>
+      <remarks>
+        <see cref="P:System.DateTimeOffset.Now" /> を読まずに注入させているのは、
+        時間に依存する振る舞いを待たずにテストできるようにするためと、
+        ホストが自分の時計を渡せるようにするためである。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.TransactionTimeout">
+      <summary>UI Automation が 1 つの要求に対してプロバイダーの応答を待つ最大時間。</summary>
+      <remarks>
+        セッション内の呼び出しはすべて 1 本のスレッド上で走るので、この上限が無いと
+        応答しないアプリケーションが 1 つあるだけでセッション全体が無期限に塞がる。
+        Windows 8 以降 (<c>IUIAutomation2</c>) が必要で、それより古い環境では値が無視され、
+        <see cref="M:UiaTrigger.UiaSession.GetSupportsTimeoutsAsync" /> が false を返す。
+      </remarks>
+    </member>
+
+    <!-- ================= 型 ================= -->
+    <member name="T:UiaTrigger.DpiAwareness">
+      <summary>ホストプロセスの DPI 認識。スクリーン座標が機能するかどうかを決める。</summary>
+      <remarks>
+        <para>
+          このライブラリが座標を扱う操作 — <see cref="M:UiaTrigger.UiaSession.ElementFromPointAsync(System.Int32,System.Int32)" />、
+          <see cref="M:UiaTrigger.UiaSession.ElementFromCursorAsync" />、座標からの定義の記録、
+          要素を囲むオーバーレイの描画 — はすべて<b>物理</b>スクリーン座標を使う。
+          モニターごとの DPI 認識でないプロセスに対して Windows は座標を仮想化するため、
+          スケールされたディスプレイではこれらの呼び出しが別の場所を指し、静かに間違った要素を返す。
+          例外は何も出ない。
+        </para>
+        <para>
+          対処するのはホストの責務である: アプリケーションマニフェストで
+          <c>dpiAwareness=PerMonitorV2</c> を宣言すること。
+          <see cref="M:UiaTrigger.DpiAwareness.TryEnablePerMonitorV2" /> はマニフェストを配れないホスト
+          (コンソールツール、テストハーネス) 向けであり、ウィンドウが 1 つも存在しないうちに呼ぶ必要がある。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.ClauseCombinator">
+      <summary>トリガーの句をどう結合するか。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.ComparisonOp">
+      <summary>1 つの <see cref="T:UiaTrigger.Models.PropertyClause" /> が行う比較。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.ComparisonString">
+      <summary>
+        比較用に整形されたプロパティ値。常に invariant カルチャで整形され、
+        常に <see cref="F:System.StringComparison.Ordinal" /> で比較される。
+      </summary>
+      <remarks>
+        条件評価が受け取るのはこの型の値だけである。表示用の文字列は素の
+        <see cref="T:System.String" /> で、現在の UI カルチャに合わせて整形されるため、
+        比較に紛れ込ませてはならない — この型は<b>その間違いをコンパイルさせない</b>ために存在する。
+        トリガー定義に書かれた文字列は約束として比較用であり、
+        <see cref="M:UiaTrigger.Models.ComparisonString.FromDefinition(System.String)" /> から入る。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.ElementLocator">
+      <summary>ウィンドウの中で対象要素をどう見つけるかを表す。</summary>
+      <remarks>
+        可能な場合は両方の方式を記録する。<see cref="P:UiaTrigger.Models.ElementLocator.Search" /> は
+        速くて頑健なので先に試し、探索がちょうど 1 つの要素を指さなくなったときの退避路として
+        <see cref="P:UiaTrigger.Models.ElementLocator.Steps" /> を残す。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.ElementPathStep">
+      <summary>トップレベルウィンドウから対象要素までの経路の 1 段。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.ElementPropertySnapshot">
+      <summary>要素の監視対象プロパティ一式を、1 回のクロスプロセス読み取りで取ったもの。</summary>
+      <remarks>
+        トリガー発火イベントに付き、ピッカーのプロパティ一覧でも使う。
+        要素が対応していないパターンのプロパティは null になる。
+        <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.IsPassword" /> が立っている場合、
+        機微なフィールドは <see cref="F:UiaTrigger.Models.ElementPropertySnapshot.RedactedMarker" /> に
+        置き換えてから渡されるので、この型を経由してホストのログへパスワードが流れることはない。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.ElementRect">
+      <summary>要素の境界矩形 (スクリーン座標)。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.ElementSearch">
+      <summary>経路を 1 段ずつ辿らずに、対象要素を直接見つける方式。</summary>
+      <remarks>
+        記録時に対象の AutomationId が<b>そのウィンドウの中で一意</b>だった場合にのみ記録される。
+        解決は段ごとの呼び出しではなく、ウィンドウの部分木に対する <c>FindAll</c> 1 回で済み、
+        対象より上で起きる変化の影響を受けない。一意性は解決時にも確かめ直す:
+        その AutomationId が曖昧になっていたり、何にも一致しなくなっていた場合は、
+        黙って <see cref="P:UiaTrigger.Models.ElementLocator.Steps" /> に切り替える。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.MatchStrength">
+      <summary>記録した属性が探索をどれだけ強く制約するか。</summary>
+      <remarks>
+        <see cref="F:UiaTrigger.Models.MatchStrength.Required" /> の属性は候補を絞り込み、
+        <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> の属性は順位付けにしか使わない。
+        全属性を 1 つのスコアに足し込んで合計に閾値を置く方式は採らない — その方式では属性が
+        1 つ変わっただけで (WinForms のクラス名の token、ウィンドウタイトル) 恒久的に解決不能になる。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.PropertyClause">
+      <summary>ある要素の 1 つのプロパティに対する 1 つの条件。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.TreeViewMode">
+      <summary>要素の経路を記録・解決するときに使う UI Automation のツリービュー。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerComposer">
+      <summary>録ったトリガーを 1 つの複合定義にまとめる。また、複合をほどいて元の形に戻す。</summary>
+      <remarks>
+        公開するのは <see cref="T:UiaTrigger.Models.TriggerDraftValidator" /> と同じ理由からである:
+        自前の「まとめる」UI を持つホストが、ライブラリの規則 — 条件の名前付け・「絞るだけ」の扱い・
+        式の検証・id の採番 — を写経せず、このライブラリ自身と同じ場所から得られるようにする。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerCompositionResult">
+      <summary>複数のトリガーを 1 つの複合定義にまとめた結果。</summary>
+      <param name="Error">まとめられない理由 (ローカライズ済み)。まとめられるときは null。</param>
+      <param name="Definition">複合の定義。<paramref name="Error" /> があるときは null。</param>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerDefinition">
+      <summary>1 つのトリガー。何を、どこで監視し、いつ発火するか。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerDraft">
+      <summary>
+        <see cref="T:UiaTrigger.Models.PropertyClause" /> を組み立てる前に、ピッカーが集める値。
+      </summary>
+      <remarks>
+        ユーザーから来たままの未検証の入力である。全フィールドが省略可能で、
+        組み合わせが意味を成さないこともある。
+        <see cref="M:UiaTrigger.Models.TriggerDraftValidator.Validate(UiaTrigger.Models.TriggerDraft,System.TimeSpan)" />
+        が句か理由のどちらかに変換する。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerDraftResult">
+      <summary><see cref="T:UiaTrigger.Models.TriggerDraft" /> を検証した結果。</summary>
+      <param name="Error">下書きが使えない理由 (ローカライズ済み)。使えるときは null。</param>
+      <param name="Clause">
+        定義に追加する句。下書きが「条件なし」を求めているときは null になり、
+        要素の出現・消滅だけを見るトリガーではそれが正しい。
+      </param>
+      <param name="MinInterval">適用するレート制限。制限しないときは null。</param>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerDraftValidator">
+      <summary>ピッカーが集めた入力を検証し、トリガー定義の部品へ変換する。</summary>
+      <remarks>
+        <para>
+          公開しているのは、第三者のピッカーがこのライブラリのピッカーと同じ規則を使えるようにするためである。
+          その中には微妙に間違えやすいもの — どの演算子がどの被演算子を要るのか、
+          ここで通ったパターンが監視側でもコンパイルできるか — が含まれる。
+        </para>
+        <para>
+          どの入力欄を<b>表示するか</b>も同じ述語 (<see cref="M:UiaTrigger.Models.TriggerDraftValidator.UsesText(UiaTrigger.Models.ComparisonOp)" /> など)
+          から決めることが、見た目以上に重要である。逆に「見えている欄から保存する値を決める」ピッカーは、
+          隠れた欄に残っていた値をそのまま永続化してしまう。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerOn">
+      <summary>トリガーを評価し、発火しうるライフサイクル上の契機。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.TriggerProperty">
+      <summary>対象要素で監視できるプロパティ。</summary>
+    </member>
+    <member name="T:UiaTrigger.Models.WindowIdentity">
+      <summary>対象要素を含むトップレベルウィンドウを特定する。</summary>
+      <remarks>
+        各属性はそれぞれの <see cref="T:UiaTrigger.Models.MatchStrength" /> を持つ。
+        既定で必須なのは <see cref="P:UiaTrigger.Models.WindowIdentity.ProcessName" /> だけである:
+        ウィンドウタイトルは絶えず変わり、WinForms のクラス名はプロセスのインスタンスごとに変わる
+        token を含むので、どちらかを必須にするとトリガーは恒久的に解決不能になる。
+        必須の属性をすべて満たすウィンドウはすべて試され、順位の高いものから順に当たる。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.ClauseOutcome">
+      <summary>トリガーの評価の中で、1 つの条件がどうなったか。</summary>
+    </member>
+    <member name="F:UiaTrigger.Monitoring.ClauseOutcome.NotEvaluated">
+      <summary>そこへ到る前に評価が止まったため、この条件を一度も見ていない。</summary>
+      <remarks>
+        結合は、どの結合の仕方であっても結果が決まった時点で止まる —
+        左が偽の <c>&amp;&amp;</c> の右側は読まれず、
+        <see cref="F:UiaTrigger.Models.ClauseCombinator.Any" /> で最初に成立した条件より後ろも
+        読まれない。これは意図されたもので、
+        <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> の条件を読むには
+        プロセス間呼び出しが 1 回かかるためである。「成立しなかった」とは別の状態であり、
+        この条件については<b>何も分かっていない</b>。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Monitoring.ClauseOutcome.Unreadable">
+      <summary>要素がそのプロパティを持たないので、それに対するどの条件も成立しない。</summary>
+      <remarks>
+        要素が解決していないか、そのプロパティの出どころとなるパターンに対応していない。
+        否定形の条件も成立しない —
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> を参照。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Monitoring.ClauseOutcome.NotMatched">
+      <summary>プロパティは読めたが、条件は成立しなかった。</summary>
+    </member>
+    <member name="F:UiaTrigger.Monitoring.ClauseOutcome.Matched">
+      <summary>プロパティが読めて、条件が成立した。</summary>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.ClauseReading">
+      <summary>発火時点での、1 つの条件の値とその行き先。</summary>
+      <param name="Name">
+        条件の名前 — <see cref="P:UiaTrigger.Models.PropertyClause.Name" />、
+        または位置由来の代替名 (<c>c1</c>、<c>c2</c>…)。
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> がこの条件を指すのと同じ名前である。
+      </param>
+      <param name="Value">
+        プロパティから読んだ値 (比較形)。<paramref name="Outcome" /> が
+        <see cref="F:UiaTrigger.Monitoring.ClauseOutcome.NotEvaluated" /> または
+        <see cref="F:UiaTrigger.Monitoring.ClauseOutcome.Unreadable" /> のときは値なし。
+      </param>
+      <param name="Outcome">その条件がどうなったか。</param>
+    </member>
+    <member name="M:UiaTrigger.Monitoring.ClauseReading.#ctor(System.String,UiaTrigger.Models.ComparisonString,UiaTrigger.Monitoring.ClauseOutcome)">
+      <summary>発火時点での、1 つの条件の値とその行き先。</summary>
+      <param name="Name">
+        条件の名前 — <see cref="P:UiaTrigger.Models.PropertyClause.Name" />、
+        または位置由来の代替名 (<c>c1</c>、<c>c2</c>…)。
+      </param>
+      <param name="Value">プロパティから読んだ値 (比較形)。読めていないときは値なし。</param>
+      <param name="Outcome">その条件がどうなったか。</param>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.ClauseReading.Name">
+      <summary>
+        条件の名前。<see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> が
+        この条件を指すのと同じ名前である。
+      </summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.ClauseReading.Value">
+      <summary>プロパティから読んだ値 (比較形)。読めていないときは値なし。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.ClauseReading.Outcome">
+      <summary>その条件がどうなったか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Clauses">
+      <summary>トリガーの各条件が何を読み、どうなったか (定義の並び順)。</summary>
+      <remarks>
+        <para>
+          <b>複数の要素にまたがるトリガーが読めるようになるのはここである。</b>
+          <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue" /> と
+          <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Properties" /> は 1 つの要素
+          — 最初の条件の要素 — を語るので、複数の要素にまたがるトリガーでは他の要素が
+          どうだったかを言えない。こちらは言える: 条件 1 つにつき 1 項目、
+          それぞれが<b>自分の要素から読んだ値</b>を持つ。
+        </para>
+        <para>
+          行き先 (<see cref="T:UiaTrigger.Monitoring.ClauseOutcome" />) がどれだけ情報を足すかは、
+          条件の結合の仕方で変わる。<see cref="F:UiaTrigger.Models.ClauseCombinator.All" /> なら
+          どれも成立しているので値のほうが面白い。
+          <see cref="F:UiaTrigger.Models.ClauseCombinator.Any" /> や
+          <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> では
+          <i>どれが</i>成立したかが本当の問いになり、それに答えられるのはこれだけである。
+        </para>
+        <para>
+          値は各条件の最後のスナップショット由来である (トリガーがそれに対して評価されたもの)。
+          発火の時点で読み直してはいない。条件を持たないトリガーでは空になる。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.TriggerFiredEventArgs">
+      <summary>トリガーの条件が成立したことを通知する。</summary>
+      <remarks>
+        <para>
+          単一のバックグラウンドワーカー上で検出順に発生する。
+          <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired" /> を参照。
+        </para>
+        <para>
+          <b>値が語るのは 1 つの要素についてである — トリガーの最初の条件が読む要素</b>
+          (条件を持たないトリガーではそのトリガー自身の要素)。複数の要素にまたがるトリガーでは
+          これが効いてくる: <i>変化した</i>条件は別の条件かもしれない —
+          何がトリガーを鳴らしたかと、イベントが何を報告するかは別の問いである。
+          <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.OldValue" /> /
+          <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.NewValue" /> /
+          <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.Properties" /> は、
+          常に互いに整合している。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.TriggerMonitor">
+      <summary>
+        他のアプリケーションの UI 要素を監視し、トリガーの条件が成立したときにイベントを発火する。
+      </summary>
+      <remarks>
+        <para>
+          UI Automation の処理はすべて <see cref="T:UiaTrigger.UiaSession" /> の専用スレッド上で行われる。
+          <c>new</c> で作ったモニターは自分のセッションを所有し、
+          <see cref="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)" /> で作ったモニターは
+          呼び出し元のセッションを共有する。要素の調査も行うホストは後者を使うべきである。
+        </para>
+        <para>
+          監視はイベント駆動である。トリガーに影響しうる UI Automation の
+          イベントを購読し、ツリーが変化したら解決をやり直す。動作中にトリガーを追加・削除でき、
+          そのとき他のトリガーは乱されない。
+        </para>
+        <para>
+          <b>モニターが自分の判断でポーリングすることはない。</b>
+          <see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> を指定したトリガーは、
+          解決済みの要素だけがその周期で読み直される。これが、必要なイベントを上げないアプリに対する逃げ道である。
+          どちらの場合も要素を見つけるところはイベント駆動のままで、ポーリングが解決を回すことはない。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.TriggerMonitorDiagnostics">
+      <summary><see cref="T:UiaTrigger.Monitoring.TriggerMonitor" /> の内部状態のスナップショット。</summary>
+      <remarks>
+        <see cref="M:UiaTrigger.Monitoring.TriggerMonitor.GetDiagnostics" /> で任意のスレッドから読める。
+        各カウンターは個別には一貫しているが、互いに整合しているとは限らない —
+        ロックの下でまとめて取得するのではなく、モニターが動きながら書き込んでいるためである。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.TriggerMonitorOptions">
+      <summary><see cref="T:UiaTrigger.Monitoring.TriggerMonitor" /> の設定。</summary>
+    </member>
+    <member name="T:UiaTrigger.Monitoring.TriggerResolutionChangedEventArgs">
+      <summary>トリガーの対象要素が解決できるようになった、または解決できなくなったことを通知する。</summary>
+    </member>
+    <member name="T:UiaTrigger.Persistence.AtomicFile">
+      <summary>
+        ファイルの内容を置き換える。途中で切れた内容や書きかけの内容を残すことは決してない。
+      </summary>
+    </member>
+    <member name="T:UiaTrigger.Persistence.TriggerStore">
+      <summary>
+        <see cref="T:UiaTrigger.Models.TriggerDefinition" /> のファイルを読み書きする。
+      </summary>
+      <remarks>
+        トリガーを自前のファイルに置くホスト向けの補助である。より大きな設定ドキュメントの中に
+        トリガーを収めるホストは、<see cref="T:UiaTrigger.Models.TriggerDefinition" /> を自分でシリアライズし、
+        <see cref="P:UiaTrigger.Serialization.TriggerJsonContext.Default" /> を自分のオプションへ
+        連結すること。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Resolution.ResolverOptions">
+      <summary>要素解決の調整値。</summary>
+      <remarks>
+        <para>
+          解決は探索であって、合計と閾値の比較ではない。候補が採用されるのは、その候補を支持する
+          証拠が差し引きで正のとき (スコアが <see cref="P:UiaTrigger.Resolution.ResolverOptions.StepAcceptScore" />
+          に達したとき) だけである。採用された候補の中では、スコアは順位しか決めない。
+          そのうち上位 <see cref="P:UiaTrigger.Resolution.ResolverOptions.BeamWidth" /> 件を次の段へ持ち越すので、
+          行き止まりから後退できる。
+        </para>
+        <para>
+          変わりやすい属性 (ウィンドウタイトル)・安定した属性 (クラス名)・
+          位置情報 (兄弟の位置) を 1 つのスコアに足し込み、段ごとに合計へ閾値を置く方式では、
+          兄弟が 1 つ増えただけ、クラス名が 1 つ変わっただけで恒久的に解決不能になる。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Serialization.TriggerFile">
+      <summary>
+        このライブラリ付属のサンプルホストが永続化するドキュメント。ホストは任意の形を使ってよい。
+      </summary>
+    </member>
+    <member name="T:UiaTrigger.Serialization.TriggerJson">
+      <summary>
+        <see cref="T:UiaTrigger.Models.TriggerDefinition" /> を JSON として永続化するための補助。
+      </summary>
+    </member>
+    <member name="T:UiaTrigger.Serialization.TriggerJsonContext">
+      <summary>
+        トリガーモデル用の、ソース生成された <see cref="T:System.Text.Json.Serialization.JsonSerializerContext" />。
+      </summary>
+      <remarks>
+        <para>
+          ファイル形式はライブラリのものではない。ホストは通常、自分の設定オブジェクトの中に
+          トリガーを収める。このコンテキストをホストのオプションへ連結すれば、
+          モデルの型情報はホストごとに複製されるのではなくここから供給される:
+        </para>
+        <code>
+          var options = new JsonSerializerOptions
+          {
+              TypeInfoResolverChain = { MyHostContext.Default, TriggerJsonContext.Default },
+          };
+        </code>
+        <para>
+          列挙はどのオプションを使っても名前で書かれる。モデルの列挙型自身がそう宣言しているからである。
+          そのため保存済みのファイルは読める状態が保たれ、列挙メンバーが 1 つ挿入されても有効なままである。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.UiaControlTypeNames">
+      <summary>UI Automation のコントロール型 ID を、その安定した英語名へ対応付ける。</summary>
+      <remarks>
+        名前は UI Automation の仕様にあるもの (<c>Button</c>、<c>Pane</c>、…) で、
+        現在のカルチャで変わることはない。これらは永続化されるためである —
+        トリガーの <see cref="P:UiaTrigger.Models.TriggerDefinition.DisplayName" /> と
+        <see cref="F:UiaTrigger.Models.TriggerProperty.ControlType" /> の比較形が、この名前から作られる。
+        コントロール型をユーザーに見せるときは、代わりに
+        <see cref="P:UiaTrigger.UiaElement.LocalizedControlType" /> または
+        <see cref="P:UiaTrigger.Models.ElementPropertySnapshot.LocalizedControlType" /> を使うこと。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.UiaElement">
+      <summary>UI Automation の要素 1 個へのハンドル。属するセッションが生きている間有効。</summary>
+      <remarks>
+        <para>
+          <see cref="T:UiaTrigger.UiaSession" /> から取得する。この型が持つ値は、ハンドルを作った時点で
+          1 回のクロスプロセス呼び出しにまとめて読んであるので、読み出しにコストは掛からない。
+          ただしそれらは<b>スナップショット</b>である: その後に名前が変わった要素も、
+          古い名前を返し続ける。現在の値が要るときは
+          <see cref="M:UiaTrigger.UiaSession.ReadSnapshotAsync(UiaTrigger.UiaElement)" /> を呼ぶこと。
+        </para>
+        <para>
+          用が済んだハンドルは破棄すること。それまでは対象アプリケーションのプロバイダーオブジェクトを
+          掴んだままになる。ファイナライザーがいずれ解放するが、大きなツリーを歩くピッカーにとって
+          「いずれ」とは、数千個のクロスプロセス参照が生きたままという意味である。
+        </para>
+        <para>
+          ハンドルは <c>==</c> で比較できない。UI Automation は同じ要素を求められるたびに
+          別のオブジェクトを返すためである。
+          <see cref="M:UiaTrigger.UiaSession.AreSameAsync(UiaTrigger.UiaElement,UiaTrigger.UiaElement)" /> を使うこと。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.UiaSession">
+      <summary>
+        1 つの UI Automation セッション。専用のオートメーションスレッドと、その上に載る UIA オブジェクト一式。
+      </summary>
+      <remarks>
+        <para>
+          UI Automation のオブジェクトはアパートメントに束縛され、そのクロスプロセス呼び出しは
+          長時間ブロックしうる。そのためこのライブラリの呼び出しはすべて、セッションが所有する
+          1 本の専用 MTA スレッド上で走る。セッションが共有の単位であるのもそれが理由である:
+          1 つ作り、要素の調査にも、定義の記録にも、
+          <see cref="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)" /> で作るモニターにも
+          それを使うこと。セッションが 2 つあれば、スレッドも UIA オブジェクト一式も 2 つになる。
+        </para>
+        <para>
+          すべてのメンバーは任意のスレッドから呼んでよい。要素を引く系のメソッドは、
+          UI Automation が一時的に失敗したとき (呼び出しの最中に要素が消えた、プロバイダーが応答しない)
+          null を返す。理由は例外ではなく <see cref="P:UiaTrigger.UiaSessionOptions.Logger" /> へ流れる。
+          マウスを追いかけるピッカーにとって、その種の失敗は日常だからである。
+        </para>
+        <para>
+          スクリーン座標を取るものはすべて、ホストプロセスがモニターごとの DPI 認識であることを前提とする —
+          <see cref="P:UiaTrigger.UiaSession.CoordinateProblem" /> を確認すること。
+          なぜこれが任意でないのかは <see cref="T:UiaTrigger.DpiAwareness" /> を参照。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.UiaSessionOptions">
+      <summary><see cref="T:UiaTrigger.UiaSession" /> の設定。</summary>
+    </member>
+  </members>
+</doc>

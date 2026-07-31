@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T3 (docs/TESTING.md §1) の実 UIA テスト用ターゲットアプリ。
+
+    WinForms を選ぶ理由は 2 つ:
+      ・起動が速く UIA が安定している
+      ・ウィンドウクラス名に起動ごとに変わりうる token が入るため、A4 の回帰ケースそのものになる
+
+    UI の変化はすべて stdin のコマンド行で起こす。擬似入力 (SendInput 等) は一切使わない
+    — 擬似入力は「入力がどこへ届くか」を検証できず、誤った結論を導いた実績がある (docs/TESTING.md §4)。
+  -->
+  <PropertyGroup>
+    <!--
+      WinExe ではなく Exe。GUI アプリだがコンソールサブシステムで作る。
+
+      WinExe だとコンソールが付かないので stdin が即 EOF になり、<b>手で起動すると必ず即終了する</b>
+      — 親プロセスが stdin を握っている場合にしか動かないアプリになる。それでは
+      docs/MANUAL-CHECKS.md §9 (監視のショーケース) を手で実施できない。
+
+      Exe ならターミナルから直接叩いてコマンドを打てる。ハーネス経由の挙動は変わらない —
+      TestTargetProcess が CreateNoWindow で窓を出さずにパイプで繋ぐ。
+      <b>あの 1 行は必須である</b>。無いと T3/T4 の対象プロセスごとにコンソール窓が増え、
+      座標 (ElementFromPoint) を通る記録が別の窓を掴む。
+    -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.TestTarget</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>

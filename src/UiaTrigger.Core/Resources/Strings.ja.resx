@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.Core のユーザー向け文字列 (ja-JP サテライト)。
+  プライマリ (neutral = en-US) は Strings.resx。キー集合が一致していることは
+  LocalizationTests.JapaneseResx_HasExactlyTheSameKeys_AsNeutral が検査する。
+
+  ここに入れてよいのは「ユーザー向け表示用」の文字列のみ (docs/LOCALIZATION.md §3)。
+  比較・永続化に使う文字列 (条件評価の値、JSON のキー等) は絶対にローカライズしないこと。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Error_AlreadyStarted" xml:space="preserve">
+    <value>既に監視を開始しています。</value>
+  </data>
+  <data name="Error_ProcessNameRequired" xml:space="preserve">
+    <value>トリガー '{0}': Window.ProcessName は必須です。</value>
+    <comment>{0} = trigger key</comment>
+  </data>
+  <data name="Error_LowHighRequired" xml:space="preserve">
+    <value>トリガー '{0}': 条件 '{1}' には Low と High が必要です。</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_ValueRequired" xml:space="preserve">
+    <value>トリガー '{0}': 条件 '{1}' には Value が必要です。</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_TextRequired" xml:space="preserve">
+    <value>トリガー '{0}': 条件 '{1}' には Text が必要です。</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_RegexPatternRequired" xml:space="preserve">
+    <value>トリガー '{0}': 条件 '{1}' には Text (正規表現パターン) が必要です。</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_InvalidRegex" xml:space="preserve">
+    <value>トリガー '{0}': 正規表現が不正です: {1}</value>
+    <comment>{0} = trigger key, {1} = underlying error message</comment>
+  </data>
+
+  <data name="Error_TriggerIdRequired" xml:space="preserve">
+    <value>トリガーには空でない Id が必要です。</value>
+  </data>
+  <data name="Error_DuplicateTriggerId" xml:space="preserve">
+    <value>トリガー Id '{0}' が重複しています。</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_WindowRequirementUnsatisfiable" xml:space="preserve">
+    <value>トリガー '{0}': Window の属性が Required なのに記録されていないため、一致するウィンドウが存在し得ません。</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_MinIntervalNegative" xml:space="preserve">
+    <value>トリガー '{0}': MinInterval に負の値は指定できません。</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_PollIntervalNegative" xml:space="preserve">
+    <value>トリガー '{0}': PollInterval に負の値は指定できません。</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_PollIntervalNotApplicable" xml:space="preserve">
+    <value>トリガー '{0}': On='{1}' では PollInterval は効きません (プロパティの変化ではなく、要素の出現・消滅で発火するため)。ポーリングは解決済みの要素を読み直すだけで、解決そのものは回しません。</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
+  <data name="Error_ClauseElementNotApplicable" xml:space="preserve">
+    <value>トリガー '{0}': On='{1}' では、条件が自前のウィンドウや経路を名指せません (トリガー自身の要素の出現・消滅で発火するため)。どの条件もその要素を読みます。条件ごとのウィンドウ・経路を外すか、プロパティの変化を見る形にしてください。</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
+  <data name="Error_ClausesRequired" xml:space="preserve">
+    <value>トリガー '{0}': On='{1}' には Watch=true の句が 1 つ以上必要です (どのプロパティを監視するかは、監視する句が決めるため)。</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
+  <data name="Error_InvalidClauseName" xml:space="preserve">
+    <value>トリガー '{0}': '{1}' は句の名前として使えません。空にはできず、空白と ( ) ! &amp; | は含められません。</value>
+    <comment>{0} = trigger id, {1} = the offending clause name</comment>
+  </data>
+  <data name="Error_DuplicateClauseName" xml:space="preserve">
+    <value>トリガー '{0}': 名前が '{1}' の句が 2 つ以上あります。句の名前は 1 つのトリガーの中で一意である必要があります (名前を付けなかった句に与えられる位置由来の名前も含みます)。</value>
+    <comment>{0} = trigger id, {1} = the duplicated clause name</comment>
+  </data>
+  <data name="Error_Expression" xml:space="preserve">
+    <value>トリガー '{0}': Expression が不正です。{1}</value>
+    <comment>{0} = trigger id, {1} = the reason, already localized</comment>
+  </data>
+  <data name="Error_UnreferencedClause" xml:space="preserve">
+    <value>トリガー '{0}': Expression が句 '{1}' を一度も参照していません。式から漏れた句も解決され購読されるのに、結果には一切効きません。</value>
+    <comment>{0} = trigger id, {1} = the clause name that is not referred to</comment>
+  </data>
+  <data name="Error_CustomPropertyIdRequired" xml:space="preserve">
+    <value>トリガー '{0}': Property=Custom の句には 0 以外の CustomPropertyId が必要です。</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+
+  <data name="Error_ExpressionEmpty" xml:space="preserve">
+    <value>式が空です。</value>
+  </data>
+  <data name="Error_ExpressionUnexpectedToken" xml:space="preserve">
+    <value>位置 {0} に予期しない '{1}' があります。</value>
+    <comment>{0} = 1-based character position, {1} = the token that was read</comment>
+  </data>
+  <data name="Error_ExpressionUnexpectedEnd" xml:space="preserve">
+    <value>句の名前が来るべきところで式が終わっています。</value>
+  </data>
+  <data name="Error_ExpressionUnclosedParen" xml:space="preserve">
+    <value>位置 {0} の '(' が閉じられていません。</value>
+    <comment>{0} = 1-based character position of the opening parenthesis</comment>
+  </data>
+  <data name="Error_ExpressionUnbalancedParen" xml:space="preserve">
+    <value>位置 {0} の ')' に対応する '(' がありません。</value>
+    <comment>{0} = 1-based character position</comment>
+  </data>
+  <data name="Error_ExpressionUnknownName" xml:space="preserve">
+    <value>位置 {0} の '{1}' は、このトリガーのどの句の名前でもありません。</value>
+    <comment>{0} = 1-based character position, {1} = the name that was read</comment>
+  </data>
+  <data name="Error_ExpressionTooDeep" xml:space="preserve">
+    <value>式の入れ子が {0} 段を超えています。</value>
+    <comment>{0} = the maximum nesting depth</comment>
+  </data>
+  <data name="Error_ExpressionSingleOperatorChar" xml:space="preserve">
+    <value>位置 {0} の '{1}' は演算子ではありません。'{1}{1}' と書いてください。</value>
+    <comment>{0} = 1-based character position, {1} = the single character that was read (&amp; or |)</comment>
+  </data>
+
+  <data name="Error_TimeoutOutOfRange" xml:space="preserve">
+    <value>'{0}' には正の時間 ({1} ミリ秒以下) を指定してください。</value>
+    <comment>{0} = option name, {1} = upper bound in milliseconds</comment>
+  </data>
+
+  <data name="Error_NoElementAtPoint" xml:space="preserve">
+    <value>スクリーン座標 ({0}, {1}) に UI 要素が見つかりませんでした。</value>
+    <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_DpiUnaware" xml:space="preserve">
+    <value>プロセスの DPI 認識が '{0}' です。座標が仮想化されるため、UI Automation に渡した座標がスケールされた画面では別の要素を指します。アプリケーション マニフェストで dpiAwareness=PerMonitorV2 を宣言するか、ウィンドウを作る前に DpiAwareness.TryEnablePerMonitorV2 を呼んでください。</value>
+    <comment>{0} = 認識モード名 (Unaware / System / Invalid)</comment>
+  </data>
+
+  <data name="Status_ElementResolved" xml:space="preserve">
+    <value>要素を解決しました。</value>
+  </data>
+  <data name="Status_InitialResolveFailed" xml:space="preserve">
+    <value>初期解決に失敗しました (出現待ち)。</value>
+  </data>
+  <data name="Status_ResolveFailedInaccessibleProcesses" xml:space="preserve">
+    <value>初期解決に失敗しました (出現待ち)。{0} 個のプロセスを参照できずスキップしました — ほぼ確実に昇格しているプロセスであり、昇格していないクライアントからはそのウィンドウを見られません。</value>
+    <comment>{0} = OpenProcess に失敗したプロセス数</comment>
+  </data>
+  <data name="Status_ElementUnavailable" xml:space="preserve">
+    <value>要素が利用不可になりました。</value>
+  </data>
+  <data name="Status_ElementIdentityChanged" xml:space="preserve">
+    <value>要素は生きていますが記録されたものとは別物になりました。再解決します。</value>
+  </data>
+  <data name="Status_ElementDetached" xml:space="preserve">
+    <value>要素は応答しますが、ウィンドウから辿れなくなりました。再解決します。</value>
+  </data>
+
+  <!-- ピッカーの入力検証 (TriggerDraftValidator) -->
+  <data name="Draft_IdRequired" xml:space="preserve">
+    <value>トリガーの Id を入力してください。</value>
+  </data>
+  <data name="Draft_OrderingNeedsNumericProperty" xml:space="preserve">
+    <value>大小・範囲の条件は数値プロパティ (Value / RangeValue 系) にのみ指定できます。</value>
+  </data>
+  <data name="Draft_RangeRequired" xml:space="preserve">
+    <value>下限と上限の両方を入力してください。</value>
+  </data>
+  <data name="Draft_RangeReversed" xml:space="preserve">
+    <value>下限は上限より大きくできません。</value>
+  </data>
+  <data name="Draft_ValueRequired" xml:space="preserve">
+    <value>比較するしきい値を入力してください。</value>
+  </data>
+  <data name="Draft_TextRequired" xml:space="preserve">
+    <value>比較する文字列を入力してください。</value>
+  </data>
+  <data name="Draft_RegexRequired" xml:space="preserve">
+    <value>正規表現を入力してください。</value>
+  </data>
+  <data name="Draft_RegexInvalid" xml:space="preserve">
+    <value>正規表現が不正です: {0}</value>
+    <comment>{0} = message from the regular expression engine</comment>
+  </data>
+  <data name="Draft_ToleranceNegative" xml:space="preserve">
+    <value>許容差に負の値は指定できません。</value>
+  </data>
+  <data name="Draft_InvalidClauseName" xml:space="preserve">
+    <value>'{0}' は条件の名前として使えません。空にはできず、空白と ( ) ! &amp; | は含められません。</value>
+    <comment>{0} = the offending clause name</comment>
+  </data>
+  <data name="Draft_DuplicateClauseName" xml:space="preserve">
+    <value>名前が '{0}' の条件が 2 つ以上あります。名前は一意である必要があります (名前を付けなかった条件に与えられる位置由来の名前も含みます)。</value>
+    <comment>{0} = the duplicated clause name</comment>
+  </data>
+  <data name="Draft_UnreferencedClause" xml:space="preserve">
+    <value>式が条件 '{0}' を一度も参照していません。式から漏れた条件も監視され続けるのに、結果には一切効きません。</value>
+    <comment>{0} = the clause name that is not referred to</comment>
+  </data>
+
+  <!-- 複合条件を組む規則 (TriggerComposer)。まとめられない理由 -->
+  <data name="Compose_NeedsTwo" xml:space="preserve">
+    <value>まとめるトリガーを 2 つ以上選んでください。</value>
+  </data>
+  <data name="Compose_UnknownName" xml:space="preserve">
+    <value>'{0}' は、まとめようとしている条件のどれでもありません。</value>
+    <comment>{0} = the name that was typed</comment>
+  </data>
+</root>

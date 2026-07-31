@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.TestHost</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <!--
+      InvariantGlobalization は有効にしないこと。
+      有効だと ja-JP のサテライトリソースが一切使えなくなる (実測: docs/LOCALIZATION.md §2)。
+    -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+  </ItemGroup>
+
+</Project>

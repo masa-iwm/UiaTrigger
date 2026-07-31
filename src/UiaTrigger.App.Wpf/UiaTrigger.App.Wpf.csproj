@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    サンプルホスト — WPF 版 (docs/DESIGN.md §12)。
+
+    ピッカーを開いて JSON に保存するだけの薄いホストである。
+    D9 (ピッカー → 監視の E2E ショーケース) は WinUI 版だけに置く — 3 重化しても
+    得るものが無い。この非対称は README に書いてある。
+
+    PublishAot は<b>付けない</b>。WPF は Native AOT に対応していない。
+    AOT 発行の対象は TestHost と WinUI ホストのままである。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.App.Wpf</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <!-- DPI 認識 (PerMonitorV2) を宣言する。未宣言だと座標が仮想化されホイールが効かない -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+    <ProjectReference Include="..\UiaTrigger.Picker.Wpf\UiaTrigger.Picker.Wpf.csproj" />
+  </ItemGroup>
+
+</Project>

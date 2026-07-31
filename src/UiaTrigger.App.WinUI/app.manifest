@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="UiaTrigger.App" />
+
+  <!--
+    unpackaged な WinUI 3 アプリでは、この manifest が無いとプロセスが DPI 非認識となり、
+    Windows が座標を仮想化する。その状態ではスクリーン座標で届く WM_MOUSEWHEEL の
+    ヒットテストがコンテンツ外に落ち、マウスホイールが効かなくなる
+    (キーボードはヒットテスト不要のため影響を受けない)。
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / 11 (PerMonitorV2 は 1703 以降で有効) -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+</assembly>

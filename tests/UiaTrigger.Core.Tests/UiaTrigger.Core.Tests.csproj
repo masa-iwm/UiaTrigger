@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.Tests</RootNamespace>
+    <AssemblyName>UiaTrigger.Core.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <!-- ja-JP のサテライトを解決する必要があるため無効にしないこと (docs/LOCALIZATION.md §2) -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <!--
+      FakeTimeProvider。TimeProvider 化 (docs/DESIGN.md C10 / B8) の効果はこれが無いと
+      確かめられない — デバウンスもレート制限も「実時間を待つ」テストでしか触れない。
+    -->
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+    <!--
+      ピッカーの UI 非依存部分 (docs/TESTING.md §1 T1 / docs/DESIGN.md §12)。
+
+      UiaTrigger.Picker.Core は net10.0-windows / AnyCPU なので、WinUI3 / x64 の View と違い
+      普通のプロジェクト参照でテストできる。TriggerPickerPresenter もここに載る。
+    -->
+    <ProjectReference Include="..\..\src\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
+    <!--
+      WPF / WinForms の View (docs/DESIGN.md §12)。
+
+      「View は T1 から触れない」は WinUI3 / x64 / WindowsAppSDK の制約であって
+      View 一般の話ではない。この 2 つは
+      net10.0-windows / AnyCPU なので普通に参照でき、フレームワーク参照
+      (WindowsDesktop.App.WPF / .WindowsForms) も推移的に流れてくる —
+      このテストプロジェクトに UseWPF / UseWindowsForms を足す必要は無い。
+
+      これで docs/MANUAL-CHECKS.md §4.3 相当の項目のうち、可視のデスクトップを要さないものが
+      自動テストに載る。コンテナの実体化を伴う経路だけが手動 / T4 に残る。
+    -->
+    <ProjectReference Include="..\..\src\UiaTrigger.Picker.Wpf\UiaTrigger.Picker.Wpf.csproj" />
+    <ProjectReference Include="..\..\src\UiaTrigger.Picker.WinForms\UiaTrigger.Picker.WinForms.csproj" />
+  </ItemGroup>
+
+</Project>

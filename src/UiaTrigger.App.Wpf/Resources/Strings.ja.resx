@@ -1,0 +1,91 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  サンプルホスト (WPF 版) のユーザー向け文字列 (ja)。
+  キー集合は Strings.resx と一致していなければならない (HostStringTests が検査する)。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="WindowTitle" xml:space="preserve">
+    <value>UiaTrigger サンプルホスト</value>
+  </data>
+  <data name="OpenPickerButton.Content" xml:space="preserve">
+    <value>ピッカーで追加</value>
+  </data>
+  <data name="OpenAnotherPickerButton.Content" xml:space="preserve">
+    <value>ピッカーをもう 1 つ開く</value>
+  </data>
+  <data name="DeleteButton.Content" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="ReloadButton.Content" xml:space="preserve">
+    <value>再読込</value>
+  </data>
+  <data name="EditListButton.Content" xml:space="preserve">
+    <value>一覧を編集…</value>
+  </data>
+
+  <data name="TriggerCount" xml:space="preserve">
+    <value>{0} 件</value>
+    <comment>{0} = number of triggers</comment>
+  </data>
+  <data name="TriggerCountSaved" xml:space="preserve">
+    <value>{0} 件 (保存済み)</value>
+    <comment>{0} = number of triggers</comment>
+  </data>
+  <data name="LoadFailed" xml:space="preserve">
+    <value>トリガーファイルを読み込めませんでした: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="SaveFailed" xml:space="preserve">
+    <value>トリガーファイルを保存できませんでした: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="NoClauses" xml:space="preserve">
+    <value>(条件なし)</value>
+  </data>
+  <data name="TriggerRow" xml:space="preserve">
+    <value>[{0}] {1} — {2} / {3} : {4}</value>
+    <comment>{0} = id, {1} = display name, {2} = process name, {3} = TriggerOn, {4} = clauses</comment>
+  </data>
+</root>

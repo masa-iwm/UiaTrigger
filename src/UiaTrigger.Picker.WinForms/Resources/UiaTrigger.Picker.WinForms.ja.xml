@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.Picker.WinForms の日本語 IntelliSense (docs/LOCALIZATION.md §4)。
+  仕組みは UiaTrigger.Core.ja.xml と同じ。ロールアップの単位はファイルなので、
+  公開面を<b>過不足なく</b>覆う必要がある。
+-->
+<doc>
+  <assembly>
+    <name>UiaTrigger.Picker.WinForms</name>
+  </assembly>
+  <members>
+    <member name="T:UiaTrigger.Picker.WinForms.TriggerPickerForm">
+      <summary>Windows Forms のウィンドウとしてのピッカー。要素を選び、それをトリガーにする。</summary>
+      <remarks>
+        規則は一切持たない — それは <c>TriggerPickerPresenter</c> の担当である。
+        確定したトリガーは <see cref="E:UiaTrigger.Picker.WinForms.TriggerPickerForm.TriggerCommitted" />
+        で知らせる。保存するかどうかはホストが決める。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.#ctor">
+      <summary>ウィンドウと、それを動かすプレゼンターを作る。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.#ctor(UiaTrigger.Picker.ICursorSource)">
+      <summary>
+        ポインター位置を <paramref name="cursor" /> から取るウィンドウを作る。
+      </summary>
+      <param name="cursor">ホバー滞留がポインター位置を読む先。</param>
+      <remarks>
+        マウスに追随させるのではなく、ホストが自分でピッカーの指す先を決める場合に使う。
+        分かりやすい例は UI テストである — ピッカーはホバー滞留から始まるが、
+        実際のマウスを動かすのは擬似入力にあたる (docs/TESTING.md §4)。
+        マウス以外のもので駆動されるホストにも同じことが言える。
+      </remarks>
+    </member>
+    <!--
+      次のコンストラクターは internal だが、公開されている多重定義と名前が同じなので
+      PublicApiDocumentationTests は公開 API として扱う (名前だけで照合するため)。
+    -->
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.#ctor(UiaTrigger.Picker.IPickerStrings,System.Func{UiaTrigger.Picker.IPickerView,UiaTrigger.Picker.TriggerPickerPresenter})">
+      <summary>テスト用。文字列とプレゼンターを差し替える。</summary>
+    </member>
+    <member name="E:UiaTrigger.Picker.WinForms.TriggerPickerForm.TriggerCommitted">
+      <summary>ユーザーがトリガーを確定したときに発生する。永続化はホストの担当である。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.StopAutoSelect">
+      <summary>マウス自動選択を、利用者が切ったのと同じように切る。</summary>
+      <remarks>
+        <para>
+          もう 1 つピッカーを開く前に、<b>既に開いているピッカーに対して</b>呼ぶこと。
+          カーソル位置はプロセスで 1 つなので、自動選択が入っているピッカーは全部が同じ点を読み、
+          同じ要素を捕捉する。先に開いていたほうは新しいピッカーのマウスに黙って追随し、
+          出していた要素を失う。<b>既に確定した条件には影響しない。</b>
+        </para>
+        <para>
+          <see cref="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.LoadDefinition(UiaTrigger.Models.TriggerDefinition)" />
+          が読み込みの前に切っているのと同じ理由である。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerPickerForm.LoadDefinition(UiaTrigger.Models.TriggerDefinition)">
+      <summary>既存のトリガーを開き、その条件を編集できるようにする。</summary>
+      <param name="definition">
+        編集するトリガー。ピッカーがこれを引き取り、確定された条件を<b>この実体へ</b>書き戻すので、
+        元をそのまま残す必要があるときは写しを渡すこと。
+      </param>
+      <exception cref="T:System.ArgumentException">
+        <paramref name="definition" /> に対して
+        <see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.CanEdit(UiaTrigger.Models.TriggerDefinition)" />
+        が false である。
+      </exception>
+    </member>
+    <!--
+      Dispose(bool) はここに書かない。sealed クラスの protected メンバーは公開面ではないので、
+      書くと「公開 API から消えた残骸」として PublicApiDocumentationTests が落とす。
+      WPF 版は sealed でないため<b>そちらには要る</b> — 同じ名前でも扱いが変わる。
+    -->
+
+    <!-- ================= トリガ一覧エディタ (docs/DESIGN.md §4) ================= -->
+    <member name="T:UiaTrigger.Picker.WinForms.TriggerListEditorForm">
+      <summary>
+        Windows Forms のダイアログとしてのトリガ一覧エディタ。追加・編集・削除・まとめる・ほどく。
+      </summary>
+      <remarks>
+        規則は一切持たない — それは <c>TriggerListEditorPresenter</c> の担当である。
+        写しの上で動く: 渡されたリストは変更されず、編集後のリストは
+        <see cref="M:UiaTrigger.Picker.WinForms.TriggerListEditorForm.EditAsync(System.Windows.Forms.IWin32Window,System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition})" />
+        から返る。どこへ保存するか、監視が動いているかはホストの領分のままである。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerListEditorForm.EditAsync(System.Windows.Forms.IWin32Window,System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition})">
+      <summary>エディタをモーダルで表示し、編集後のリストを返す。取り消されたときは null。</summary>
+      <param name="owner">ダイアログの所有者にするウィンドウ。無ければ null。</param>
+      <param name="triggers">編集するトリガー。リストもその要素も変更されない。</param>
+      <returns>編集後のトリガー。ユーザーが取り消したときは null。</returns>
+      <remarks>
+        UI スレッドから呼ぶこと。返る時点でタスクは完了している — ダイアログは入れ子の
+        メッセージループを回すので、ユーザーが操作を終えてから返る。非同期の形は 3 変種で
+        共通にするためである: WinUI 3 には窓単位のモーダルが無く、そちらのエディタは
+        ブロックする呼び出しをそもそも提供できない。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerListEditorForm.EditAsync(System.Windows.Forms.IWin32Window,System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},UiaTrigger.Picker.ICursorSource)">
+      <summary>
+        同じだが、子ピッカーがポインター位置を <paramref name="cursor" /> から取る。
+      </summary>
+      <param name="owner">ダイアログの所有者にするウィンドウ。無ければ null。</param>
+      <param name="triggers">編集するトリガー。リストもその要素も変更されない。</param>
+      <param name="cursor">子ピッカーのホバー滞留がポインター位置を読む先。</param>
+      <returns>編集後のトリガー。ユーザーが取り消したときは null。</returns>
+      <remarks>
+        <inheritdoc cref="M:UiaTrigger.Picker.WinForms.TriggerListEditorForm.EditAsync(System.Windows.Forms.IWin32Window,System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition})" path="/remarks" />
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.WinForms.TriggerListEditor">
+      <summary><see cref="T:System.Windows.Forms.PropertyGrid" /> からトリガ一覧を編集する。</summary>
+      <remarks>
+        <para>
+          トリガーを保持するプロパティに付けると、グリッドに
+          <see cref="T:UiaTrigger.Picker.WinForms.TriggerListEditorForm" /> を開くボタンが生える:
+        </para>
+        <code>
+          [Editor(typeof(TriggerListEditor), typeof(UITypeEditor))]
+          public List&lt;TriggerDefinition&gt; Triggers { get; set; } = [];
+        </code>
+        <para>
+          想定しているのは<b>動いているアプリケーションが出す</b>
+          <see cref="T:System.Windows.Forms.PropertyGrid" /> である。ユーザーがトリガーを
+          編集するのはそこだからである。Visual Studio のデザイナー向けではない —
+          デザイナーはエディターを自分のプロセスで動かし、ピッカーは<b>いま画面にあるもの</b>を
+          記録するので、そこで録れるのはデザイナー自身になる。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerListEditor.GetEditStyle(System.ComponentModel.ITypeDescriptorContext)">
+      <summary>このエディターがダイアログを開くことを伝える。</summary>
+      <param name="context">編集対象のプロパティ。使わない。</param>
+      <returns>常に <see cref="F:System.Drawing.Design.UITypeEditorEditStyle.Modal" />。</returns>
+    </member>
+    <member name="M:UiaTrigger.Picker.WinForms.TriggerListEditor.EditValue(System.ComponentModel.ITypeDescriptorContext,System.IServiceProvider,System.Object)">
+      <summary>
+        <paramref name="value" /> を対象にエディタを開き、編集後のリストを返す。
+      </summary>
+      <param name="context">編集対象のプロパティ。使わない。</param>
+      <param name="provider">
+        グリッドの <see cref="T:System.Windows.Forms.Design.IWindowsFormsEditorService" /> の取得元。
+        これによりダイアログの所有者がグリッドになる。
+      </param>
+      <param name="value">
+        編集するトリガー。<see cref="T:UiaTrigger.Models.TriggerDefinition" /> の
+        <see cref="T:System.Collections.Generic.IEnumerable`1" /> であればよい。null は空として扱う。
+      </param>
+      <returns>
+        編集後のトリガーを収めた新しい <see cref="T:System.Collections.Generic.List`1" />。
+        ユーザーが取り消したときは <paramref name="value" /> をそのまま返す —
+        それがグリッドに「プロパティを設定しない」と伝える手立てである。
+      </returns>
+      <remarks>
+        渡されたリストは変更されない。ダイアログの中でトリガーを録ったり削除したりした後で
+        取り消しても、プロパティは元のままである。
+      </remarks>
+    </member>
+  </members>
+</doc>

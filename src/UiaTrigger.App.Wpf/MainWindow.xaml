@@ -1,0 +1,48 @@
+<!--
+    ユーザー向け文字列はここに書かない (docs/DESIGN.md L3)。
+    WPF に x:Uid の実行時解決は無いので、ラベルはコードビハインドが代入する。
+    XamlLocalizationTests がここへの直書きを検出して失敗する。
+-->
+<Window
+    x:Class="UiaTrigger.App.Wpf.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="900" Height="600">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <WrapPanel Margin="0,0,0,8">
+            <Button x:Name="OpenPickerButton" Padding="8,3" Margin="0,0,8,0" Click="OnOpenPicker" />
+            <!--
+                A18 (ピッカーの複数起動) を実機で確かめるための口 (docs/MANUAL-CHECKS.md §6)。
+                WinUI ホストと同じものを置く — オーバーレイの登録表方式が UI フレームワークに
+                依存しないことは、2 つ目のピッカーを開ける状態でしか確かめられない。
+            -->
+            <Button x:Name="OpenAnotherPickerButton" Padding="8,3" Margin="0,0,8,0"
+                    Click="OnOpenAnotherPicker" />
+            <Button x:Name="DeleteButton" Padding="8,3" Margin="0,0,8,0" Click="OnDelete" />
+            <Button x:Name="ReloadButton" Padding="8,3" Margin="0,0,8,0" Click="OnReload" />
+            <!--
+                トリガ一覧エディタ (docs/DESIGN.md §4)。この窓が持っている一覧・削除相当を、
+                <b>組み込む側が使える形で</b>ライブラリが持つ。
+            -->
+            <Button x:Name="EditListButton" Padding="8,3" Margin="0,0,8,0" Click="OnEditList" />
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" />
+        </WrapPanel>
+
+        <!--
+            トリガー一覧は「id / 表示名 / プロセス名 / 種別 / 条件」を 1 行に並べるので
+            すぐ横に長くなる。水平スクロールできないと右側が読めない。
+            WPF では添付プロパティがそのまま効く (既定テンプレートが中継している)。
+        -->
+        <ListBox x:Name="TriggerList" Grid.Row="1"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 HorizontalContentAlignment="Left" />
+
+        <TextBlock x:Name="FilePathText" Grid.Row="2" Margin="0,8,0,0" Opacity="0.7" FontSize="11" />
+    </Grid>
+</Window>

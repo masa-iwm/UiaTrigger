@@ -1,0 +1,231 @@
+name: Release
+
+# タグを打つと、配布物を建てて<b>ドラフトの</b> GitHub Release を作る (docs/RELEASING.md §3)。
+#
+# ci.yml と分けてあるのは、トリガも権限も違うためである
+# (あちらは push / PR で走り、書き込み権限を要らない)。
+#
+# <b>ドラフトで止める。</b>公開は人が中身を見てから押す。
+# NuGet への publish はここでは<b>やらない</b> — あれは取り消せないので、
+# 「消せるリリースで一度通してから、人が別に実行する」という順序そのものが安全装置である。
+#
+# タグ push でワークフローが走るのは、ワークフローが<b>タグの指すコミットから</b>読まれるためで、
+# 既定ブランチに在る必要は無い (既定ブランチ縛りは workflow_dispatch の手動起動一覧に
+# 固有の制限である — docs/RELEASING.md §2)。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "建てる対象の ref (タグ名など)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  release:
+    name: Build and draft the release
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      # ILCompiler のネイティブリンクに MSVC が必要 (ci.yml の aot ジョブと同じ)
+      - name: Add vswhere to PATH
+        shell: pwsh
+        run: Add-Content $env:GITHUB_PATH "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+
+      # <b>版数の二重管理をここで落とす。</b>
+      #
+      # 正は Directory.Build.props の <Version> である (docs/RELEASING.md §1 に
+      # 記録した決定)。タグはその写しにすぎない。
+      # 写しがずれるのを規律で防がない、というのがこのリポジトリの流儀である
+      # (resx のキー集合一致 / ja・en doc の一致 / SlotBuilder.KeyOf の直列化と同じ)。
+      # ずれたらここで落とす — タグは消して打ち直せるので、落ちて困ることは何も無い。
+      - name: Check the tag matches Directory.Build.props
+        shell: pwsh
+        run: |
+          $ref = "${{ github.event.inputs.ref || github.ref_name }}"
+          $tagVersion = $ref -replace '^v', ''
+          $props = [xml](Get-Content Directory.Build.props)
+          $propsVersion = ($props.Project.PropertyGroup.Version | Where-Object { $_ }) -join ''
+          Write-Host "tag=$tagVersion props=$propsVersion"
+          if ([string]::IsNullOrWhiteSpace($propsVersion)) {
+            throw "Directory.Build.props から <Version> を読めませんでした。"
+          }
+          if ($tagVersion -ne $propsVersion) {
+            throw "タグ ($tagVersion) と Directory.Build.props ($propsVersion) が食い違っています。" +
+                  "正は props 側なので、タグを打ち直すか props を直してください。"
+          }
+          Add-Content $env:GITHUB_ENV "RELEASE_VERSION=$propsVersion"
+
+      - name: Pack
+        run: dotnet pack UiaTrigger.slnx -c Release -o artifacts/packages
+
+      # 配布する .xml が公開 API だけであること (docs/LOCALIZATION.md §5)
+      #
+      # 絞り込みそのものは Directory.Build.targets の KeepDistributedDocumentationPublic が行い、
+      # T1 の TheDistributedDocumentationContainsNoNonPublicMembers が<b>ビルド出力</b>を見ている。
+      # ここで見るのは<b>実際に配る .nupkg の中身</b>である — 「絞ったファイルとは別のファイルが
+      # pack された」形は出力側の検査では捕まらない (配置を見るテストが別の場所を見ていて
+      # 素通りする形を実際に踏んでいる) ので、成果物の側にも検査を置く。
+      #
+      # 判定は<b>日本語が 1 文字も無いこと</b>で行う。公開 API の doc は英語であることを
+      # L1 が要求しており (PublicApiDocumentationTests)、非公開のコメントは日本語のままでよいと
+      # 決めてある。つまりこの 1 つの検査が「絞り込みが効いたか」をそのまま表す。
+      - name: Check the packaged XML docs carry no internal comments
+        shell: pwsh
+        run: |
+          $cjk = '[\p{IsHiragana}\p{IsKatakana}\p{IsCJKUnifiedIdeographs}]'
+          # 日本語 IntelliSense ファイル (絞り込みの正) を持つ 4 つ。
+          # Picker.WinUI は GenerateDocumentationFile を立てていないので .xml を配らない
+          $expected = @(
+            "UiaTrigger.Core", "UiaTrigger.Picker.Core",
+            "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms")
+          $seen = @()
+          $bad = @()
+          foreach ($pkg in Get-ChildItem artifacts/packages/*.nupkg) {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+            try {
+              $entries = @($zip.Entries | Where-Object { $_.FullName -like 'lib/*.xml' })
+              foreach ($e in $entries) {
+                $reader = New-Object System.IO.StreamReader($e.Open())
+                $text = $reader.ReadToEnd()
+                $reader.Dispose()
+                $seen += [System.IO.Path]::GetFileNameWithoutExtension($e.Name)
+                $members = ([regex]'<member name=').Matches($text).Count
+                if ($text -cmatch $cjk) {
+                  $bad += "$($pkg.Name) -> $($e.FullName)"
+                  Write-Host "::error::$($pkg.Name) の $($e.FullName) に日本語が残っています"
+                } else {
+                  Write-Host ("  OK: {0} -> {1} (member {2} 件)" -f $pkg.Name, $e.FullName, $members)
+                }
+              }
+            } finally {
+              $zip.Dispose()
+            }
+          }
+
+          # 「1 つも見つからなかったから緑」を塞ぐ。GenerateDocumentationFile が外れても
+          # pack は成功するので、数えないと静かに doc 無しのパッケージを配ることになる
+          $missing = @($expected | Where-Object { $seen -notcontains $_ })
+          if ($missing.Count -gt 0) {
+            throw "XML doc を配るはずのパッケージに .xml が入っていません: $($missing -join ', ')."
+          }
+          if ($bad.Count -gt 0) {
+            throw "配布する .xml に非公開メンバーの日本語コメントが残っています ($($bad.Count) 件)。" +
+                  "Directory.Build.targets の KeepDistributedDocumentationPublic を確認してください。"
+          }
+          Write-Host "OK: 配布する .xml は $($seen.Count) ファイルすべて公開 API だけです"
+
+      # 配布するホストは win-x64 だけである。
+      # <b>ARM64 は出さない</b> — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と
+      # 記録しており (C++ ARM64 ツールチェーン不在)、ここで建てていないものを配らない。
+      # notes にもそう書く。
+      - name: Publish TestHost (win-x64)
+        run: dotnet publish src/UiaTrigger.TestHost -c Release -r win-x64 -o artifacts/publish/TestHost
+
+      - name: Publish App.WinUI (win-x64)
+        run: dotnet publish src/UiaTrigger.App.WinUI -c Release -o artifacts/publish/App.WinUI
+
+      - name: Publish App.Wpf (win-x64)
+        run: dotnet publish src/UiaTrigger.App.Wpf -c Release -o artifacts/publish/App.Wpf
+
+      - name: Publish App.WinForms (win-x64)
+        run: dotnet publish src/UiaTrigger.App.WinForms -c Release -o artifacts/publish/App.WinForms
+
+      # ホストごとに 1 つの zip にする。App.WinUI は WindowsAppSDKSelfContained + PublishAot
+      # なので単体で大きく、まとめると「WPF だけ欲しい人が WinUI ぶんも落とす」ことになる
+      - name: Zip each host
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts/upload | Out-Null
+          foreach ($name in "TestHost", "App.WinUI", "App.Wpf", "App.WinForms") {
+            $zip = "artifacts/upload/UiaTrigger.$name-$env:RELEASE_VERSION-win-x64.zip"
+            Compress-Archive -Path "artifacts/publish/$name/*" -DestinationPath $zip
+            Write-Host ("{0}  ({1:N1} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
+          }
+          Copy-Item artifacts/packages/*.nupkg, artifacts/packages/*.snupkg artifacts/upload/
+
+      # 添付するものを印字して、<b>数が合わない</b>ときに気づけるようにする。
+      # 5 パッケージ = nupkg 5 + snupkg 5、ホスト 3 + TestHost = zip 4
+      - name: List what will be attached
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem artifacts/upload | Sort-Object Name
+          $files | ForEach-Object { Write-Host ("  {0}  ({1:N1} MB)" -f $_.Name, ($_.Length / 1MB)) }
+          $zips = @($files | Where-Object Name -like '*.zip').Count
+          $nupkgs = @($files | Where-Object Name -like '*.nupkg').Count
+          $snupkgs = @($files | Where-Object Name -like '*.snupkg').Count
+          Write-Host "zip=$zips nupkg=$nupkgs snupkg=$snupkgs"
+          if ($zips -ne 4) { throw "zip が 4 つではありません ($zips)。ホスト 3 + TestHost のはずです。" }
+          if ($nupkgs -ne 5) { throw "nupkg が 5 つではありません ($nupkgs)。docs/RELEASING.md §1 の表を参照。" }
+          if ($snupkgs -ne 5) { throw "snupkg が 5 つではありません ($snupkgs)。" }
+
+      - name: Create the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # <b>ノートは英語で書く。</b>公開面の言語は README と同じ規則である
+          # (README.md が英語、README.ja.md が翻訳 — docs/LOCALIZATION.md §1 の L1/L8)。
+          $notes = @"
+          Watches UI elements in other applications through UI Automation and raises an event when a
+          condition is met. See the [README](https://github.com/masa-iwm/UiaTrigger/blob/main/README.md)
+          for what it does and how to use it, and the
+          [CHANGELOG](https://github.com/masa-iwm/UiaTrigger/blob/main/CHANGELOG.md) for what changed.
+
+          ### Assets
+
+          | File | Contents |
+          |---|---|
+          | ``UiaTrigger.App.WinUI-*-win-x64.zip`` | Sample host (WinUI 3). Picker through to monitoring, end to end |
+          | ``UiaTrigger.App.Wpf-*-win-x64.zip`` | Sample host (WPF). Picker and JSON saving |
+          | ``UiaTrigger.App.WinForms-*-win-x64.zip`` | Sample host (Windows Forms). Same |
+          | ``UiaTrigger.TestHost-*-win-x64.zip`` | Console tool (``record`` / ``monitor``) |
+          | ``*.nupkg`` / ``*.snupkg`` | The five NuGet packages and their symbols |
+
+          The sample hosts need no installation — unzip and run. To use the library from your own
+          application, take the packages from NuGet rather than from here.
+
+          **win-x64 only.** ARM64 builds are not attached because publishing for ARM64 has not been
+          verified on this project's CI; shipping a binary that was never built here is not something
+          this repository does.
+
+          ### About the prerelease tag
+
+          ``0.1.x-preview`` means the public API is still moving and breaking changes can land.
+          NuGet will not restore it unless you ask for prereleases explicitly.
+          "@
+          $notesFile = "$env:RUNNER_TEMP/notes.md"
+          Set-Content -Path $notesFile -Value $notes -Encoding utf8
+
+          # 引数は<b>配列で組む</b>。条件付きのフラグを文字列で挟むと、偽のときに
+          # <b>空文字が 1 引数として渡り</b>、gh がそれを添付ファイルの位置引数と解釈して落ちる。
+          # いまは版数に必ず -preview が付くので露見しないが、1.0.0 を出す日に壊れる形である。
+          # 変数名を $args にしない — あれは PowerShell の自動変数である
+          $ghArgs = @(
+            "release", "create", "v$env:RELEASE_VERSION"
+            # --draft: 公開は人が中身を見てから押す
+            "--draft"
+            "--title", "UiaTrigger $env:RELEASE_VERSION"
+            "--notes-file", $notesFile
+          )
+          # 版数にプレリリース札 (-preview 等) が付いているあいだは必ず立てる
+          if ($env:RELEASE_VERSION -match '-') { $ghArgs += "--prerelease" }
+          $ghArgs += (Get-ChildItem artifacts/upload | ForEach-Object { $_.FullName })
+
+          & gh @ghArgs
+          if ($LASTEXITCODE -ne 0) { throw "gh release create が失敗しました ($LASTEXITCODE)." }

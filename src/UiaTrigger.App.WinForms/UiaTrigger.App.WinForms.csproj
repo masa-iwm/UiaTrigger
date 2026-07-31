@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    サンプルホスト — Windows Forms 版 (docs/DESIGN.md §12)。
+
+    ピッカーを開いて JSON に保存するだけの薄いホストである。
+    D9 (ピッカー → 監視の E2E ショーケース) は WinUI 版だけに置く (README に非対称を記載)。
+
+    DPI: <b>manifest では宣言できない</b>。Windows Forms のアナライザー WFO0003 が
+    「高 DPI 設定を app.manifest から削除し SetHighDpiMode を使え」とエラーにするためで、
+    TreatWarningsAsErrors=true のこの repo ではビルドが通らない。
+    「manifest を 3 ホストすべてに置く」形は取れない。
+
+    そこで T3 の WinForms 対象アプリ (tests/UiaTrigger.TestTarget) と同じ経路にする —
+    Program.Main の先頭で Application.SetHighDpiMode(PerMonitorV2) を呼ぶ。
+    DpiManifestTests は manifest 方式のプロジェクトだけを見るので、こちらは
+    DeclaresPerMonitorV2TheWindowsFormsWay が見る。<b>どちらの経路も通っていないホストが
+    出ないこと</b>自体もテストで固定してある (EveryHostDeclaresPerMonitorV2SomeWay)。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.App.WinForms</RootNamespace>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+    <ProjectReference Include="..\UiaTrigger.Picker.WinForms\UiaTrigger.Picker.WinForms.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,64 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>Watches other applications' UI elements through UI Automation and raises events when conditions are met. The UI-independent core: element search and recording (UiaSession), the trigger model, beam-search element resolution, and TriggerMonitor. Native AOT compatible.</Description>
+    <PackageTags>uiautomation;uia;automation;windows;trigger;monitoring;accessibility;aot</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <!--
+    InternalsVisibleTo は「テストアセンブリ 2 つだけ」に限る (docs/DESIGN.md §12)。
+    製品アセンブリ (Picker / TestHost) 向けの公開は無い — それらは
+    UiaSession の公開 API だけで書けるため。ここに製品アセンブリを
+    足し戻すと PublicApiTests.InternalsAreVisibleOnlyToTheTestAssemblies が落ちる。
+  -->
+  <ItemGroup>
+    <!-- 探索アルゴリズム・解放規律・interop の形を COM 無しで検証する (T1/T2) -->
+    <InternalsVisibleTo Include="UiaTrigger.Core.Tests" />
+    <!-- 実 UIA テスト (T3)。購読スコープの診断と擬似ツリーを共有する -->
+    <InternalsVisibleTo Include="UiaTrigger.RealUia.Tests" />
+  </ItemGroup>
+
+  <!--
+    ユーザー向け文字列 (docs/LOCALIZATION.md §1)。
+    Strings.resx = en-US (neutral) / Strings.ja.resx = ja サテライト。
+  -->
+  <!--
+    IntelliSense の日本語化 (docs/LOCALIZATION.md §5)。
+    IDE / Roslyn は参照アセンブリの XML ドキュメントを探すとき、まず
+    <アセンブリのフォルダ>\<カルチャ>\<アセンブリ名>.xml を見て、無ければ隣の
+    <アセンブリ名>.xml に落ちる。サテライトアセンブリと同じ置き方だが、
+    仕組みは別物 (ResourceManager は関与しない) である。
+
+    ロールアップの単位はファイルなので、ja 側に無いメンバーは英語に落ちるのではなく
+    説明が消える。PublicApiDocumentationTests が公開 API との過不足を見ている。
+  -->
+  <ItemGroup>
+    <None Include="Resources\UiaTrigger.Core.ja.xml"
+          Link="ja\UiaTrigger.Core.xml"
+          CopyToOutputDirectory="PreserveNewest"
+          TargetPath="ja\UiaTrigger.Core.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\Strings.resx">
+      <StronglyTypedLanguage>CSharp</StronglyTypedLanguage>
+      <StronglyTypedNamespace>UiaTrigger.Resources</StronglyTypedNamespace>
+      <StronglyTypedClassName>Strings</StronglyTypedClassName>
+      <StronglyTypedFileName>$(IntermediateOutputPath)Strings.Designer.cs</StronglyTypedFileName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

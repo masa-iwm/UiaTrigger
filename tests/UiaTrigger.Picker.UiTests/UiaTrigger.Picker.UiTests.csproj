@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T4: ピッカーの UI 自体を UIA で駆動するテスト (docs/TESTING.md §1 T4 / docs/DESIGN.md §12)。
+
+    担当は「実体化を待つ経路」だけである — WinUI の ExpandThenSelect / SelectDeferred と、
+    WPF の同経路 + IsExpanded の TwoWay 束縛。どちらもコンテナが生成されるまで待つ話であり、
+    <b>ウィンドウを画面に出さないと再現しない</b> (実測。docs/DESIGN.md §12)。
+    Windows Forms は仮想化が無く、ウィンドウ無しでも TreeNode が存在するので対象外にしてある
+    (TreeMirrorTests が T1 で丸ごと覆っている)。
+
+    <b>ローカルで T3 (UiaTrigger.RealUia.Tests) と同時に走らせないこと。</b>
+    直列実行の指定 (AssemblyInfo.cs) はアセンブリ単位なので、別プロセスの T3 までは止められない。
+    どちらも画面にウィンドウを出して座標から要素を掴むため、重なると取り違える。
+    CI では別ジョブ (= 別ランナー) なので問題にならない。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.Picker.UiTests</RootNamespace>
+    <AssemblyName>UiaTrigger.Picker.UiTests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <!--
+      XAML は 1 行も無いのに UseWPF を立てているのは、UIA <b>クライアント</b>
+      (System.Windows.Automation = UIAutomationClient / UIAutomationTypes) を引くためである。
+      これは意図的に UiaTrigger.Core の手書き interop とは<b>別実装</b>であり、
+      両者が食い違えばどちらかが誤っていると分かる (docs/TESTING.md §1 T4)。
+      T3 が Core 越しに UIA を触るのと違う点なので、揃えないこと。
+    -->
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      UseWPF を立てると暗黙の using から System.IO が<b>外れる</b>
+      (System.Windows.Shapes.Path と衝突するため)。他のテストプロジェクトと同じ前提で
+      ソースを共有できるように戻しておく — 戻さないと、リンクしている RepoPaths.cs /
+      TestTargetProcess.cs だけがここでコンパイルできない。
+    -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Core を参照するのは DpiAwareness のためだけである (テストプロセスを PerMonitorV2 にする)。
+      UIA へは上記のとおり System.Windows.Automation 側から触る。
+    -->
+    <ProjectReference Include="..\..\src\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+    <!--
+      OverlayGeometry (純関数) から S1 の期待矩形を計算するため (docs/DESIGN.md §10)。
+      これは<b>ホストへの参照ではない</b> — 上の禁止は x64 固定の App.WinUI の話であって、
+      Picker.Core は net10.0-windows / AnyCPU なので普通に参照できる。
+      純関数なので、ホストのプロセスに別のコピーが在っても構わない。
+    -->
+    <ProjectReference Include="..\..\src\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
+    <!-- 対象アプリ (WinForms) は「テスト中に起動する実行ファイル」として要る -->
+    <ProjectReference Include="..\UiaTrigger.TestTarget\UiaTrigger.TestTarget.csproj"
+                      ReferenceOutputAssembly="false" />
+    <!--
+      サンプルホストへの ProjectReference は<b>張らない</b>。UiaTrigger.App.WinUI は x64 固定で、
+      AnyCPU のここから参照するとプラットフォーム不一致の警告が出て
+      TreatWarningsAsErrors=true でビルドが落ちる。App.Wpf だけ張ると 2 変種の扱いが
+      非対称になり、あとから「揃えよう」として WinUI 側を足す事故を招く。
+      どちらも実行ファイルとしてパスから探す (PickerHostProfile / PickerHostProcess)。
+      → ソリューション全体をビルドしてから走らせること。見つからなければ理由付きで落ちる。
+    -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- リポジトリ内のパス解決と対象アプリの子プロセスは T1 / T3 と同じ実装を使う (二重定義にしない) -->
+    <Compile Include="..\UiaTrigger.Core.Tests\RepoPaths.cs" Link="RepoPaths.cs" />
+    <Compile Include="..\UiaTrigger.RealUia.Tests\TargetProfile.cs" Link="TargetProfile.cs" />
+    <Compile Include="..\UiaTrigger.RealUia.Tests\TestTargetProcess.cs" Link="TestTargetProcess.cs" />
+  </ItemGroup>
+
+</Project>

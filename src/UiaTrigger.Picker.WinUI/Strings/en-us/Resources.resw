@@ -1,0 +1,264 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.Picker のユーザー向け文字列 (プライマリ = en-US)。
+  日本語は ..\ja-jp\Resources.resw で供給する。
+
+  XAML 側は x:Uid で参照する ("<Uid>.<プロパティ>" が名前になる)。
+  コードから使うものは接尾辞の無い名前にしてある (IPickerStrings.GetString — この変種の実装は MrtPickerStrings)。
+
+  比較・永続化に使う文字列 (トリガー Id・条件の値・JSON) はここに入れないこと
+  (docs/LOCALIZATION.md §3)。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <!-- ウィンドウ (Window は FrameworkElement ではないので x:Uid が効かない。コードから設定する) -->
+  <data name="WindowTitle" xml:space="preserve">
+    <value>Pick an element — UiaTrigger</value>
+  </data>
+
+  <!-- 上部バー -->
+  <data name="AutoSelectToggle.Header" xml:space="preserve">
+    <value>Follow the mouse</value>
+  </data>
+  <data name="AutoSelectToggle.OffContent" xml:space="preserve">
+    <value>Off</value>
+  </data>
+  <data name="AutoSelectToggle.OnContent" xml:space="preserve">
+    <value>On</value>
+  </data>
+  <data name="ViewCombo.Header" xml:space="preserve">
+    <value>Tree view</value>
+  </data>
+  <data name="SearchBox.Header" xml:space="preserve">
+    <value>Find in tree</value>
+  </data>
+  <data name="SearchNextButton.Content" xml:space="preserve">
+    <value>Find next</value>
+  </data>
+  <data name="HintText.Text" xml:space="preserve">
+    <value>Rest the cursor on an element for one second to select it. Left/Right cycle through overlapping elements; the check mark on the frame confirms.</value>
+  </data>
+  <data name="ConfirmNodeButton.ToolTipService.ToolTip" xml:space="preserve">
+    <value>Confirm this element</value>
+  </data>
+
+  <data name="TreeSplitter.AutomationProperties.Name" xml:space="preserve">
+    <value>Resize the element tree</value>
+  </data>
+
+  <data name="ConditionSplitter.AutomationProperties.Name" xml:space="preserve">
+    <value>Resize the property list</value>
+  </data>
+
+  <!-- 条件設定 -->
+  <data name="ConditionHeading.Text" xml:space="preserve">
+    <value>Trigger condition</value>
+  </data>
+  <data name="ConfirmedText.Text" xml:space="preserve">
+    <value>No element confirmed yet — use the check mark on the frame, or the one in the tree.</value>
+  </data>
+  <data name="KeyBox.Header" xml:space="preserve">
+    <value>Id</value>
+  </data>
+  <data name="OnCombo.Header" xml:space="preserve">
+    <value>Fires on</value>
+  </data>
+  <data name="PropCombo.Header" xml:space="preserve">
+    <value>Property</value>
+  </data>
+  <data name="CondCombo.Header" xml:space="preserve">
+    <value>Comparison</value>
+  </data>
+  <data name="TextOperand.Header" xml:space="preserve">
+    <value>Text / pattern</value>
+  </data>
+  <data name="ValueOperand.Header" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="LowOperand.Header" xml:space="preserve">
+    <value>Lower bound</value>
+  </data>
+  <data name="HighOperand.Header" xml:space="preserve">
+    <value>Upper bound</value>
+  </data>
+  <data name="ToleranceOperand.Header" xml:space="preserve">
+    <value>Tolerance</value>
+  </data>
+  <data name="MinIntervalOperand.Header" xml:space="preserve">
+    <value>Min interval (s)</value>
+  </data>
+  <data name="CommitButton.Content" xml:space="preserve">
+    <value>Add trigger</value>
+  </data>
+
+  <!-- コードから組み立てる文字列 -->
+  <data name="CaptureFailed" xml:space="preserve">
+    <value>Could not capture the element: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="ViewSwitchFailed" xml:space="preserve">
+    <value>Could not find the selected element in this view; the tree is unchanged.</value>
+  </data>
+  <data name="SearchNoMatch" xml:space="preserve">
+    <value>'{0}' was not found. Only the parts of the tree that have been loaded are searched.</value>
+    <comment>{0} = search text</comment>
+  </data>
+  <data name="SearchPosition" xml:space="preserve">
+    <value>Match {0} of {1}</value>
+    <comment>{0} = 1-based position, {1} = total matches</comment>
+  </data>
+  <data name="OverlapPosition" xml:space="preserve">
+    <value>Overlap {0} of {1}: {2}</value>
+    <comment>{0} = 1-based position, {1} = total, {2} = element label</comment>
+  </data>
+  <data name="OverlapFailed" xml:space="preserve">
+    <value>Could not switch elements: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="ConfirmFailedElementGone" xml:space="preserve">
+    <value>Could not confirm the element; it may have disappeared.</value>
+  </data>
+  <data name="Confirmed" xml:space="preserve">
+    <value>Confirmed: {0} ({1})</value>
+    <comment>{0} = generated display name, {1} = process name</comment>
+  </data>
+  <data name="ConfirmFailed" xml:space="preserve">
+    <value>Could not confirm the element: {0}</value>
+    <comment>{0} = exception message</comment>
+  </data>
+  <data name="SelectTriggerShape" xml:space="preserve">
+    <value>Choose what the trigger fires on, which property to watch, and how to compare it.</value>
+  </data>
+  <data name="TriggerAdded" xml:space="preserve">
+    <value>Added: {0}</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+
+  <!-- プロパティ一覧の行。ラベルは UIA のプロパティ名なので翻訳しない -->
+  <data name="PropertyRow" xml:space="preserve">
+    <value>{0}: {1}</value>
+    <comment>{0} = UI Automation property name (not translated), {1} = value</comment>
+  </data>
+  <data name="PropertyRowControlType" xml:space="preserve">
+    <value>ControlType: {0} — {1} ({2})</value>
+    <comment>{0} = localized control type, {1} = stable name used in conditions, {2} = numeric id</comment>
+  </data>
+
+  <!--
+    トリガ一覧エディタ (EditorStringKeys / docs/DESIGN.md §4)。
+    別の窓なのでキー表は別だが、供給経路はここを共有する。
+  -->
+  <data name="EditorWindowTitle" xml:space="preserve">
+    <value>Edit triggers — UiaTrigger</value>
+  </data>
+  <data name="AddTriggerButton.Content" xml:space="preserve">
+    <value>Record new…</value>
+  </data>
+  <data name="EditTriggerButton.Content" xml:space="preserve">
+    <value>Edit condition…</value>
+  </data>
+  <data name="DeleteTriggerButton.Content" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="CombineTriggersButton.Content" xml:space="preserve">
+    <value>Combine the selected</value>
+  </data>
+  <data name="DecomposeTriggerButton.Content" xml:space="preserve">
+    <value>Take apart</value>
+  </data>
+  <data name="AcceptButton.Content" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="CancelButton.Content" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ExpressionBox.Header" xml:space="preserve">
+    <value>Expression (&amp;&amp;, ||, !, parentheses; blank = require all):</value>
+  </data>
+  <data name="UnwatchedBox.Header" xml:space="preserve">
+    <value>Only narrow, never fire (ids, comma separated):</value>
+  </data>
+  <data name="EditorTriggerList.AutomationProperties.Name" xml:space="preserve">
+    <value>Triggers</value>
+  </data>
+  <data name="EditorTriggerRow" xml:space="preserve">
+    <value>[{0}] {1} — {2} / {3} : {4}</value>
+    <comment>{0} = id, {1} = display name, {2} = process name, {3} = TriggerOn, {4} = conditions</comment>
+  </data>
+  <data name="EditorCompositeRow" xml:space="preserve">
+    <value>[{0}] {1} condition(s) / {2} : {3}</value>
+    <comment>{0} = id, {1} = number of conditions, {2} = TriggerOn, {3} = expression</comment>
+  </data>
+  <data name="EditorNoClauses" xml:space="preserve">
+    <value>(no condition)</value>
+  </data>
+  <data name="EditorSelectOneToEdit" xml:space="preserve">
+    <value>Select one trigger to edit its condition.</value>
+  </data>
+  <data name="EditorCannotEditWithThePicker" xml:space="preserve">
+    <value>The picker edits one plain condition. Take this trigger apart first, then edit the parts.</value>
+  </data>
+  <data name="EditorSelectACompositeToDecompose" xml:space="preserve">
+    <value>Select one combined trigger to take apart.</value>
+  </data>
+  <data name="EditorCombineDone" xml:space="preserve">
+    <value>Created '{0}' from {1} trigger(s). The originals are still listed.</value>
+    <comment>{0} = new trigger id, {1} = number of source triggers</comment>
+  </data>
+  <data name="EditorCombineFailed" xml:space="preserve">
+    <value>Could not combine: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="EditorDecomposeDone" xml:space="preserve">
+    <value>Recovered {1} trigger(s) from '{0}'. '{0}' itself is still listed.</value>
+    <comment>{0} = the composite's id, {1} = number of triggers recovered</comment>
+  </data>
+  <data name="EditorDeleteDone" xml:space="preserve">
+    <value>Removed {0} trigger(s).</value>
+    <comment>{0} = number of triggers removed</comment>
+  </data>
+  <data name="EditorSelectSomething" xml:space="preserve">
+    <value>Select a trigger first.</value>
+  </data>
+</root>

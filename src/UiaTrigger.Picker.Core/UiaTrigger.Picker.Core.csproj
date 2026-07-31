@@ -1,0 +1,89 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ピッカーの UI 非依存部分 (docs/DESIGN.md §12)。
+
+    ここが AnyCPU / 素の net10.0-windows であることが分割の目的そのものである:
+      ・T1 (tests/UiaTrigger.Core.Tests) から普通に ProjectReference できる
+      ・WinUI3 / WPF / WinForms のどの View からも参照できる
+
+    [assembly: DisableRuntimeMarshalling] は<b>アセンブリ単位</b>なので、それを宣言しない
+    このアセンブリは CsWin32 を保ったまま AnyCPU でいられる。ここに WindowsAppSDK を
+    足すと TFM が net10.0-windows10.0.19041.0 / x64 に引きずられ、分割の意味が消える。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.Picker</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!--
+      公開 API の XML doc は英語で書く (docs/DESIGN.md L1 / docs/LOCALIZATION.md §5)。
+      日本語 IntelliSense は Resources/UiaTrigger.Picker.Core.ja.xml が持ち、
+      「公開 API を過不足なく覆う」ことを PublicApiDocumentationTests が検査する。
+    -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
+  <PropertyGroup>
+    <IsPackable>true</IsPackable>
+    <Description>The UI-independent element picker for UiaTrigger: the presenter that drives hover capture and overlap stepping, the click-through overlay, and the seams a view implements. Reference this together with one of the UiaTrigger.Picker.* view packages, or implement IPickerView yourself.</Description>
+    <PackageTags>uiautomation;uia;automation;windows;picker;element-picker;overlay</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWin32">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    internal をテストアセンブリだけに見せる (docs/DESIGN.md §12)。
+    公開面は「View / ホストが実装または供給するもの」に絞ってあり、
+    プレゼンターの中身 (IPickerServices / IPickerElement / IOverlay / OverlayGeometry) は
+    ここから覗く。製品アセンブリを足し戻さないこと — Core と同じ規律である。
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="UiaTrigger.Core.Tests" />
+    <!--
+      T4 が OverlayGeometry (純関数) から期待矩形を計算するため (docs/TESTING.md §1 T4)。
+      これを入れないと S1 の期待矩形が -4 や 20 といったマジックナンバーになり、
+      OverlayGeometry から drift しても誰も気づかない。
+      公開面は 1 つも増えない — public 化すると PublicApiDocumentationTests が
+      英語 XML doc と ja XML の集合一致を要求する。IVT にはその費用が無い。
+    -->
+    <InternalsVisibleTo Include="UiaTrigger.Picker.UiTests" />
+    <!--
+      T5 も同じ理由で要る (docs/TESTING.md §3)。合成入力で撃つ前に、期待矩形を
+      OverlayGeometry (純関数) と UIA の BoundingRectangle (別実装) の<b>両方</b>から出して
+      一致を確かめる — 円環を作らないための検算であり、片方をマジックナンバーにすると
+      検算が成立しない (docs/TESTING.md §4)。舞台の組み立て (OverlayScenario) も T4 と共有している。
+    -->
+    <InternalsVisibleTo Include="UiaTrigger.Input.Tests" />
+  </ItemGroup>
+
+  <!--
+    IntelliSense の日本語化 (docs/LOCALIZATION.md §5)。UiaTrigger.Core と同じ置き方である。
+    ロールアップの単位はファイルなので、ja 側に無いメンバーは英語に落ちるのではなく
+    <b>説明が消える</b>。過不足は PublicApiDocumentationTests が見ている。
+  -->
+  <ItemGroup>
+    <None Include="Resources\UiaTrigger.Picker.Core.ja.xml"
+          Link="ja\UiaTrigger.Picker.Core.xml"
+          CopyToOutputDirectory="PreserveNewest"
+          TargetPath="ja\UiaTrigger.Picker.Core.xml" />
+  </ItemGroup>
+
+  <!--
+    ピッカーのユーザー向け文字列 — WPF / WinForms 向けの供給経路 (docs/DESIGN.md L3 / docs/LOCALIZATION.md §4)。
+    Strings.resx = en-US (neutral) / Strings.ja.resx = ja サテライト。
+
+    厳密に型指定されたコード生成 (StronglyTypedLanguage) は<b>付けない</b>。キー名に '.' が
+    入っており (AutoSelectToggle.Header)、生成される識別子は '_' に潰されるので、
+    キー名とは別の名前空間が黙って 1 つ増えてしまう。参照は PickerStringKeys の定数で行う。
+  -->
+
+</Project>

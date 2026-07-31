@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.Core のユーザー向け文字列 (プライマリ = en-US)。
+  日本語は Strings.ja.resx (サテライトアセンブリ) で供給する。
+
+  ここに入れてよいのは「ユーザー向け表示用」の文字列のみ (docs/LOCALIZATION.md §3)。
+  比較・永続化に使う文字列 (条件評価の値、JSON のキー等) は絶対にローカライズしないこと。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Error_AlreadyStarted" xml:space="preserve">
+    <value>Monitoring has already been started.</value>
+  </data>
+  <data name="Error_ProcessNameRequired" xml:space="preserve">
+    <value>Trigger '{0}': Window.ProcessName is required.</value>
+    <comment>{0} = trigger key</comment>
+  </data>
+  <data name="Error_LowHighRequired" xml:space="preserve">
+    <value>Trigger '{0}': condition '{1}' requires both Low and High.</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_ValueRequired" xml:space="preserve">
+    <value>Trigger '{0}': condition '{1}' requires Value.</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_TextRequired" xml:space="preserve">
+    <value>Trigger '{0}': condition '{1}' requires Text.</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_RegexPatternRequired" xml:space="preserve">
+    <value>Trigger '{0}': condition '{1}' requires Text (a regular expression pattern).</value>
+    <comment>{0} = trigger key, {1} = condition kind</comment>
+  </data>
+  <data name="Error_InvalidRegex" xml:space="preserve">
+    <value>Trigger '{0}': invalid regular expression: {1}</value>
+    <comment>{0} = trigger key, {1} = underlying error message</comment>
+  </data>
+
+  <data name="Error_TriggerIdRequired" xml:space="preserve">
+    <value>Every trigger needs a non-empty Id.</value>
+  </data>
+  <data name="Error_DuplicateTriggerId" xml:space="preserve">
+    <value>Trigger id '{0}' is used more than once.</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_WindowRequirementUnsatisfiable" xml:space="preserve">
+    <value>Trigger '{0}': an attribute of Window is marked Required but was not recorded, so no window can ever match.</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_MinIntervalNegative" xml:space="preserve">
+    <value>Trigger '{0}': MinInterval cannot be negative.</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_PollIntervalNegative" xml:space="preserve">
+    <value>Trigger '{0}': PollInterval cannot be negative.</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_PollIntervalNotApplicable" xml:space="preserve">
+    <value>Trigger '{0}': PollInterval has no effect with On='{1}', which fires when the element appears or disappears rather than when a property changes. Polling re-reads resolved elements; it does not drive resolution.</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
+  <data name="Error_ClauseElementNotApplicable" xml:space="preserve">
+    <value>Trigger '{0}': a condition cannot name its own window or locator with On='{1}', which fires when the trigger's own element appears or disappears. Every condition reads that element; drop the per-condition window and locator, or watch a property instead.</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
+  <data name="Error_ClausesRequired" xml:space="preserve">
+    <value>Trigger '{0}': On='{1}' needs at least one clause with Watch=true, because the watched clauses decide which properties are observed.</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
+  <data name="Error_InvalidClauseName" xml:space="preserve">
+    <value>Trigger '{0}': '{1}' cannot be used as a clause name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>
+    <comment>{0} = trigger id, {1} = the offending clause name</comment>
+  </data>
+  <data name="Error_DuplicateClauseName" xml:space="preserve">
+    <value>Trigger '{0}': more than one clause is named '{1}'. Clause names must be unique within a trigger, including the positional names given to unnamed clauses.</value>
+    <comment>{0} = trigger id, {1} = the duplicated clause name</comment>
+  </data>
+  <data name="Error_Expression" xml:space="preserve">
+    <value>Trigger '{0}': the Expression is invalid. {1}</value>
+    <comment>{0} = trigger id, {1} = the reason, already localized</comment>
+  </data>
+  <data name="Error_UnreferencedClause" xml:space="preserve">
+    <value>Trigger '{0}': the Expression never refers to the clause '{1}'. A clause the expression leaves out is still resolved and subscribed to while never affecting the outcome.</value>
+    <comment>{0} = trigger id, {1} = the clause name that is not referred to</comment>
+  </data>
+  <data name="Error_CustomPropertyIdRequired" xml:space="preserve">
+    <value>Trigger '{0}': a clause on Property=Custom needs a non-zero CustomPropertyId.</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+
+  <data name="Error_ExpressionEmpty" xml:space="preserve">
+    <value>The expression is empty.</value>
+  </data>
+  <data name="Error_ExpressionUnexpectedToken" xml:space="preserve">
+    <value>Unexpected '{1}' at position {0}.</value>
+    <comment>{0} = 1-based character position, {1} = the token that was read</comment>
+  </data>
+  <data name="Error_ExpressionUnexpectedEnd" xml:space="preserve">
+    <value>The expression ends where a clause name was expected.</value>
+  </data>
+  <data name="Error_ExpressionUnclosedParen" xml:space="preserve">
+    <value>The '(' at position {0} is never closed.</value>
+    <comment>{0} = 1-based character position of the opening parenthesis</comment>
+  </data>
+  <data name="Error_ExpressionUnbalancedParen" xml:space="preserve">
+    <value>The ')' at position {0} has no matching '('.</value>
+    <comment>{0} = 1-based character position</comment>
+  </data>
+  <data name="Error_ExpressionUnknownName" xml:space="preserve">
+    <value>'{1}' at position {0} is not the name of any clause on this trigger.</value>
+    <comment>{0} = 1-based character position, {1} = the name that was read</comment>
+  </data>
+  <data name="Error_ExpressionTooDeep" xml:space="preserve">
+    <value>The expression nests more than {0} levels deep.</value>
+    <comment>{0} = the maximum nesting depth</comment>
+  </data>
+  <data name="Error_ExpressionSingleOperatorChar" xml:space="preserve">
+    <value>'{1}' at position {0} is not an operator; write '{1}{1}'.</value>
+    <comment>{0} = 1-based character position, {1} = the single character that was read (&amp; or |)</comment>
+  </data>
+
+  <data name="Error_TimeoutOutOfRange" xml:space="preserve">
+    <value>'{0}' must be a positive duration of at most {1} milliseconds.</value>
+    <comment>{0} = option name, {1} = upper bound in milliseconds</comment>
+  </data>
+
+  <data name="Error_NoElementAtPoint" xml:space="preserve">
+    <value>No UI element was found at screen point ({0}, {1}).</value>
+    <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_DpiUnaware" xml:space="preserve">
+    <value>The process DPI awareness is '{0}'. Screen coordinates are virtualized, so a point passed to UI Automation resolves to the wrong element on a scaled display. Declare dpiAwareness=PerMonitorV2 in the application manifest, or call DpiAwareness.TryEnablePerMonitorV2 before creating any window.</value>
+    <comment>{0} = the awareness mode name (Unaware / System / Invalid)</comment>
+  </data>
+
+  <data name="Status_ElementResolved" xml:space="preserve">
+    <value>Element resolved.</value>
+  </data>
+  <data name="Status_InitialResolveFailed" xml:space="preserve">
+    <value>Initial resolution failed; waiting for the element to appear.</value>
+  </data>
+  <data name="Status_ResolveFailedInaccessibleProcesses" xml:space="preserve">
+    <value>Initial resolution failed; waiting for the element to appear. {0} running process(es) could not be inspected and were skipped — they are almost certainly elevated, and a client that is not itself elevated cannot see their windows.</value>
+    <comment>{0} = number of processes that could not be opened</comment>
+  </data>
+  <data name="Status_ElementUnavailable" xml:space="preserve">
+    <value>The element became unavailable.</value>
+  </data>
+  <data name="Status_ElementIdentityChanged" xml:space="preserve">
+    <value>The element is still alive but is no longer the one that was recorded; resolving again.</value>
+  </data>
+  <data name="Status_ElementDetached" xml:space="preserve">
+    <value>The element still answers but is no longer reachable from the window; resolving again.</value>
+  </data>
+
+  <!-- ピッカーの入力検証 (TriggerDraftValidator)。確定前にユーザーへ返す理由 -->
+  <data name="Draft_IdRequired" xml:space="preserve">
+    <value>Enter an id for the trigger.</value>
+  </data>
+  <data name="Draft_OrderingNeedsNumericProperty" xml:space="preserve">
+    <value>Ordering and range conditions apply to numeric properties only (Value, RangeValue and its bounds).</value>
+  </data>
+  <data name="Draft_RangeRequired" xml:space="preserve">
+    <value>Enter both the lower and the upper bound.</value>
+  </data>
+  <data name="Draft_RangeReversed" xml:space="preserve">
+    <value>The lower bound must not be greater than the upper bound.</value>
+  </data>
+  <data name="Draft_ValueRequired" xml:space="preserve">
+    <value>Enter the value to compare against.</value>
+  </data>
+  <data name="Draft_TextRequired" xml:space="preserve">
+    <value>Enter the text to compare against.</value>
+  </data>
+  <data name="Draft_RegexRequired" xml:space="preserve">
+    <value>Enter a regular expression.</value>
+  </data>
+  <data name="Draft_RegexInvalid" xml:space="preserve">
+    <value>The regular expression is not valid: {0}</value>
+    <comment>{0} = message from the regular expression engine</comment>
+  </data>
+  <data name="Draft_ToleranceNegative" xml:space="preserve">
+    <value>The tolerance must not be negative.</value>
+  </data>
+  <data name="Draft_InvalidClauseName" xml:space="preserve">
+    <value>'{0}' cannot be used as a condition name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>
+    <comment>{0} = the offending clause name</comment>
+  </data>
+  <data name="Draft_DuplicateClauseName" xml:space="preserve">
+    <value>More than one condition is named '{0}'. Names must be unique, including the positional names given to unnamed conditions.</value>
+    <comment>{0} = the duplicated clause name</comment>
+  </data>
+  <data name="Draft_UnreferencedClause" xml:space="preserve">
+    <value>The expression never refers to the condition '{0}'. A condition the expression leaves out is still watched while never affecting the outcome.</value>
+    <comment>{0} = the clause name that is not referred to</comment>
+  </data>
+
+  <!-- 複合条件を組む規則 (TriggerComposer)。まとめられない理由 -->
+  <data name="Compose_NeedsTwo" xml:space="preserve">
+    <value>Select two or more triggers to combine.</value>
+  </data>
+  <data name="Compose_UnknownName" xml:space="preserve">
+    <value>'{0}' is not one of the conditions being combined.</value>
+    <comment>{0} = the name that was typed</comment>
+  </data>
+</root>

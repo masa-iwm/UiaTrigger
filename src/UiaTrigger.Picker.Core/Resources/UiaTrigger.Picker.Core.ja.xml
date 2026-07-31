@@ -1,0 +1,774 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  UiaTrigger.Picker.Core の日本語 IntelliSense (docs/LOCALIZATION.md §5)。
+
+  ビルド時に <出力>\ja\UiaTrigger.Picker.Core.xml へ複製される。仕組みは
+  UiaTrigger.Core.ja.xml と同じで、ResourceManager は一切関与しない。
+
+  ロールアップの単位は「メンバー」ではなく「ファイル」である。このファイルが在る限り
+  こちらが丸ごと使われ、ここに無いメンバーは英語に落ちるのではなく <b>説明が消える</b>。
+  だから公開 API を過不足なく覆う必要があり、PublicApiDocumentationTests が検査している。
+-->
+<doc>
+  <assembly>
+    <name>UiaTrigger.Picker.Core</name>
+  </assembly>
+  <members>
+    <!-- ================= 型 ================= -->
+    <member name="T:UiaTrigger.Picker.TriggerPickerPresenter">
+      <summary>ピッカーの振る舞いを担う。ホバー捕捉・要素ツリー・選んだ要素のトリガー化を行う。</summary>
+      <remarks>
+        <para>
+          UI フレームワークに依存しない規則をすべて持ち、いま動いているフレームワークとは
+          <see cref="T:UiaTrigger.Picker.IPickerView" />・<see cref="T:UiaTrigger.Picker.IUiDispatcher" />・
+          <see cref="T:UiaTrigger.Picker.ICursorSource" />・<see cref="T:UiaTrigger.Picker.IPickerStrings" />
+          を通してやり取りする。View はユーザー操作を <c>Notify…</c> / <c>Set…</c> で伝え、
+          表示すべきものはインターフェイスの実装として受け取る。
+        </para>
+        <para>
+          ここでの処理はすべてディスパッチャーが投稿するスレッド上で起きる。例外はオーバーレイで、
+          あちらは自分のスレッドからイベントを上げてくるため、プレゼンターが投稿し直してから動く。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.PickerTreeNode">
+      <summary>ピッカーの要素ツリーの 1 行。ルート行はプロセスそのものを表す。</summary>
+      <remarks>
+        <para>
+          View はこの型に直接束縛するので、UI フレームワークの要素は一切持たない
+          (<c>Visibility</c> もディスパッチャーもコントロール参照も持たない)。
+          <see cref="P:UiaTrigger.Picker.PickerTreeNode.CanConfirm" /> が
+          <see cref="T:System.Boolean" /> なのもそのためで、ボタンを隠すために必要な型へ
+          変換するのは View の仕事である。
+        </para>
+        <para>
+          行を開くことには 2 つの意味があり、混同してはならない。ユーザーが
+          <see cref="P:UiaTrigger.Picker.PickerTreeNode.IsExpanded" /> を立てた場合は
+          子の全列挙を求めるが、<see cref="M:UiaTrigger.Picker.PickerTreeNode.ExpandForDisplay" />
+          はピッカーが既に埋めた行を開くだけである。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.IPickerView">
+      <summary>ピッカーの View を、プレゼンターから見た形で表す。</summary>
+      <remarks>
+        <para>
+          ここに在るのは「文字を置く場所」か「実装が 1 つの UI フレームワークに固有な操作」の
+          どちらかである。とくにツリーの展開と遅延選択は View 側が持つ。行のコンテナが
+          実体化するのを待つのは WinUI では <c>TreeViewItem</c> の、WPF では
+          <c>ItemContainerGenerator</c> の問題で、Windows Forms では問題ですらない。
+          共通の実装を置けば 3 つとも間違ったものになる。
+        </para>
+        <para>
+          プレゼンターは <see cref="P:UiaTrigger.Picker.PickerTreeNode.IsExpanded" /> を決して書かない。
+          View がこれを双方向で束縛するため、プレゼンターからの書き込みが
+          ユーザー操作として跳ね返ってくるからである。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.IUiDispatcher">
+      <summary>ピッカーの UI を所有するスレッドへ処理を投稿する。</summary>
+      <remarks>
+        オーバーレイは自分のスレッドでイベントを上げる (確定クリックはオーバーレイの
+        メッセージループ、矢印キーはキーボードフックのスレッド) ので、そこから始まる処理は
+        すべてまずここを通って戻ってくる。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.IUiTimer">
+      <summary>UI スレッドで刻む反復タイマー。</summary>
+    </member>
+    <member name="T:UiaTrigger.Picker.ICursorSource">
+      <summary>マウスカーソルの位置を物理スクリーン座標で読む。</summary>
+      <remarks>
+        <c>GetCursorPos</c> を直接呼ばず継ぎ目にしてあるのには 2 つ理由がある。ホバー滞留は
+        ピッカーの中心的な振る舞いなのでテストできる必要があること、そして UI テストには
+        「カーソルがそこに在るとピッカーに思わせる」手段が他に無いことである
+        (実際に動かすのは擬似入力であり、このリポジトリではテストに使わない — docs/TESTING.md §3)。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.IPickerStrings">
+      <summary>ピッカーのユーザー向け文字列を供給する。</summary>
+      <remarks>
+        キーの表は 1 つで、供給の仕方が複数ある。WinUI は MRT Core で <c>.resw</c> を解決し、
+        WPF と Windows Forms は <c>.resx</c> とサテライトアセンブリを使う。値には合成書式の
+        プレースホルダーが入りうるので、現在のカルチャで整形するのはピッカーの側である
+        (docs/DESIGN.md L3 / docs/LOCALIZATION.md §3)。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.PickerStringKeys">
+      <summary>ピッカーが使うリソースキーのすべて。キー名を書き下ろす唯一の場所である。</summary>
+      <remarks>
+        <para>
+          プロパティ名で終わるキー (<c>AutoSelectToggle.Header</c> など) はコントロールの
+          ラベルを指す。WinUI は XAML の読み込み時に <c>x:Uid</c> 経由で解決し、
+          他の View はコードで代入する。残りは実行時にプレゼンターが組み立てる。
+        </para>
+        <para>
+          ユーザーが読む文字を表示する View は、必ずここから文字列を引くこと。
+          値には合成書式のプレースホルダーが入りうるので、現在のカルチャで整形される。
+        </para>
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.ResxPickerStrings">
+      <summary>ピッカーの文字列を <c>Strings.resx</c> とそのサテライトアセンブリから供給する。</summary>
+      <remarks>
+        MRT Core を持たない View — Windows Presentation Foundation と Windows Forms — 向けの
+        経路である。この 2 つはリソースの仕組みがまったく同じなので、同じ表を渡している。
+        それぞれに写しを持たせると、1 組のキーを二重に保守することになる。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.Win32CursorSource">
+      <summary>カーソル位置を Win32 から読む。View が通常使う実装である。</summary>
+    </member>
+    <member name="T:UiaTrigger.Picker.OperandVisibility">
+      <summary>条件がどの値の欄を必要とするかを表す。</summary>
+      <remarks>
+        <c>TriggerDraftValidator</c> から導いているので、画面に出す欄と検証器が読む欄が
+        食い違うことはない。食い違うと、ユーザーに見えない値が保存される条件に入り込む。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.TriggerCommittedEventArgs">
+      <summary>ユーザーがトリガーを確定したことを伝えるイベントのデータ。</summary>
+    </member>
+
+    <!-- ================= TriggerPickerPresenter ================= -->
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.#ctor(UiaTrigger.Picker.IPickerView,UiaTrigger.Picker.IUiDispatcher,UiaTrigger.Picker.ICursorSource,UiaTrigger.Picker.IPickerStrings)">
+      <summary>実物の UI Automation セッションとオーバーレイに繋がるプレゼンターを作る。</summary>
+      <param name="view">動かす対象の View。</param>
+      <param name="dispatcher">View を所有するスレッドへ処理を投稿する。</param>
+      <param name="cursor">ホバー捕捉のためにマウス位置を読む。</param>
+      <param name="strings">ユーザー向けの文字列を供給する。</param>
+    </member>
+    <!--
+      次のコンストラクターは internal だが、公開されている多重定義と名前が同じなので
+      PublicApiDocumentationTests は公開 API として扱う (名前だけで照合するため)。
+      過剰検出の側なので、素直に項目を用意しておく。
+    -->
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.#ctor(UiaTrigger.Picker.IPickerView,UiaTrigger.Picker.IUiDispatcher,UiaTrigger.Picker.ICursorSource,UiaTrigger.Picker.IPickerStrings,UiaTrigger.Picker.IPickerServices,UiaTrigger.Picker.IOverlay,System.TimeProvider,UiaTrigger.Picker.IDpiSource)">
+      <summary>テスト用。UI Automation・オーバーレイ・時計・DPI の取得元を差し替える。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.TriggerPickerPresenter.Roots">
+      <summary>要素ツリーの行。View はここに一度だけ束縛し、以後差し替えない。</summary>
+    </member>
+    <member name="E:UiaTrigger.Picker.TriggerPickerPresenter.TriggerCommitted">
+      <summary>ユーザーがトリガーを確定したときに発生する。永続化はホストの担当である。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.SetAutoSelect(System.Boolean)">
+      <summary>ホバー捕捉の有効・無効を切り替える。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.SetViewMode(UiaTrigger.Models.TreeViewMode)">
+      <summary>ツリーのビューを切り替え、現在のチェーンをそのビューで組み直す。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.SetTreeHasFocus(System.Boolean)">
+      <summary>要素ツリーがキーボードフォーカスを持っているかを伝える。</summary>
+      <remarks>
+        <para>
+          持っているあいだ矢印キーはツリーのものなので (選択が動く)、
+          同時にカーソル下の重なり要素を送り進めてはならない。
+        </para>
+        <para>
+          見るのは<b>ツリー</b>であってウィンドウではない。他のアプリケーションの上に
+          カーソルを重ねてもフォーカスは動かない (Windows がフォーカスを移すのはクリックのとき)
+          ので、ウィンドウ単位で見るとホバーしているあいだずっと真になる —
+          重なり要素を送りたいのはまさにそのときである。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.NotifyTreeSelectionChanged(UiaTrigger.Picker.PickerTreeNode)">
+      <summary>ユーザーが行を選択したことを伝える。プレゼンター自身の変更では呼ばれない。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.NotifyTreeItemInvoked(UiaTrigger.Picker.PickerTreeNode)">
+      <summary>ユーザーが行をクリックしたことを伝える。子の全列挙も伴う。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.IsCurrent(UiaTrigger.Picker.PickerTreeNode)">
+      <summary>プレゼンターがまだそのノードを選択しておきたいかどうか。</summary>
+      <remarks>
+        行のコントロールが実体化するのを待ってから選択する View は、先にこれを確かめること。
+        コントロールが現れる頃にはユーザーが別のものを選んでいることがあり、
+        古い選択要求が選択を引き戻してしまう。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.SearchNext(System.String)">
+      <summary>表示名に指定の語を含む次の行へ移る。末尾まで行くと先頭へ戻る。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.ConfirmNode(UiaTrigger.Picker.PickerTreeNode)">
+      <summary>行の要素を確定し、その要素に対するトリガーの形を提示する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.CanEdit(UiaTrigger.Models.TriggerDefinition)">
+      <summary>このピッカーで既存トリガーの条件を編集できるか。</summary>
+      <remarks>
+        <para>
+          複合には false を返す。ピッカーが編集するのは条件 1 件であり、複合をほどくのは
+          <see cref="M:UiaTrigger.Models.TriggerComposer.Decompose(UiaTrigger.Models.TriggerDefinition,System.Collections.Generic.IEnumerable{System.String})" />
+          の仕事である。
+        </para>
+        <para>
+          条件 1 件であっても、<see cref="T:UiaTrigger.Models.TriggerDraft" /> に運ぶ場所が無いものを
+          持っていれば false を返す — 自前の要素
+          (<see cref="P:UiaTrigger.Models.PropertyClause.Window" /> または
+          <see cref="P:UiaTrigger.Models.PropertyClause.Locator" />)、
+          切ってある <see cref="P:UiaTrigger.Models.PropertyClause.Watch" />、
+          プロパティ id を伴う <see cref="F:UiaTrigger.Models.TriggerProperty.Custom" /> である。
+          確定は下書きから条件を作り直すので、下書きが運べないものは落ちる —
+          そのトリガーは<b>別の要素を監視し始める</b>か、要求するだけのつもりだった要素を
+          監視し始める。編集を提示する<b>前に</b>訊くこと。そうしないと、
+          ユーザーが一度も見ていないものが黙って変わる編集になる。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.LoadDefinition(UiaTrigger.Models.TriggerDefinition)">
+      <summary>既存のトリガーを読み込み、その条件を編集して確定し直せるようにする。</summary>
+      <param name="definition">
+        編集するトリガー。プレゼンターがこれを引き取り、確定された条件を<b>この実体へ</b>書き戻すので、
+        元をそのまま残す必要があるときは写しを渡すこと。
+      </param>
+      <exception cref="T:System.ArgumentException">
+        <paramref name="definition" /> に対して
+        <see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.CanEdit(UiaTrigger.Models.TriggerDefinition)" />
+        が false である。
+      </exception>
+      <remarks>
+        要素は読み直さない。記録済みのウィンドウと経路をそのまま保つことが要点である —
+        しきい値を 1 つ変えるためにもう一度要素をホバーで捕まえ直す必要は無い。
+        ホバー捕捉自体は従来どおり働き、要素を確定すれば記録済みの要素は差し替わる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.ConditionShapeChanged(UiaTrigger.Models.TriggerOn,UiaTrigger.Models.ComparisonOp)">
+      <summary>ユーザーがトリガーの形を変えたことを伝える。これで値の欄が決まる。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.DescribeOperands(UiaTrigger.Models.TriggerOn,UiaTrigger.Models.ComparisonOp)">
+      <summary>この形のトリガーがどの値の欄を使うかを返す。</summary>
+      <remarks>
+        ここで決めるのではなく <c>TriggerDraftValidator</c> から読む。そうすることで、
+        ユーザーに見えない欄の値が保存される条件に入り込むことがなくなる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.Commit">
+      <summary>ユーザーが入力した内容を検証し、筋が通っていればトリガーを確定する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.Dispose">
+      <summary>タイマーを止め、オーバーレイと UI Automation セッションを解放する。</summary>
+      <remarks>複数回呼んでも安全である。</remarks>
+    </member>
+
+    <!-- ================= PickerTreeNode ================= -->
+    <member name="P:UiaTrigger.Picker.PickerTreeNode.Display">
+      <summary>この行に表示する文字列。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.PickerTreeNode.Children">
+      <summary>子の行。ツリーの順に並ぶ。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.PickerTreeNode.ChildrenLoaded">
+      <summary>子をすべて列挙済みかどうか。チェーンだけを表示している間は false。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.PickerTreeNode.HasUnrealizedChildren">
+      <summary>子をまだ取得していなくても展開記号を出すかどうか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.PickerTreeNode.IsExpanded">
+      <summary>行が開いているかどうか。</summary>
+      <remarks>
+        View はこれを双方向で束縛する。<see langword="true" /> にすることは
+        「ユーザーが行を開いた」とみなされ、ピッカーはまだ取得していない子を列挙する。
+        行を開くだけでよいコード — ピッカー自身が部分木を組んだ直後など — は
+        代わりに <see cref="M:UiaTrigger.Picker.PickerTreeNode.ExpandForDisplay" /> を呼ぶこと。
+        でないと、捕捉したチェーンの各段が副作用として兄弟を取りに行く。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.PickerTreeNode.ExpandForDisplay">
+      <summary>残りの子の列挙を求めずに行を開く。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.PickerTreeNode.CanConfirm">
+      <summary>行が要素を表しているかどうか。false になるのはプロセスのルート行だけである。</summary>
+      <remarks>
+        確定ボタンの表示はここに繋がる。フレームワーク固有の値 — WinUI の
+        <c>Visibility</c> など — が必要な View はそちらで変換する。その変換は
+        そのフレームワークの事実であって、ピッカーの事実ではない。
+      </remarks>
+    </member>
+    <member name="E:UiaTrigger.Picker.PickerTreeNode.PropertyChanged">
+      <summary>束縛されているプロパティが変化したときに発生する。</summary>
+    </member>
+
+    <!-- ================= IPickerView ================= -->
+    <member name="P:UiaTrigger.Picker.IPickerView.Hint">
+      <summary>ヒント行を設定する。診断・失敗の理由・重なりの位置を出す。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.IPickerView.ConfirmedText">
+      <summary>ユーザーが確定した要素を説明する行を設定する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.IPickerView.CommitStatus">
+      <summary>直前の確定操作の結果を説明する行を設定する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.IPickerView.KeyText">
+      <summary>ユーザーが入力したトリガー Id。空のときはプレゼンターが既定値を入れる。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.IPickerView.SelectedNode">
+      <summary>ツリーで現在選択されている行。無ければ <see langword="null" />。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.ShowProperties(System.Collections.Generic.IReadOnlyList{System.String})">
+      <summary>現在の要素のプロパティ行を表示する。空のリストは表示を消すことを意味する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.ShowTriggerShape(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerProperty},UiaTrigger.Models.TriggerOn,UiaTrigger.Models.ComparisonOp)">
+      <summary>新しく確定した要素に対するトリガーの形を提示し、既定値を選択しておく。</summary>
+      <remarks>
+        リストはプレゼンターのものであり、最新に保たれることはない。参照を保持し続ける
+        コントロールへ直接渡す View や、特定のコレクション型を要求するコントロールを使う View は
+        写しを取ること。とくに WinUI はここでインターフェイス型のリストを受け付けない。
+      </remarks>
+      <param name="properties">この要素を監視できるプロパティ。</param>
+      <param name="lifecycle">既定で選択しておくライフサイクルイベント。</param>
+      <param name="comparison">既定で選択しておく比較。</param>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.ShowOperands(UiaTrigger.Picker.OperandVisibility)">
+      <summary>いまの条件が使う値の欄だけを表示する。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.SetCommitEnabled(System.Boolean)">
+      <summary>確定ボタンの有効・無効を切り替える。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.ReadDraft">
+      <summary>ユーザーが入力した条件を読む。形が揃っていなければ <see langword="null" /> を返す。</summary>
+      <remarks>
+        読み取りが View の仕事なのは、「空である」ことの表し方がフレームワークごとに違うからである。
+        たとえば WinUI の <c>NumberBox</c> は空欄を <see cref="F:System.Double.NaN" /> として報告する。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.ShowDraft(UiaTrigger.Models.TriggerDraft)">
+      <summary>
+        既存のトリガーから条件の入力欄を埋める。
+        <see cref="M:UiaTrigger.Picker.IPickerView.ReadDraft" /> の逆向きである。
+      </summary>
+      <remarks>
+        <see cref="M:UiaTrigger.Picker.IPickerView.ShowTriggerShape(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerProperty},UiaTrigger.Models.TriggerOn,UiaTrigger.Models.ComparisonOp)" />
+        の直後に呼ばれるので、選ぶべきプロパティはすでに一覧に載っている。書き込みが View の仕事なのは
+        読み取りと同じ理由である — 「値なし」の表し方がフレームワークごとに違い、往復もそうである。
+        あるカルチャで書いた数値は、同じ数値として読み返せなければならない。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.DiscardDeferredWork">
+      <summary>保留中の展開・選択を捨てる。ツリーを差し替える前に呼ばれる。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.BeginNodeUpdate">
+      <summary>プレゼンターがツリーへ加える変更の開始を示す。</summary>
+      <remarks>
+        これと <see cref="M:UiaTrigger.Picker.IPickerView.EndNodeUpdate" /> のあいだに起きる
+        選択の変化は、ユーザー操作ではなくその変更自身によるものなので、
+        <see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.NotifyTreeSelectionChanged(UiaTrigger.Picker.PickerTreeNode)" />
+        で報告し返してはならない。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.EndNodeUpdate">
+      <summary>プレゼンターがツリーへ加える変更の終了を示す。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.ExpandThenSelect(System.Collections.Generic.IReadOnlyList{UiaTrigger.Picker.PickerTreeNode},UiaTrigger.Picker.PickerTreeNode)">
+      <summary>祖先から順に行を開き、最後に対象の行を選択する。</summary>
+      <remarks>行がまだコントロールとして存在しないことがあるので、戻ったあとに完了してもよい。</remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.Expand(System.Collections.Generic.IReadOnlyList{UiaTrigger.Picker.PickerTreeNode})">
+      <summary>子の列挙を求めずに行を開く。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.SelectDeferred(UiaTrigger.Picker.PickerTreeNode)">
+      <summary>行を選択して見える位置まで送る。必要ならコントロールの実体化を待つ。</summary>
+    </member>
+
+    <!-- ================= 継ぎ目のメンバー ================= -->
+    <member name="M:UiaTrigger.Picker.IUiDispatcher.Post(System.Action)">
+      <summary>UI スレッドで処理を実行する。完了は待たない。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IUiDispatcher.CreateTimer(System.TimeSpan,System.Action)">
+      <summary>UI スレッドで刻むタイマーを作る。作られた時点では停止している。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.IUiTimer.SetRunning(System.Boolean)">
+      <summary>刻みを開始・停止する。いまと同じ状態を指定した場合は何も起きない。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.ICursorSource.TryGetPosition(System.Int32@,System.Int32@)">
+      <summary>カーソル位置を読む。読めなかった場合は false を返す。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.Win32CursorSource.TryGetPosition(System.Int32@,System.Int32@)">
+      <summary>カーソル位置を物理スクリーン座標で読む。</summary>
+      <param name="x">水平位置を受け取る。</param>
+      <param name="y">垂直位置を受け取る。</param>
+      <returns>
+        位置を読めなかった場合は false。そのとき <paramref name="x" /> と
+        <paramref name="y" /> の値に意味は無い。
+      </returns>
+      <remarks>
+        スケーリング後ではなく物理座標であり、UI Automation が報告するものと同じである。
+        モニターごとの DPI を認識していないホストは、それらと突き合わせられない位置を受け取る
+        (docs/DESIGN.md A19)。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerStrings.GetString(System.String)">
+      <summary>キーに対応する文字列。見つからなければキー自身を返す。</summary>
+      <remarks>キーを返すのは意図的である。空のラベルのほうがはるかに気づきにくい。</remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.ResxPickerStrings.GetString(System.String)">
+      <summary>キーに対応する文字列。見つからなければキー自身を返す。</summary>
+      <remarks>キーを返すのは意図的である。空のラベルのほうがはるかに気づきにくい。</remarks>
+    </member>
+
+    <!-- ================= OperandVisibility ================= -->
+    <member name="M:UiaTrigger.Picker.OperandVisibility.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)">
+      <summary>条件がどの値の欄を必要とするかを表す。</summary>
+      <param name="Text">文字列の値を使うかどうか。</param>
+      <param name="Value">単一の数値を使うかどうか。</param>
+      <param name="Range">下限と上限を使うかどうか。</param>
+      <param name="Tolerance">許容差を使うかどうか (数値の比較のときだけ)。</param>
+      <param name="PropertyChoiceEnabled">
+        監視するプロパティを選べるかどうか。要素の出現・削除だけを見るトリガーは条件を
+        持たないことができ、その場合は選ぶべきプロパティが無い。
+      </param>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.Text">
+      <summary>文字列の値を使うかどうか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.Value">
+      <summary>単一の数値を使うかどうか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.Range">
+      <summary>下限と上限を使うかどうか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.Tolerance">
+      <summary>許容差を使うかどうか (数値の比較のときだけ)。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.PropertyChoiceEnabled">
+      <summary>監視するプロパティを選べるかどうか。</summary>
+    </member>
+
+    <!-- ================= TriggerCommittedEventArgs ================= -->
+    <member name="P:UiaTrigger.Picker.TriggerCommittedEventArgs.Definition">
+      <summary>ユーザーが確定したトリガー定義。</summary>
+    </member>
+
+    <!-- ================= PickerStringKeys ================= -->
+    <member name="P:UiaTrigger.Picker.PickerStringKeys.All">
+      <summary>上記すべてのキー。順序に意味は無い。</summary>
+      <remarks>
+        ピッカーのリソースはこれと突き合わせて検査される。どの供給経路もここに在るキーを
+        過不足なく持っていなければならない。一部の View でしか解決できないキーは、
+        その View だけ画面にキー名が出るという形で現れ、例外は何も投げられない。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.WindowTitle">
+      <summary>ピッカーのウィンドウタイトル。</summary>
+      <remarks>
+        コントロールのキーではない。WinUI の <c>Window</c> は <c>FrameworkElement</c> ではないので
+        <c>x:Uid</c> が届かず、どの View もタイトルはコードで設定する。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.AutoSelectToggleHeader">
+      <summary>ホバー捕捉の有効・無効を切り替えるスイッチのラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.AutoSelectToggleOffContent">
+      <summary>ホバー捕捉が無効のあいだにスイッチへ出す文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.AutoSelectToggleOnContent">
+      <summary>ホバー捕捉が有効のあいだにスイッチへ出す文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ViewComboHeader">
+      <summary>ツリーのビュー (Raw / Control / Content) を選ぶ欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.SearchBoxHeader">
+      <summary>ツリーを検索する入力欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.SearchNextButtonContent">
+      <summary>次の一致へ進むボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.HintTextText">
+      <summary>ヒント行の初期表示。要素の選び方を説明する。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ConfirmNodeButtonToolTip">
+      <summary>ツリーの行にある確定ボタンのツールチップ。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.TreeSplitterAutomationName">
+      <summary>要素ツリーとプロパティ欄を分ける区切りの読み上げ名。</summary>
+      <remarks>区切りには表示文字列が無いので、スクリーンリーダーに読めるものはこの名前しかない。
+      空のままだと、各 View は意味の無いものを名乗る — WPF は「Thumb」、WinUI は <c>x:Name</c> をそのまま、
+      Windows Forms は何も名乗らない。</remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ConditionSplitterAutomationName">
+      <summary>プロパティ一覧と条件設定欄を分ける区切りの読み上げ名。</summary>
+      <remarks>理由は <see cref="F:UiaTrigger.Picker.PickerStringKeys.TreeSplitterAutomationName"/> と同じである
+      — 表示文字列を持たない掴み代には、ほかに名乗るものが無い。</remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ConditionHeadingText">
+      <summary>条件設定欄の見出し。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ConfirmedTextText">
+      <summary>確定した要素を説明する行の、まだ何も確定していないときの表示。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.KeyBoxHeader">
+      <summary>トリガー Id の入力欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.OnComboHeader">
+      <summary>発火の契機を選ぶ欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.PropComboHeader">
+      <summary>監視するプロパティを選ぶ欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.CondComboHeader">
+      <summary>比較の種類を選ぶ欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.TextOperandHeader">
+      <summary>文字列の値を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ValueOperandHeader">
+      <summary>単一の数値を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.LowOperandHeader">
+      <summary>範囲の下限を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.HighOperandHeader">
+      <summary>範囲の上限を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ToleranceOperandHeader">
+      <summary>許容差を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.MinIntervalOperandHeader">
+      <summary>最小の発火間隔 (秒) を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonContent">
+      <summary>トリガーを確定するボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.CaptureFailed">
+      <summary>ホバー捕捉に失敗した。例外のメッセージを受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ViewSwitchFailed">
+      <summary>切り替えた先のビューで、選択していた要素を見つけられなかった。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.SearchNoMatch">
+      <summary>読み込み済みのツリーに一致が無かった。検索した語を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.SearchPosition">
+      <summary>いま何件目の一致を表示しているか。位置と総数を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.OverlapPosition">
+      <summary>重なっている要素のうち何番目に居るか。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.OverlapFailed">
+      <summary>重なっている要素の送り移動に失敗した。例外のメッセージを受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ConfirmFailedElementGone">
+      <summary>要素がもう存在しないため確定できなかった。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.Confirmed">
+      <summary>要素を確定した。表示名とプロセス名を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.ConfirmFailed">
+      <summary>要素の確定に失敗した。例外のメッセージを受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.SelectTriggerShape">
+      <summary>トリガーの形が、確定できるところまで埋まっていない。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.TriggerAdded">
+      <summary>トリガーを確定した。その Id を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.PropertyRow">
+      <summary>プロパティ一覧の 1 行。UI Automation のプロパティ名と値を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.PropertyRowControlType">
+      <summary><c>ControlType</c> の行。表示名と、条件に書く安定名の両方を出す。</summary>
+    </member>
+
+    <!-- ================= トリガ一覧エディタ (docs/DESIGN.md §4) ================= -->
+    <member name="T:UiaTrigger.Picker.ITriggerListEditorView">
+      <summary>トリガ一覧エディタの View を、そのプレゼンターから見た形。</summary>
+      <remarks>
+        ここに並ぶのはどれも「文字を置く場所」「ユーザーが入れた文字を読む場所」か、
+        実装が 1 つの UI フレームワークに固有な操作である。とくに子ピッカーの寿命は
+        プレゼンターではなく View が持つ — 窓の開き方・所有者付け・閉じ方はフレームワークごとに
+        違い、WinUI には窓単位のモーダルがそもそも無い。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.Status">
+      <summary>直前の操作の結果を表す行を設定する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.ExpressionText">
+      <summary>まとめるためにユーザーが入力した条件式。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.UnwatchedText">
+      <summary>監視ではなく絞り込みだけに使いたいトリガーの id。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.SelectedIndices">
+      <summary>選択されている行。最後に表示した一覧に対する添字で、昇順。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.ITriggerListEditorView.ShowRows(System.Collections.Generic.IReadOnlyList{System.String})">
+      <summary>一覧の行を差し替える。文字列は整形済みで渡る。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.ITriggerListEditorView.ShowPicker(UiaTrigger.Models.TriggerDefinition)">
+      <summary>
+        ピッカーを開く。<paramref name="definitionToEdit" /> があればそれを編集する形で、
+        無ければ新しく録る形で開く。
+      </summary>
+      <remarks>
+        View は、ピッカーが確定したものを
+        <see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyPickerCommitted(UiaTrigger.Models.TriggerDefinition)" />
+        で、ピッカーが閉じたことを
+        <see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyPickerClosed" />
+        で伝えることが期待されている。
+      </remarks>
+    </member>
+    <member name="T:UiaTrigger.Picker.TriggerListEditorPresenter">
+      <summary>トリガ一覧エディタの振る舞い: 追加・編集・削除・まとめる・ほどく。</summary>
+      <remarks>
+        <para>
+          終始<b>写しの上で</b>作業する。コンストラクターに渡されたリストは深く複製され、
+          <see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.Snapshot" /> も深い複製を返すので、
+          ホストはエディタを出しても、ユーザーが確定するまで自分のリストに手を触れられない。
+          どこへ保存するか、監視が動いているかは<b>ホストの領分のまま</b>である。
+        </para>
+        <para>
+          View はユーザーの操作を <c>Notify…</c> で伝え、
+          <see cref="T:UiaTrigger.Picker.ITriggerListEditorView" /> を実装して指示を受ける。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.#ctor(UiaTrigger.Picker.ITriggerListEditorView,UiaTrigger.Picker.IPickerStrings,System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition})">
+      <summary><paramref name="triggers" /> の写しの上で動くプレゼンターを作る。</summary>
+      <param name="view">動かす View。</param>
+      <param name="strings">ユーザー向け文字列の供給元。</param>
+      <param name="triggers">編集するトリガー。リストもその要素も変更されない。</param>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.Snapshot">
+      <summary>編集後のリストの深い写し (並び順のまま)。</summary>
+      <remarks>
+        プレゼンター自身の実体ではなく写しを返す。そうしないと、結果を持ったままエディタを
+        もう一度出したホストへ、<b>後のセッションがその場で書き換える実体</b>を渡すことになる。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyAddRequested">
+      <summary>ユーザーが新しいトリガーを録ろうとしたことを伝える。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyEditRequested">
+      <summary>ユーザーが選択中のトリガーの条件を編集しようとしたことを伝える。</summary>
+      <remarks>
+        選択がピッカーで編集できる 1 件でないときは、例外ではなく理由を出して断る —
+        複合は先にほどく必要がある
+        (<see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyDecomposeRequested" />)。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyDeleteRequested">
+      <summary>ユーザーが選択中のトリガーを削除しようとしたことを伝える。</summary>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyCombineRequested">
+      <summary>ユーザーが選択中のトリガーを 1 件にまとめようとしたことを伝える。</summary>
+      <remarks>
+        元のトリガーは一覧に残る。まとめるのは<b>足すだけ</b>の操作であり、それが
+        取り消し機能なしでも取り消せる理由である — 複合を削除すれば元はまだそこにある。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyDecomposeRequested">
+      <summary>ユーザーが選択中の複合をほどこうとしたことを伝える。</summary>
+      <remarks>
+        複合は一覧に残り、条件 1 つにつきトリガー 1 件が足される — まとめる前のトリガーを
+        すでに削除してしまったときの戻り道である。まとめるのと同じ理由で<b>足すだけ</b>にしてある。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyPickerCommitted(UiaTrigger.Models.TriggerDefinition)">
+      <summary>ピッカーが確定したトリガーを伝える。</summary>
+      <param name="definition">確定されたトリガー。プレゼンターは写しを取る。</param>
+      <remarks>
+        編集中は、編集していた行を<b>その位置で</b>差し替える (末尾へ移さない) ので、
+        ユーザーが並べた順序は保たれる。それ以外のとき — および確定された id が
+        新しいものだったとき — は id が決める: その id の既存トリガーが差し替わるので、
+        同じトリガーを録り直すと 2 件目が増えるのではなく更新される。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyPickerClosed">
+      <summary>ピッカーが閉じられたことを伝える。</summary>
+      <remarks>
+        編集セッションを終える。これにより、後から開いたピッカーが確定したトリガーは、
+        最後に編集していた行を差し替えるのではなく追加される。
+      </remarks>
+    </member>
+
+    <member name="T:UiaTrigger.Picker.EditorStringKeys">
+      <summary>トリガ一覧エディタが使うリソースキーのすべて。</summary>
+      <remarks>
+        <see cref="T:UiaTrigger.Picker.PickerStringKeys" /> と別の表になっているのは、
+        この 2 つを表示する窓が別だからである。値のほうは 2 つとも同じ供給経路を通る。
+        プロパティ名で終わるキーはコントロールのラベルで、残りはプレゼンターが実行時に組み立てる。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Picker.EditorStringKeys.All">
+      <summary>上のキーすべて (順序は問わない)。</summary>
+      <remarks><inheritdoc cref="P:UiaTrigger.Picker.PickerStringKeys.All" path="/remarks" /></remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.WindowTitle">
+      <summary>エディタのウィンドウタイトル。</summary>
+      <remarks>
+        コントロールのキーではない。理由は
+        <see cref="F:UiaTrigger.Picker.PickerStringKeys.WindowTitle" /> と同じである。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.AddButtonContent">
+      <summary>新しいトリガーを録るボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.EditButtonContent">
+      <summary>選択中のトリガーの条件を編集するボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.DeleteButtonContent">
+      <summary>選択中のトリガーを削除するボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonContent">
+      <summary>選択中のトリガーを 1 件にまとめるボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.DecomposeButtonContent">
+      <summary>選択中の複合をほどくボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.AcceptButtonContent">
+      <summary>編集後のリストを確定するボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CancelButtonContent">
+      <summary>変更をすべて捨てるボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.ExpressionBoxHeader">
+      <summary>まとめるときに使う条件式の入力欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.UnwatchedBoxHeader">
+      <summary>絞るだけにするトリガーを並べる入力欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.TriggerListAutomationName">
+      <summary>トリガー一覧が読み上げに名乗る名前。</summary>
+      <remarks>
+        一覧は目に見えるラベルを持たないので、スクリーンリーダーに読めるものはこれだけである。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.TriggerRow">
+      <summary>トリガー 1 件の行。id・表示名・プロセス・発火契機・条件を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CompositeRow">
+      <summary>複合トリガーの行。id・条件の数・発火契機・式を受け取る。</summary>
+      <remarks>
+        書式が違うのは、複合が複数の要素にまたがるからである。プロセスを 1 つ名指すのは誤りなので、
+        代わりに条件の数と式を出す。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.NoClauses">
+      <summary>条件を持たないトリガーの、条件欄の代わりに出す文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.SelectOneToEdit">
+      <summary>選択が 1 件ではない (編集には 1 件が要る)。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CannotEditWithThePicker">
+      <summary>選択されたトリガーはピッカーでは編集できないもの。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.SelectACompositeToDecompose">
+      <summary>選択が複合 1 件ではない (ほどくには複合 1 件が要る)。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineDone">
+      <summary>まとめられた。新しい id と元のトリガーの件数を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineFailed">
+      <summary>まとめられなかった。理由を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.DecomposeDone">
+      <summary>複合をほどいた。その id と、取り出したトリガーの件数を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.DeleteDone">
+      <summary>トリガーを削除した。件数を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.SelectSomething">
+      <summary>何も選択されていない (その操作には選択が要る)。</summary>
+    </member>
+  </members>
+</doc>

@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T3: 実 UIA に対する回帰テスト (docs/TESTING.md §1 の T3)。
+
+    UiaTrigger.Core.Tests (T1/T2) とは別プロジェクトにしてある。理由は 2 つ:
+      ・対話セッション (可視のデスクトップ) を要するため、CI では別ジョブに隔離する必要がある
+      ・実プロセスを起動するため直列実行しなければならず、T1 の並列実行を巻き添えにしたくない
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.RealUia.Tests</RootNamespace>
+    <AssemblyName>UiaTrigger.RealUia.Tests</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\UiaTrigger.Core\UiaTrigger.Core.csproj" />
+    <!--
+      対象アプリは参照アセンブリではなく「テスト中に起動する実行ファイル」として要る。
+      2 つあるのは、WinForms (MSAA ブリッジ) と WPF (ネイティブ UIA プロバイダー) で
+      イベントの届き方が違うため — 片方だけでは B3 の実装が正しいか確かめられない
+      (TargetProfile.cs / docs/DESIGN.md §6)。
+    -->
+    <ProjectReference Include="..\UiaTrigger.TestTarget\UiaTrigger.TestTarget.csproj"
+                      ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\UiaTrigger.TestTarget.Wpf\UiaTrigger.TestTarget.Wpf.csproj"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- リポジトリ内のパス解決は T1 と同じ実装を使う (二重定義にしない) -->
+    <Compile Include="..\UiaTrigger.Core.Tests\RepoPaths.cs" Link="RepoPaths.cs" />
+  </ItemGroup>
+
+</Project>

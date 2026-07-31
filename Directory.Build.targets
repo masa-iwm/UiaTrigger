@@ -1,0 +1,167 @@
+<Project>
+
+  <!--
+    パッケージに実際に README を入れる (docs/RELEASING.md §1)
+
+    <b>PackageReadmeFile を立てるだけでは足りない。</b>プロパティは「パッケージ内のどのファイルか」を
+    指すだけなので、そのファイルを Pack しなければ NU5039 で失敗する。よく踏む形なのでここに書いておく。
+
+    <b>props ではなく targets に置くのは IsPackable のためである。</b>
+    Directory.Build.props はプロジェクト本体より<b>先に</b>評価されるので、
+    そこで IsPackable を条件にしても「パッケージ化するプロジェクトが個別に true にする」方式では
+    まだ false のままになる。targets は<b>後に</b>評価されるので条件が効く。
+
+    入れるのは<b>英語版だけ</b>である (README.ja.md は入れない)。
+    nuget.org は README を単独で描画するため、英語版のリンクは絶対 URL にしてある
+    (docs/LOCALIZATION.md §8)。
+  -->
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+
+  <!--
+    配布する XML doc を公開 API だけに絞る (docs/LOCALIZATION.md §5)
+
+    <b>csc は可視性で絞らない。</b>`///` を書いた private / internal のメンバーも
+    そのまま `.xml` に入るので、L1 (docs/LOCALIZATION.md §1) で「実装内部のコメントは
+    日本語のままでよい」と決めている以上、配布物に日本語の内部コメントが同梱される。
+    `PublicApiDocumentationTests` は<b>公開面だけ</b>を見るので、どのテストも捕まえなかった
+    (実測: Core 618 項目のうち 212、Picker.Core 352 のうち 77、View 2 つは 31 のうち 17/18)。
+
+    <b>絞り込みの正は `Resources\<アセンブリ名>.ja.xml` である。</b>
+    手書きの日本語 IntelliSense ファイルで、`TheJapaneseDocumentationCoversExactlyThePublicApi`
+    が公開 API との<b>過不足なし</b>を両方向で縛っている。つまり「ja に在る項目 = 公開 API」が
+    CI のゲートで保証されている集合なので、ここで可視性を作り直す必要は無い。
+    リフレクションもメタデータ読みも要らず、<b>正しさは既存のテストから継承する</b>。
+
+    副作用として `JsonSerializerContext` の生成メンバー (STJ のソースジェネレーターが
+    doc ごと出すもの) も落ちる。ja 側が対象外にしているためで、<b>これは意図どおり</b>である。
+
+    <b>obj の doc を書き換える</b>ので、bin / publish / nupkg のすべてに効く。
+    pack のときだけ絞る形にすると、GitHub Release に付ける zip (ホストの発行物には
+    `UiaTrigger.Core.xml` が並ぶ) が漏れたままになる。
+    引き換えに、IVT を持つテストアセンブリ側の IDE で internal メンバーの説明が出なくなる —
+    internal は他プロジェクトから見えないので、失うのはここだけである。
+  -->
+  <UsingTask TaskName="KeepOnlyPublicApiDocumentation"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <NeutralFile ParameterType="System.String" Required="true" />
+      <PublicApiFile ParameterType="System.String" Required="true" />
+      <Kept ParameterType="System.Int32" Output="true" />
+      <Removed ParameterType="System.Int32" Output="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.Collections.Generic" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Xml.Linq" />
+      <Code Type="Fragment" Language="cs">
+<![CDATA[
+var allowed = new HashSet<string>(
+    XDocument.Load(PublicApiFile).Root.Element("members").Elements("member")
+        .Select(m => (string)m.Attribute("name")),
+    StringComparer.Ordinal);
+
+var doc = XDocument.Load(NeutralFile);
+var members = doc.Root.Element("members");
+var drop = members.Elements("member")
+    .Where(m => !allowed.Contains((string)m.Attribute("name")))
+    .ToList();
+
+Kept = members.Elements("member").Count() - drop.Count;
+Removed = drop.Count;
+
+// 1 件も残らないのは「ja の項目名と噛み合っていない」= 絞り込みの土台が壊れた形である。
+// 黙って空の .xml を配ると、利用者の IntelliSense から説明が全部消える
+if (Kept == 0)
+{
+    Log.LogError(
+        "{0} から公開 API の項目を 1 件も拾えませんでした ({1} 件すべてが除外対象)。" +
+        "{2} の項目名と噛み合っていません。",
+        NeutralFile, Removed, PublicApiFile);
+}
+else if (Removed > 0)
+{
+    foreach (var m in drop)
+    {
+        m.Remove();
+    }
+    doc.Save(NeutralFile);
+}
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <!--
+    CoreCompile が飛ばされても走らせる (絞り込みは冪等である) ため、両方に掛けてある。
+    MSBuild は 1 プロジェクトにつき同じ target を 1 度しか実行しないので二重には走らない。
+  -->
+  <Target Name="KeepDistributedDocumentationPublic"
+          AfterTargets="CoreCompile"
+          BeforeTargets="CopyFilesToOutputDirectory"
+          Condition="'$(IsPackable)' == 'true' And '$(GenerateDocumentationFile)' == 'true' And '$(DesignTimeBuild)' != 'true'">
+    <PropertyGroup>
+      <_UiaTriggerPublicApiDoc>$(MSBuildProjectDirectory)\Resources\$(AssemblyName).ja.xml</_UiaTriggerPublicApiDoc>
+      <_UiaTriggerNeutralDoc>$([System.IO.Path]::Combine('$(MSBuildProjectDirectory)', '$(DocumentationFile)'))</_UiaTriggerNeutralDoc>
+    </PropertyGroup>
+    <!--
+      新しくパッケージ化するプロジェクトが ja のファイルを持たずに現れたときに、
+      黙って絞り込みを飛ばさない。`EveryAssemblyThatShipsXmlDocumentationIsCovered` が
+      テスト表の側を縛っているのと対になる検査である
+    -->
+    <Error Condition="!Exists('$(_UiaTriggerPublicApiDoc)')"
+           Text="$(AssemblyName) は XML doc を配布しますが、絞り込みの正になる $(_UiaTriggerPublicApiDoc) がありません。日本語 IntelliSense ファイルを置くか、GenerateDocumentationFile を外してください (docs/LOCALIZATION.md §5)。" />
+    <KeepOnlyPublicApiDocumentation NeutralFile="$(_UiaTriggerNeutralDoc)"
+                                    PublicApiFile="$(_UiaTriggerPublicApiDoc)">
+      <Output TaskParameter="Kept" PropertyName="_UiaTriggerDocKept" />
+      <Output TaskParameter="Removed" PropertyName="_UiaTriggerDocRemoved" />
+    </KeepOnlyPublicApiDocumentation>
+    <Message Importance="normal"
+             Text="$(AssemblyName).xml: 公開 API $(_UiaTriggerDocKept) 件を残し、非公開 $(_UiaTriggerDocRemoved) 件を落としました" />
+  </Target>
+
+  <!--
+    Windows App SDK の .mui を、対応している言語だけに絞る (docs/LOCALIZATION.md §9)
+
+    <b>SatelliteResourceLanguages では止まらない。</b>あれが絞るのは .NET のサテライト
+    (*.resources.dll) であり、.mui は Windows App SDK が配る Win32 の MUI リソースだからである。
+    放っておくと `App.WinUI` の発行物に en-us / ja-jp 以外の<b>85 言語ぶん / 3.3MB</b> が入り、
+    en-US と ja-JP しか持たないアプリが<b>85 言語で使えるように見える</b>。
+
+    <b>上流が用意している逃げ道を使う。</b>
+    microsoft.windowsappsdk.base/*/build/Microsoft.WindowsAppSDK.SelfContained.targets の
+    AddMicrosoftWindowsAppSDKPayloadFilesFromComponents が、集めた一覧に対して
+
+      <MicrosoftWindowsAppSDKFiles Remove="@(MicrosoftWindowsAppSDKFilesExcluded)"/>
+
+    を掛けている。そこへ入れておけば済む。<b>None を後から削る形にしないこと</b> —
+    あの一覧は .dll / .winmd / .xbf も運んでおり、後追いで消す形は取りこぼしと行き過ぎの両方を作る。
+
+    <b>Remove する側を先に列挙してから、残したい言語を差し戻す</b>形にしてある。
+    「残す側を列挙する」形にすると、言語フォルダの命名が変わった日に<b>黙って全部落ちる</b>。
+    こちらの形なら、変わったときに増えるのは「落とし損ね」であって「消しすぎ」ではない。
+
+    条件は WindowsAppSdkComponentPackages の有無で見る。WinUI を参照しないプロジェクトでは
+    この target 自体が何もしない。
+  -->
+  <Target Name="ExcludeUnsupportedWindowsAppSdkLanguages"
+          BeforeTargets="AddMicrosoftWindowsAppSDKPayloadFilesFromComponents"
+          DependsOnTargets="GetWindowsAppSDKNativePlatform"
+          Condition="'@(WindowsAppSdkComponentPackages)' != ''">
+    <PropertyGroup>
+      <_UiaTriggerWinAppSdkNative>runtimes-framework\win-$(NativePlatform)\native</_UiaTriggerWinAppSdkNative>
+    </PropertyGroup>
+    <ItemGroup>
+      <MicrosoftWindowsAppSDKFilesExcluded
+          Include="%(WindowsAppSdkComponentPackages.Identity)$(_UiaTriggerWinAppSdkNative)\**\*.mui" />
+      <!-- 対応している 2 つだけ差し戻す。NeutralLanguage=en-US / サテライトは ja に揃えてある -->
+      <MicrosoftWindowsAppSDKFilesExcluded
+          Remove="@(MicrosoftWindowsAppSDKFilesExcluded)"
+          Condition="'%(RecursiveDir)' == 'en-us\' Or '%(RecursiveDir)' == 'ja-jp\'" />
+    </ItemGroup>
+  </Target>
+
+</Project>

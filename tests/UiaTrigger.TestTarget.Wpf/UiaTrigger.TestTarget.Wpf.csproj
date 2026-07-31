@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    T3 (docs/TESTING.md §1) の実 UIA テスト用ターゲットアプリ — WPF 版。
+
+    WinForms 版 (tests/UiaTrigger.TestTarget) は残す。両方が要る理由:
+      ・WinForms は MSAA ブリッジ経由のプロバイダーであり、WPF はネイティブ UIA プロバイダーである。
+        「削除が StructureChanged として届かない」等のプロバイダー差 (docs/DESIGN.md §6) は
+        片方のプロバイダーだけでは測れない
+      ・WinForms のウィンドウクラス名には起動ごとに変わりうる token が入るため、
+        A4 の回帰ケースそのものになる。WPF のクラス名 (HwndWrapper[...]) では代用できない
+
+    DPI: WinForms 版は Application.SetHighDpiMode (WFO0003) で宣言するが、
+    WPF は manifest でしか宣言できない。DPI 非認識だと UIA の BoundingRectangle (物理座標) と
+    PointToScreen が食い違い、座標から記録したつもりの要素が別物になる (docs/TESTING.md §4)。
+
+    UI の変化はすべて stdin のコマンド行で起こす。擬似入力は一切使わない
+    (docs/TESTING.md §4。CI の lint が tests/**/*.cs 全体に grep を掛けている)。
+  -->
+  <PropertyGroup>
+    <!-- WinExe ではなく Exe。理由は WinForms 版の csproj を参照 (手起動できるようにするため) -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.TestTarget.Wpf</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <IsPackable>false</IsPackable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,207 @@
+<!--
+    ユーザー向け文字列は Strings\<culture>\Resources.resw から x:Uid で解決する
+    (docs/DESIGN.md L3)。ここに文字列リテラルを直接書かないこと —
+    XamlLocalizationTests がハードコードを検出して失敗する。
+    Window.Title だけは Window が FrameworkElement ではないため x:Uid が効かず、
+    コードビハインドで設定している。
+-->
+<Window
+    x:Class="UiaTrigger.Picker.WinUI.TriggerPickerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:picker="using:UiaTrigger.Picker"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:local="using:UiaTrigger.Picker.WinUI">
+    <!--
+        ColumnSpacing は置かない。列の間隔は GridSplitter そのものが持つので、
+        足すと「隙間 + 掴み代 + 隙間」になる。RowSpacing は上部バーとの間に要るので残す。
+    -->
+    <Grid Padding="8" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <!--
+            ツリーと右側の境界はユーザーが動かせる (下の GridSplitter)。
+            MinWidth が無いと片側を 0 まで引き切れてしまい、戻す掴み代も無くなる。
+        -->
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="6*" MinWidth="240" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="5*" MinWidth="240" />
+        </Grid.ColumnDefinitions>
+
+        <!-- 上部バー -->
+        <StackPanel Orientation="Horizontal" Grid.ColumnSpan="3" Spacing="12" VerticalAlignment="Center">
+            <ToggleSwitch x:Name="AutoSelectToggle" x:Uid="AutoSelectToggle" Toggled="OnAutoSelectToggled" />
+            <ComboBox x:Name="ViewCombo" x:Uid="ViewCombo" Width="120" SelectionChanged="OnViewChanged" />
+            <TextBox x:Name="SearchBox" x:Uid="SearchBox" Width="200" KeyDown="OnSearchKeyDown" />
+            <Button x:Name="SearchNextButton" x:Uid="SearchNextButton" VerticalAlignment="Bottom" Click="OnSearchNext" />
+            <TextBlock x:Name="HintText" x:Uid="HintText" VerticalAlignment="Bottom" Opacity="0.7"
+                       TextWrapping="Wrap" MaxWidth="520" />
+        </StackPanel>
+
+        <!--
+            要素ツリー。
+
+            深い階層のインデントで行が右へはみ出すと、既定では<b>スクロールできずに消える</b>。
+            実測した VS Code の経路は 17 段あり、この道具の主用途そのものである。
+
+            条件が 2 つあり、片方だけでは効かない:
+
+            (1) 内部 ScrollViewer の HorizontalScrollMode を有効にする。
+                <b>ここに ScrollViewer.HorizontalScrollMode を書いても効かない。</b>
+                ListView は自分に付いた添付プロパティをテンプレート内の ScrollViewer へ
+                TemplateBinding で流すが、TreeView のテンプレートは内側の TreeViewList を
+                置くだけでその中継をしない。コードビハインドの OnElementTreeLoaded で
+                実物の ScrollViewer を掴んで設定している。
+
+            (2) 行が内容ぶんの幅を取れるようにする。Grid を Width="*" のままにすると
+                常にビューポート幅ちょうどに収まり、はみ出しが起きないので
+                スクロールバーも出ない。列を Auto にして行全体を左寄せにする。
+        -->
+        <TreeView x:Name="ElementTree" Grid.Row="1" SelectionMode="Single"
+                  Loaded="OnElementTreeLoaded"
+                  ItemInvoked="OnTreeItemInvoked"
+                  SelectionChanged="OnTreeSelectionChanged">
+            <TreeView.ItemTemplate>
+                <DataTemplate x:DataType="picker:PickerTreeNode">
+                    <TreeViewItem ItemsSource="{x:Bind Children}"
+                                  HasUnrealizedChildren="{x:Bind HasUnrealizedChildren, Mode=OneWay}"
+                                  IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+                                  AutomationProperties.Name="{x:Bind Display}">
+                        <Grid ColumnSpacing="4" HorizontalAlignment="Left">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="{x:Bind Display}" VerticalAlignment="Center" />
+                            <!--
+                                x:Bind に bool → Visibility の暗黙変換は無い。
+                                ノード側は CanConfirm (bool) のままにして、
+                                この変換だけを View に置く (WinUI の事実であって、
+                                ピッカーの事実ではないため)
+                            -->
+                            <Button Grid.Column="1" x:Uid="ConfirmNodeButton" Padding="6,2" FontSize="12"
+                                    Visibility="{x:Bind local:TriggerPickerWindow.ToVisibility(CanConfirm)}"
+                                    Click="OnTreeConfirmClick" Tag="{x:Bind}">
+                                <FontIcon Glyph="&#xE73E;" FontSize="12" />
+                            </Button>
+                        </Grid>
+                    </TreeViewItem>
+                </DataTemplate>
+            </TreeView.ItemTemplate>
+        </TreeView>
+
+        <!--
+            ツリーと右側の境界。窓を縮めるとどちらも狭くなるので、どちらを優先するかを
+            ユーザーが決められるようにする。
+
+            <b>WinUI3 には標準の GridSplitter が無い</b> — WPF (System.Windows.Controls) にも
+            Windows Forms (SplitContainer) にもあるのに、ここだけが無い。自作すると
+            掴み代・カーソルの切り替え・キーボードでの寸法変更・テーマ追従を全部自分で持つ
+            ことになるので、CommunityToolkit の Sizers を足した (Directory.Packages.props に理由)。
+
+            ResizeDirection / ResizeBehavior は<b>明示する</b>。既定の Auto / BasedOnAlignment は
+            配置から向きを推測するが、推測が外れても例外にはならず<b>動かないだけ</b>である。
+
+            名前は x:Uid から入れる。無名だと SizerAutomationPeer が x:Name ("TreeSplitter") を
+            そのまま読み上げるので、名前が無いのと大差ない。
+        -->
+        <controls:GridSplitter x:Name="TreeSplitter" x:Uid="TreeSplitter"
+                               Grid.Row="1" Grid.Column="1"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                               ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
+
+        <!-- 右: プロパティ + 条件設定 -->
+        <!--
+            RowSpacing は置かない (外側の列と同じ理由 — 間隔は GridSplitter が持つ)。
+            条件欄の行は Auto のままにして、掴まれるまでは内容ぶんの高さにする。
+        -->
+        <Grid x:Name="RightPane" Grid.Row="1" Grid.Column="2" SizeChanged="OnRightPaneSizeChanged">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="80" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" MinHeight="80" />
+            </Grid.RowDefinitions>
+
+            <!--
+                プロパティ一覧も水平スクロールできるようにする。長い値
+                (BoundingRectangle / HelpText 等) が右で切れると読めない。
+
+                こちらは素の ListView なので添付プロパティが<b>そのまま効く</b> —
+                自分に付いた ScrollViewer.* をテンプレート内の ScrollViewer へ
+                TemplateBinding で流すためである。中継が無いのは TreeView だけで、
+                そちらはコードビハインドで内側の ListControl に付けている。
+
+                あわせて行を左寄せにする。既定では ListViewItem の内容が
+                ビューポート幅いっぱいに引き伸ばされ、はみ出しが起きないので
+                スクロールバーも出ない (TreeView 側と同じ理由)。
+            -->
+            <ListView x:Name="PropsList" SelectionMode="None"
+                      ScrollViewer.HorizontalScrollMode="Enabled"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                      ScrollViewer.IsHorizontalRailEnabled="False">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Left" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+            </ListView>
+
+            <!--
+                プロパティ一覧と条件欄の境界。条件欄を縮められるようにすると中身がはみ出し、
+                窓を狭めると内側の StackPanel が縦に伸びてなおさらになる。
+                下の ScrollViewer が無いと黙って切れる。
+
+                ここに BorderThickness="0,1,0,0" の区切り線を足さないこと —
+                <b>GridSplitter 自体が線を兼ねる</b>ので、足すと線が 2 本出る。
+            -->
+            <controls:GridSplitter x:Name="ConditionSplitter" x:Uid="ConditionSplitter" Grid.Row="1"
+                                   HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                   ResizeDirection="Rows" ResizeBehavior="PreviousAndNext" />
+
+            <!--
+                横スクロール (docs/DESIGN.md §12)。
+
+                条件欄の行は Orientation="Horizontal" の StackPanel で<b>折り返さない</b>。
+                いちばん広い行は 180+180+180+160 に間隔 24 で 724px あり、
+                横スクロールが無いと窓を狭めたときに右が黙って切れる。
+
+                <b>WPF / Windows Forms は同じ形の不具合を持たない。</b>あちらの行は
+                WrapPanel なので折り返して縦に伸び (= この ScrollViewer に相当する
+                縦スクロールが受け止める)、WinForms は AutoScroll が横バーも出す。
+                <b>ここだけが自分で有効にする必要がある。</b>
+
+                有効にすると測りの使える幅が無限になり、TextWrapping="Wrap" が効かなくなる。
+                ConfirmedText の折り返し幅は OnRightPaneSizeChanged が渡す。
+            -->
+            <ScrollViewer x:Name="ConditionScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto">
+            <StackPanel Spacing="6">
+                <TextBlock x:Name="ConditionHeading" x:Uid="ConditionHeading" FontWeight="SemiBold" />
+                <TextBlock x:Name="ConfirmedText" x:Uid="ConfirmedText" Opacity="0.8" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="KeyBox" x:Uid="KeyBox" Width="180" />
+                    <ComboBox x:Name="OnCombo" x:Uid="OnCombo" Width="180" SelectionChanged="OnCondUiChanged" />
+                    <ComboBox x:Name="PropCombo" x:Uid="PropCombo" Width="180" SelectionChanged="OnCondUiChanged" />
+                    <ComboBox x:Name="CondCombo" x:Uid="CondCombo" Width="160" SelectionChanged="OnCondUiChanged" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox x:Name="TextOperand" x:Uid="TextOperand" Width="240" Visibility="Collapsed" />
+                    <NumberBox x:Name="ValueOperand" x:Uid="ValueOperand" Width="140" Visibility="Collapsed" />
+                    <NumberBox x:Name="LowOperand" x:Uid="LowOperand" Width="140" Visibility="Collapsed" />
+                    <NumberBox x:Name="HighOperand" x:Uid="HighOperand" Width="140" Visibility="Collapsed" />
+                    <NumberBox x:Name="ToleranceOperand" x:Uid="ToleranceOperand" Width="120" Visibility="Collapsed" />
+                    <NumberBox x:Name="MinIntervalOperand" x:Uid="MinIntervalOperand" Width="160" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="CommitButton" x:Uid="CommitButton" IsEnabled="False" Click="OnCommit"
+                            Style="{ThemeResource AccentButtonStyle}" />
+                    <TextBlock x:Name="CommitStatus" VerticalAlignment="Center" Opacity="0.8" />
+                </StackPanel>
+            </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</Window>

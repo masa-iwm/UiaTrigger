@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="UiaTrigger.TestTarget.Wpf" />
+
+  <!--
+    WPF には WinForms の Application.SetHighDpiMode に相当する API が無いため、
+    PerMonitorV2 はこの manifest でしか宣言できない。
+    宣言が無いと Windows が座標を仮想化し、UIA の BoundingRectangle (物理座標) と
+    Visual.PointToScreen の結果が食い違う。その状態では座標から記録したつもりの要素が
+    別物になり、テストは落ちるのではなく静かに嘘をつく (docs/DESIGN.md A19 / docs/TESTING.md §4)。
+  -->
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <!-- Windows 10 / 11 (PerMonitorV2 は 1703 以降で有効) -->
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+</assembly>
