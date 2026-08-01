@@ -21,9 +21,15 @@ public sealed class ConditionPaneTests
     /// <remarks>
     /// <para>
     /// 条件欄の行は <c>Orientation="Horizontal"</c> の <c>StackPanel</c> で**折り返さない**。
-    /// いちばん広い行は 724px あり、既定の窓 (1100px 幅 / 右側は 5/11) では必ずはみ出す。
+    /// いちばん広い行は 724px あり、窓が狭ければ必ずはみ出す。
     /// <c>HorizontalScrollMode</c> が <c>Disabled</c> だと**右が黙って切れる** —
     /// 例外も、切れたという表示も出ない (実測)。
+    /// </para>
+    /// <para>
+    /// **前提が画面の広さに依存する** (docs/TESTING.md §5 の 5)。WinUI のピッカーは
+    /// 自分の窓サイズを設定しておらず (WPF / Windows Forms の 1100 に相当するものが無い)、
+    /// 窓幅は OS 既定 = 画面に比例する。広い画面では 724px が収まってしまい、
+    /// 「はみ出しが起きない」という理由付きの失敗になる。
     /// </para>
     /// <para>
     /// **負の対照は置けない。**「広ければ横バーは出ない」を見るには条件欄を 724px より
