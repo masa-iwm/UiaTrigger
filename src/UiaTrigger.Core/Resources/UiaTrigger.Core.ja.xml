@@ -61,7 +61,10 @@
       <summary>いずれか 1 つの句が成立すること (論理和)。句が空の場合は成立とみなす。</summary>
     </member>
     <member name="F:UiaTrigger.Models.ComparisonOp.Always">
-      <summary>常に成立する。値を制約せずにプロパティを監視したいときに使う。</summary>
+      <summary>
+        句の要素が居る間、値によらず成立する。値を制約せずにプロパティを監視したいとき、
+        または要素の存在を要求したいときに使う。
+      </summary>
     </member>
     <member name="F:UiaTrigger.Models.ComparisonOp.Between">
       <summary>[Low, High] の範囲内 (両端を含む)。数値のみ。</summary>

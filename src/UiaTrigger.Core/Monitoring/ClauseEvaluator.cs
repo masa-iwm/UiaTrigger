@@ -14,6 +14,19 @@ namespace UiaTrigger.Monitoring;
 /// </summary>
 internal readonly record struct ClauseValue(bool IsSupported, ComparisonString Text, double? Number, bool IsBoolean)
 {
+    /// <summary>
+    /// 句のスロットに要素が居ない (未解決、または消えた)。
+    ///
+    /// <see cref="IsSupported"/> とは独立の軸である — 消えた要素の**値**は最後に見えた
+    /// スナップショットから読め続ける (入れ替わりで値の述語が揺れないため) が、
+    /// 「在ること」だけを見る <see cref="ComparisonOp.Always"/> はここで落ちる。
+    /// パターン非対応 (要素は居るが値が無い) と混ぜないこと。
+    /// </summary>
+    public bool IsAbsent { get; init; }
+
+    /// <summary>同じ値のまま「要素は居ない」と印を付ける。</summary>
+    public ClauseValue AsAbsent() => this with { IsAbsent = true };
+
     /// <summary>要素がそのプロパティを持たない (パターン非対応など)。どの条件も成立しない。</summary>
     public static ClauseValue Unsupported => default;
 
@@ -114,7 +127,10 @@ internal static class ClauseEvaluator
         PropertyClause clause = compiled.Clause;
         if (clause.Op == ComparisonOp.Always)
         {
-            return true;
+            // Always は値を見ないが、**在否は見る** — 「その要素が在ること」を意味する句
+            // (TriggerComposer が句なしトリガーから作る presence 句) の正体である。
+            // パターン非対応 (IsSupported=false でも要素は居る) では従来どおり成立する
+            return !value.IsAbsent;
         }
         if (!value.IsSupported)
         {

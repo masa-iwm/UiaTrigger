@@ -125,7 +125,10 @@ public enum ClauseCombinator
 [JsonConverter(typeof(JsonStringEnumConverter<ComparisonOp>))]
 public enum ComparisonOp
 {
-    /// <summary>Always satisfied. Use to observe a property without constraining its value.</summary>
+    /// <summary>
+    /// Satisfied whenever the clause's element is there, whatever the value. Use to observe a
+    /// property without constraining its value, or to require an element's presence.
+    /// </summary>
     Always = 0,
     /// <summary>Equal to the operand, within <see cref="PropertyClause.Tolerance"/> for numbers.</summary>
     Equals = 1,

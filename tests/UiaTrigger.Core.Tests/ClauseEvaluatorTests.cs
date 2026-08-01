@@ -250,6 +250,45 @@ public sealed class ClauseEvaluatorTests
         Assert.True(Match(Snapshot(value: null), Clause(TriggerProperty.Value, ComparisonOp.Always)));
     }
 
+    // ---------- 在否 (Absent) の軸 (docs/DESIGN.md C16) ----------
+
+    /// <summary>
+    /// **Always は要素の不在では成立しないこと。**Always の句は「その要素が在ること」
+    /// (presence — TriggerComposer が句なしトリガーから作る句の意味) であり、
+    /// 不在でも成立すると、複合の presence 句が何も要求しなくなり、
+    /// WhileMatching + Always + NotifyOnStoppedMatching の出現/消滅レシピは
+    /// 水準が最初から true になって立ち上がりごと消える。
+    ///
+    /// パターン非対応 (上のテスト — 要素は居るが値が無い) と混ぜないこと。
+    /// あちらは true のまま、こちらだけが false である。
+    /// </summary>
+    [Fact]
+    public void Always_IsNotSatisfiedWhenTheElementIsAbsent()
+    {
+        CompiledClause clause = Clause(TriggerProperty.Name, ComparisonOp.Always);
+
+        // 消えた要素 (最後の値は残っている) も、一度も現れていない要素も、不在は不在
+        Assert.False(ClauseEvaluator.MatchesClause(
+            clause, ClauseValue.From(Snapshot(), TriggerProperty.Name).AsAbsent()));
+        Assert.False(ClauseEvaluator.MatchesClause(clause, ClauseValue.Unsupported.AsAbsent()));
+    }
+
+    /// <summary>
+    /// **値の述語は不在の印を無視し、最後に見えた値で評価され続けること。**
+    /// ここが不在で落ちる形に変わると、成立したまま要素が入れ替わっただけ
+    /// (ツリー再構築) で WhileMatching の水準が揺れ、立ち下がり + 立ち上がりが鳴る洪水になる。
+    /// </summary>
+    [Fact]
+    public void ValuePredicates_KeepUsingTheLastSeenValueWhenAbsent()
+    {
+        ClauseValue lastSeen = ClauseValue.From(Snapshot(name: "on"), TriggerProperty.Name).AsAbsent();
+
+        Assert.True(ClauseEvaluator.MatchesClause(
+            Clause(TriggerProperty.Name, ComparisonOp.Equals, text: "on"), lastSeen));
+        Assert.False(ClauseEvaluator.MatchesClause(
+            Clause(TriggerProperty.Name, ComparisonOp.Equals, text: "off"), lastSeen));
+    }
+
     // ---------- 文字列比較 ----------
 
     [Fact]

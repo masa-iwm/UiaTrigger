@@ -1502,59 +1502,70 @@ public sealed class TriggerMonitor : IAsyncDisposable
         ElementPropertySnapshot? lastSnapshot = slot.LastSnapshot;
 
         RemovePropertySubscription(slot);
+
+        // ElementRemoved の絞り込みは「最後に見えていた状態」に対して評価する (docs/DESIGN.md C15)。
+        // 要素はもう無いので読み直しようがなく、これが唯一意味のある解釈である。
+        // **要素を手放す前に評価すること** — 手放した後の評価は在否 (IsAbsent) が変わり、
+        // 「消えた瞬間の状態を絞る」ではなく「消えた後の水準」になってしまう。
+        //
+        // **評価を飛ばす側では記録を戻すこと。**下の ElementRemoved は lastSnapshot が
+        // null でも鳴るので、戻さないと**前の周の句の値が載る** (docs/DESIGN.md §4)
+        bool matchedLastSeen = false;
+        if (rt.Definition.On == TriggerOn.ElementRemoved)
+        {
+            if (lastSnapshot is null)
+            {
+                ResetReadings(rt);
+            }
+            else
+            {
+                matchedLastSeen = Evaluate(rt);
+            }
+        }
+
         Ctx.Tree.Release(slot.Element);
         slot.Element = null;
         slot.WindowHandle = 0;
 
         RaiseResolutionChanged(rt, false, reason);
 
-        // 消えたスロットの句は「最後に見えていた状態」に対して評価する。
-        // 要素はもう無いので読み直しようがなく、これが唯一意味のある解釈である。
-        // LastSnapshot は残したまま評価すること。
-        //
-        // **評価を飛ばす側では記録を戻すこと。**この下の ElementRemoved は
-        // lastSnapshot が null でも鳴るので、戻さないと**前の周の句の値が載る**
-        // (docs/DESIGN.md §4)
-        bool matched = false;
-        if (lastSnapshot is null)
+        if (rt.Definition.On == TriggerOn.ElementRemoved)
         {
-            ResetReadings(rt);
+            // ElementRemoved が言っているのは「**対象**の要素が消えた」であって
+            // 「どれかのスロットが消えた」ではない。対象 = 先頭のスロットである。
+            //
+            // On が ElementRemoved のとき、句は自前の要素を名指せない (CreateRuntime が弾く) ので、
+            // **スロット 0 = 先頭の句のスロット = 消えた要素**である。だから下の
+            // CurrentSnapshot(rt) は「消えたときの最後のスナップショット」に一致する
+            // (HandleRemoved は LastSnapshot を残す)。
+            if (ReferenceEquals(slot, rt.Slots[0]) && (lastSnapshot is null || matchedLastSeen))
+            {
+                Fire(rt, TriggerOn.ElementRemoved, LastValueOf(rt), ComparisonString.None, CurrentSnapshot(rt));
+            }
+            return;
         }
-        else
-        {
-            matched = Evaluate(rt);
-        }
+
+        // 水準は「いま成立しているか」— 要素を手放した後に評価する。消えたスロットの
+        // 値の述語は最後に見えた値で評価され続ける (成立したまま要素が入れ替わっただけで
+        // 水準が揺れないため — docs/DESIGN.md C16) が、「在ること」(Op=Always の presence 句)
+        // はもう成立しない。水準は代入ではなく評価から求める。false を入れてしまうと、
+        // !presence で「b が消えたら成立」が表せなくなる (立ち上がりが起きた瞬間に潰される)
+        bool matched = Evaluate(rt);
         bool wasMatching = rt.LastMatch;
-        // 水準は代入ではなく評価から求める。false を入れてしまうと、!b で
-        // 「b が消えたら成立」が表せなくなる (立ち上がりが起きた瞬間に潰される)
         rt.LastMatch = matched;
 
-        // ElementRemoved が言っているのは「**対象**の要素が消えた」であって
-        // 「どれかのスロットが消えた」ではない。対象 = 先頭のスロットである。
-        //
-        // On が ElementRemoved のとき、句は自前の要素を名指せない (CreateRuntime が弾く) ので、
-        // **スロット 0 = 先頭の句のスロット = 消えた要素**である。だから下の
-        // CurrentSnapshot(rt) は「消えたときの最後のスナップショット」に一致する
-        // (HandleRemoved は LastSnapshot を残す)。
-        if (rt.Definition.On == TriggerOn.ElementRemoved && ReferenceEquals(slot, rt.Slots[0]) &&
-            (lastSnapshot is null || matched))
-        {
-            Fire(rt, TriggerOn.ElementRemoved, LastValueOf(rt), ComparisonString.None, CurrentSnapshot(rt));
-        }
-        // 「消えたら成立する」条件 (!b) の立ち上がりはここでしか起きない。
+        // 「消えたら成立する」条件 (!presence) の立ち上がりはここでしか起きない。
         // 拾わないと ! が presence に対して使えないままになる。
         //
         // WhileMatching では句が自前の要素を持てるので、消えたのが先頭の句のスロットとは限らない。
         // それでも載せるのは**先頭の句の要素**のものである — イベントの 3 つの値
         // (OldValue / NewValue / Properties) が同じ要素を指すという約束を、経路ごとに崩さない
-        else if (rt.Definition.On == TriggerOn.WhileMatching && matched && !wasMatching)
+        if (rt.Definition.On == TriggerOn.WhileMatching && matched && !wasMatching)
         {
             Fire(rt, TriggerOn.WhileMatching, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
         }
-        // 立ち下がり — 成立中に要素が消えて条件が満たせなくなった形。
-        // ElementRemoved の分岐と両方鳴ることは構造的に無い: あちらは On==ElementRemoved、
-        // こちらは On==WhileMatching のときだけ入り、フラグは WhileMatching 専用
-        // (CreateRuntime が弾く)。3 値は同じサイトの立ち上がりの鏡映し (docs/DESIGN.md C14)
+        // 立ち下がり — 成立中に presence 句の要素が消えて条件が満たせなくなった形。
+        // 3 値は同じサイトの立ち上がりの鏡映し (docs/DESIGN.md C14)
         else if (rt.Definition.On == TriggerOn.WhileMatching && rt.Definition.NotifyOnStoppedMatching &&
             !matched && wasMatching)
         {
@@ -1777,15 +1788,23 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
             if (slot?.LastSnapshot is not { } snapshot)
             {
-                return Record(ClauseValue.Unsupported);
+                // 一度も解決していないスロット。値は無く、要素も居ない (Absent) —
+                // 在否は Always (presence) の成否を決める (ClauseValue.IsAbsent)
+                return Record(slot is { Element: null }
+                    ? ClauseValue.Unsupported.AsAbsent()
+                    : ClauseValue.Unsupported);
             }
             if (clause.Property != TriggerProperty.Custom)
             {
-                return Record(ClauseValue.From(snapshot, clause.Property));
+                ClauseValue value = ClauseValue.From(snapshot, clause.Property);
+                // 消えたスロット: 値の述語は「最後に見えた値」で評価され続ける
+                // (成立したまま要素が入れ替わっただけで水準が揺れないため) が、
+                // 「在ること」はもう言えない
+                return Record(slot.Element is null ? value.AsAbsent() : value);
             }
             if (slot.Element is null)
             {
-                return Record(ClauseValue.Unsupported);
+                return Record(ClauseValue.Unsupported.AsAbsent());
             }
             ClauseValue custom = PropertyReader.ReadCustom(
                 UiaElementNode.Unwrap(slot.Element), clause.CustomPropertyId);
