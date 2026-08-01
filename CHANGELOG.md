@@ -6,7 +6,37 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
-## 0.1.0-preview.1 — unreleased
+## 0.1.0-preview.2
+
+### Fixed
+
+- **The WinUI 3 windows no longer open at whatever size Windows chooses.** They now open at the
+  same default size as the WPF and Windows Forms ones — picker 1100x700, trigger-list editor
+  900x560 — scaled by the display scale. On a high-resolution display the WinUI picker used to
+  fill most of the screen, so the same picker looked like a different tool depending on which
+  package you referenced.
+- **A single missing resource key no longer takes the picker down.**
+  `MrtPickerStrings.GetString` is documented to return the key itself when a string cannot be
+  found, but MRT Core throws for a key that is not there — unlike the UWP API of the same name,
+  which returned an empty string. It now keeps that promise.
+
+### IntelliSense
+
+- **Japanese IntelliSense ships in the packages** (`lib/<TFM>/ja/<name>.xml`), next to the English
+  documentation, for all five packages.
+- **`UiaTrigger.Picker.WinUI` ships XML documentation at all** — it was the one package without
+  any, so its members had no IntelliSense in either language.
+- **Emphasis in the documentation is no longer shown as raw markup.** XML documentation has no
+  element for emphasis, so the `<b>` tags that had crept in were displayed literally.
+- `ElementRect.Contains` was absent from the Japanese documentation, which meant it had no
+  description at all there rather than falling back to English.
+
+### Documentation
+
+- The dependency table in the README now says what the packages actually pull in.
+  `Microsoft.Extensions.Logging.Abstractions` reaches all five through `UiaTrigger.Core`.
+
+## 0.1.0-preview.1
 
 The first published version. Everything below is new, so this entry describes what the library
 does rather than what changed.
