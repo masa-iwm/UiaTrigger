@@ -283,6 +283,68 @@ public sealed class TriggerPickerWinFormsTests
     }
 
     /// <summary>
+    /// 編集セッションのコミットで Form が閉じて Dispose されること。
+    ///
+    /// Form.Close は Show で出した Form を Dispose する — これが「Close は View への
+    /// 全書き込みの後」という継ぎ目の契約の理由である。ただし**順序の退行はこのテストでは
+    /// 落ちない** (実測: Dispose 済み Label への Text 代入はハンドルを作り直さず例外に
+    /// ならない)。順序の網は presenter 側の
+    /// <c>Commit_ForAnEditSession_ClosesTheViewLast</c> (Calls の並び) が持つ。
+    /// </summary>
+    [Fact]
+    public void AnEditSessionCommit_ClosesTheFormWithoutTouchingItAfterwards()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerForm form = CreateForm(new FakeStrings());
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new System.Drawing.Point(-32000, -32000);
+            form.Show();
+            form.LoadDefinition(Editable(), editSession: true);
+
+            var commit = (Button)form.Controls.Find("CommitButton", searchAllChildren: true).Single();
+            // FakeStrings はキーをそのまま返す — 文言が「更新」側へ差し替わった証拠
+            Assert.Equal(PickerStringKeys.CommitButtonUpdate, commit.Text);
+
+            commit.PerformClick();
+
+            Assert.True(form.IsDisposed);
+        });
+    }
+
+    /// <summary>プリフィル (編集セッションでない) のコミットでは Form が開いたままなこと。</summary>
+    [Fact]
+    public void APrefillCommit_LeavesTheFormOpen()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerForm form = CreateForm(new FakeStrings());
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new System.Drawing.Point(-32000, -32000);
+            form.Show();
+            form.LoadDefinition(Editable());
+
+            var commit = (Button)form.Controls.Find("CommitButton", searchAllChildren: true).Single();
+            commit.PerformClick();
+
+            Assert.False(form.IsDisposed);
+            Assert.True(form.Visible);
+        });
+    }
+
+    private static TriggerDefinition Editable() => new()
+    {
+        Id = "recorded",
+        DisplayName = "Button \"Save\"",
+        Window = new WindowIdentity { ProcessName = "notepad.exe" },
+        On = TriggerOn.PropertyChanged,
+        Clauses =
+        [
+            new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = "Save" },
+        ],
+    };
+
+    /// <summary>
     /// 往復がカルチャを跨いでも崩れないこと。
     /// invariant で書いて de-DE で読むと <c>1.5</c> が <c>15</c> になる — 例外は出ない。
     /// </summary>

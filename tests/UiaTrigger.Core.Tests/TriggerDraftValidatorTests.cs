@@ -464,6 +464,61 @@ public sealed class TriggerDraftValidatorTests
         Assert.Equal("recorded", definition.DisplayName);
     }
 
+    // ---- 立ち下がり通知のフラグ (docs/DESIGN.md C14) ----
+
+    /// <summary>
+    /// 定義が lifecycle に使える値の一覧に <c>StoppedMatching</c> が居ないこと。
+    /// 居ると、ピッカーのコンボが「保存できない値」を選ばせるようになる。
+    /// </summary>
+    [Fact]
+    public void DefinitionLifecycles_OfferEverythingButStoppedMatching()
+    {
+        Assert.Equal(
+            [
+                TriggerOn.ElementAppeared, TriggerOn.ElementRemoved,
+                TriggerOn.PropertyChanged, TriggerOn.WhileMatching,
+            ],
+            TriggerDraftValidator.DefinitionLifecycles);
+        Assert.DoesNotContain(TriggerOn.StoppedMatching, TriggerDraftValidator.DefinitionLifecycles);
+    }
+
+    /// <summary>
+    /// WhileMatching のままの確定はフラグを保ち、On を変えた確定はフラグを落とすこと。
+    /// 落とさないと CreateRuntime に拒否され、「確定できたのに開始できない定義」になる
+    /// (Expression / PollInterval と同じ「意味を失った値を残さない」規律)。
+    /// </summary>
+    [Theory]
+    [InlineData(TriggerOn.WhileMatching, true)]
+    [InlineData(TriggerOn.ElementAppeared, false)]
+    [InlineData(TriggerOn.ElementRemoved, false)]
+    [InlineData(TriggerOn.PropertyChanged, false)]
+    public void Apply_KeepsNotifyOnStoppedMatchingOnlyForWhileMatching(TriggerOn on, bool expected)
+    {
+        var definition = new TriggerDefinition { Id = "old", NotifyOnStoppedMatching = true };
+        TriggerDraft draft = Draft(ComparisonOp.Equals);
+        draft.Text = "ready";
+        draft.On = on;
+        draft.NotifyOnStoppedMatching = true;
+
+        TriggerDraftValidator.Apply(definition, draft, Validate(draft));
+
+        Assert.Equal(expected, definition.NotifyOnStoppedMatching);
+    }
+
+    /// <summary>下書きがフラグを運ばなければ、定義側の古いフラグも消えること (句と同じ「置き換え」の意味論)。</summary>
+    [Fact]
+    public void Apply_WithoutTheFlagInTheDraft_ClearsIt()
+    {
+        var definition = new TriggerDefinition { Id = "old", NotifyOnStoppedMatching = true };
+        TriggerDraft draft = Draft(ComparisonOp.Equals);
+        draft.Text = "ready";
+        draft.On = TriggerOn.WhileMatching;
+
+        TriggerDraftValidator.Apply(definition, draft, Validate(draft));
+
+        Assert.False(definition.NotifyOnStoppedMatching);
+    }
+
     /// <summary>
     /// **2 つの検証が食い違わないこと** — 確定できた下書きから作った定義は、
     /// 必ず監視開始まで通ること。
@@ -494,6 +549,7 @@ public sealed class TriggerDraftValidatorTests
         draft.Text = "ready";
         // 欄に値が残ったまま On を変えた、いちばん危ない形で通す
         draft.PollIntervalSeconds = 0.5;
+        draft.NotifyOnStoppedMatching = true;
 
         TriggerDraftValidator.Apply(definition, draft, Validate(draft));
 

@@ -1067,6 +1067,24 @@ public sealed class TriggerPickerPresenterTests
     }
 
     /// <summary>
+    /// 「成立しなくなった時も通知」は WhileMatching でだけ出すこと。
+    /// 他のライフサイクルでは Core (CreateRuntime) がフラグを拒否するので、
+    /// 出すと「チェックできたのに確定でエラー」になる (ポーリング欄と同じ形)。
+    /// </summary>
+    [Theory]
+    [InlineData(TriggerOn.ElementAppeared, false)]
+    [InlineData(TriggerOn.ElementRemoved, false)]
+    [InlineData(TriggerOn.PropertyChanged, false)]
+    [InlineData(TriggerOn.WhileMatching, true)]
+    public void Operands_TheStoppedMatchingChoiceOnlyAppearsForWhileMatching(TriggerOn lifecycle, bool expected)
+    {
+        OperandVisibility visibility = TriggerPickerPresenter.DescribeOperands(lifecycle, ComparisonOp.Always);
+
+        Assert.Equal(expected, visibility.StoppedMatching);
+        Assert.Equal(TriggerDraftValidator.UsesNotifyOnStoppedMatching(lifecycle), visibility.StoppedMatching);
+    }
+
+    /// <summary>
     /// 出現・削除だけを見るトリガーで条件が無いときだけ、プロパティの選択を伏せること。
     ///
     /// ライフサイクルと述語が同じ列挙にあると、この組み合わせは作れない。
@@ -1299,6 +1317,105 @@ public sealed class TriggerPickerPresenterTests
         // 記録済みの要素はそのまま。しきい値を変えるために捕まえ直さなくてよいのが要点である
         Assert.Same(window, committed!.Window);
         Assert.Equal("Saved", Assert.Single(committed.Clauses).Text);
+    }
+
+    // ---------- 編集セッション (editSession) ----------
+
+    /// <summary>
+    /// 編集セッションで読み込むと確定ボタンの文言が「更新」に差し替わり、
+    /// プリフィル (1 引数版) では差し替わらないこと。
+    /// 「トリガーを追加」のままだと、編集しているのに追加されるように読める。
+    /// </summary>
+    [Fact]
+    public void LoadDefinition_AsAnEditSession_SwapsTheCommitCaption()
+    {
+        using var h = new Harness();
+        h.Strings.Values[PickerStringKeys.CommitButtonUpdate] = "Update trigger";
+
+        h.Presenter.LoadDefinition(Recorded(), editSession: true);
+
+        Assert.Equal("Update trigger", h.View.CommitCaption);
+    }
+
+    /// <summary>プリフィル (1 引数版) は文言を差し替えないこと。</summary>
+    [Fact]
+    public void LoadDefinition_AsAPrefill_LeavesTheCommitCaptionAlone()
+    {
+        using var h = new Harness();
+
+        h.Presenter.LoadDefinition(Recorded());
+
+        Assert.Null(h.View.CommitCaption);
+    }
+
+    /// <summary>
+    /// 編集セッションのコミット成立で View を 1 回だけ閉じ、しかも**最後**に閉じること。
+    ///
+    /// 順序が要る。WinForms の Form.Close は Form を Dispose するので、Close の後に
+    /// CommitStatus 等を書くと ObjectDisposedException になる (本物の View で再現する形は
+    /// TriggerPickerWinFormsTests が持つ)。
+    /// </summary>
+    [Fact]
+    public void Commit_ForAnEditSession_ClosesTheViewLast()
+    {
+        using var h = new Harness();
+        TriggerDefinition def = Recorded();
+        h.Presenter.LoadDefinition(def, editSession: true);
+        h.Presenter.TriggerCommitted += (_, _) => h.View.Calls.Add("TriggerCommitted");
+
+        h.Presenter.Commit();
+
+        Assert.Equal(1, h.View.CloseCount);
+        Assert.Equal(["TriggerCommitted", "CommitStatus", "Close"], h.View.Calls[^3..]);
+    }
+
+    /// <summary>
+    /// 編集セッションでないコミットは View を閉じないこと。
+    /// 「開いたまま何件でもコミットできる」が新規追加の明文化されたワークフローである。
+    /// </summary>
+    [Fact]
+    public void Commit_WithoutAnEditSession_LeavesTheViewOpen()
+    {
+        using var h = new Harness();
+        h.Presenter.LoadDefinition(Recorded());
+
+        h.Presenter.Commit();
+
+        Assert.NotNull(h.View.LastCommitStatus); // コミット自体は成立している
+        Assert.Equal(0, h.View.CloseCount);
+    }
+
+    /// <summary>編集セッションでも、検証に落ちたコミットでは閉じないこと。</summary>
+    [Fact]
+    public void Commit_ForAnEditSession_WhenValidationFails_StaysOpen()
+    {
+        using var h = new Harness();
+        h.Presenter.LoadDefinition(Recorded(), editSession: true);
+        h.View.Draft!.Id = " "; // Id は必須 — 検証で必ず落ちる
+
+        h.Presenter.Commit();
+
+        Assert.Equal(0, h.View.CloseCount);
+    }
+
+    /// <summary>
+    /// WhileMatching + 立ち下がり通知のトリガーを編集して確定し直しても、フラグが残ること。
+    /// (下書き → Apply の往復で黙って欠けると、編集のたびに通知が 1 種類消える)
+    /// </summary>
+    [Fact]
+    public void LoadDefinition_ThenCommit_KeepsNotifyOnStoppedMatching()
+    {
+        using var h = new Harness();
+        TriggerDefinition def = Recorded();
+        def.On = TriggerOn.WhileMatching;
+        def.NotifyOnStoppedMatching = true;
+
+        h.Presenter.LoadDefinition(def, editSession: true);
+        Assert.True(Assert.Single(h.View.ShownDrafts).NotifyOnStoppedMatching);
+
+        h.Presenter.Commit();
+
+        Assert.True(def.NotifyOnStoppedMatching);
     }
 
     /// <summary>

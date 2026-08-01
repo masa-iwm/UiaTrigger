@@ -204,6 +204,41 @@ public sealed class TriggerJsonTests
         Assert.Null(restored.Expression);
     }
 
+    /// <summary>
+    /// <see cref="TriggerDefinition.NotifyOnStoppedMatching"/> を書いていない JSON
+    /// (preview.3 以前が保存したもの) は false として読めること。
+    /// 既定が変わると、古いファイルのトリガーが黙って立ち下がりも鳴らし始める。
+    /// </summary>
+    [Fact]
+    public void Definition_NotifyOnStoppedMatchingDefaultsToFalseWhenAbsent()
+    {
+        const string json = """
+            { "Id": "x", "On": "WhileMatching",
+              "Clauses": [ { "Property": "Name", "Op": "Equals", "Text": "a" } ] }
+            """;
+
+        TriggerDefinition restored = JsonSerializer.Deserialize(json, TriggerJsonContext.Default.TriggerDefinition)!;
+
+        Assert.False(restored.NotifyOnStoppedMatching);
+    }
+
+    [Fact]
+    public void Definition_NotifyOnStoppedMatchingSurvivesBeingTrue()
+    {
+        var definition = new TriggerDefinition
+        {
+            Id = "x",
+            On = TriggerOn.WhileMatching,
+            NotifyOnStoppedMatching = true,
+            Clauses = [new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Always }],
+        };
+
+        string json = JsonSerializer.Serialize(definition, TriggerJsonContext.Default.TriggerDefinition);
+        TriggerDefinition restored = JsonSerializer.Deserialize(json, TriggerJsonContext.Default.TriggerDefinition)!;
+
+        Assert.True(restored.NotifyOnStoppedMatching);
+    }
+
     [Fact]
     public void Clause_WatchSurvivesBeingFalse()
     {

@@ -66,6 +66,57 @@ public sealed class TriggerMonitorValidationTests
         Assert.Null(error);
     }
 
+    // ---------- 立ち下がり通知 (docs/DESIGN.md C14) ----------
+
+    /// <summary>
+    /// <c>StoppedMatching</c> はイベント専用の値であり、定義の lifecycle としては弾くこと。
+    /// 受けると「立ち下がりだけの WhileMatching」という二重の書き方が生まれる。
+    /// </summary>
+    [Fact]
+    public async Task StartAsync_WithStoppedMatchingAsTheLifecycle_ThrowsArgumentException()
+    {
+        TriggerDefinition definition = Definition(
+            new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = "x" });
+        definition.On = TriggerOn.StoppedMatching;
+
+        Exception? error = await StartAsync(definition);
+
+        Assert.IsType<ArgumentException>(error);
+        Assert.Contains("t", error.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <c>NotifyOnStoppedMatching</c> は WhileMatching 専用。他の lifecycle に載っていたら
+    /// 黙って無視せず弾く (PollInterval と同じ規律 — 効かない設定を残さない)。
+    /// </summary>
+    [Theory]
+    [InlineData(TriggerOn.ElementAppeared)]
+    [InlineData(TriggerOn.ElementRemoved)]
+    [InlineData(TriggerOn.PropertyChanged)]
+    public async Task StartAsync_WithNotifyOnStoppedMatchingOnAnotherLifecycle_Throws(TriggerOn on)
+    {
+        TriggerDefinition definition = Definition(
+            new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = "x" });
+        definition.On = on;
+        definition.NotifyOnStoppedMatching = true;
+
+        string message = await ErrorOf(definition);
+
+        Assert.Contains(on.ToString(), message, StringComparison.Ordinal);
+    }
+
+    /// <summary>対照: WhileMatching となら通ること。</summary>
+    [Fact]
+    public async Task StartAsync_WithNotifyOnStoppedMatchingOnWhileMatching_IsAccepted()
+    {
+        TriggerDefinition definition = Definition(
+            new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = "x" });
+        definition.On = TriggerOn.WhileMatching;
+        definition.NotifyOnStoppedMatching = true;
+
+        Assert.Null(await StartAsync(definition));
+    }
+
     // ---------- 複合条件 (docs/DESIGN.md §4) ----------
 
     private static PropertyClause Clause(string? name = null, bool watch = true) => new()

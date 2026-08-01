@@ -29,12 +29,14 @@ public sealed class TriggerComposerTests
         IReadOnlyList<TriggerDefinition> sources,
         string? expression = null,
         IReadOnlyCollection<string>? unwatchedNames = null,
-        IEnumerable<string>? existingIds = null)
+        IEnumerable<string>? existingIds = null,
+        TimeSpan? pollInterval = null)
         => TriggerComposer.Compose(
             sources,
             expression,
             unwatchedNames ?? [],
-            existingIds ?? sources.Select(s => s.Id));
+            existingIds ?? sources.Select(s => s.Id),
+            pollInterval);
 
     // ---- Compose: 基本形 ----
 
@@ -81,6 +83,80 @@ public sealed class TriggerComposerTests
         Assert.False(result.IsValid);
         Assert.NotNull(result.Error);
         Assert.Null(result.Definition);
+    }
+
+    // ---- Compose: ポーリング間隔 ----
+
+    /// <summary>まとめる時に指定したポーリング間隔が複合に載ること (UI からの唯一の入力口)。</summary>
+    [Fact]
+    public void Compose_WithAPollInterval_PutsItOnTheComposite()
+    {
+        TriggerCompositionResult result = Compose(
+            [Simple("a"), Simple("b")], pollInterval: TimeSpan.FromSeconds(2));
+
+        Assert.True(result.IsValid);
+        Assert.Equal(TimeSpan.FromSeconds(2), result.Definition!.PollInterval);
+    }
+
+    /// <summary>null と 0 は「未設定」— TriggerDefinition.PollInterval の意味論と揃える。</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Compose_WithoutAUsablePollInterval_LeavesItUnset(int? seconds)
+    {
+        TriggerCompositionResult result = Compose(
+            [Simple("a"), Simple("b")],
+            pollInterval: seconds is { } s ? TimeSpan.FromSeconds(s) : null);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.Definition!.PollInterval);
+    }
+
+    /// <summary>負値は理由付きで断る。検証は Compose が持つ (呼び出し元に写経させない)。</summary>
+    [Fact]
+    public void Compose_ANegativePollInterval_IsRefused()
+    {
+        TriggerCompositionResult result = Compose(
+            [Simple("a"), Simple("b")], pollInterval: TimeSpan.FromSeconds(-1));
+
+        Assert.False(result.IsValid);
+        Assert.NotNull(result.Error);
+        Assert.Null(result.Definition);
+    }
+
+    /// <summary>
+    /// 複合自身のポーリング間隔は、ほどいても句由来のトリガーへ持ち出されないこと。
+    /// あれは「まとめた条件を読み直す」費用であって、どれか 1 つの条件のものではない。
+    /// </summary>
+    [Fact]
+    public void Decompose_LeavesTheCompositesPollIntervalBehind()
+    {
+        TriggerDefinition composite = Compose(
+            [Simple("a"), Simple("b")], pollInterval: TimeSpan.FromSeconds(2)).Definition!;
+
+        IReadOnlyList<TriggerDefinition> recovered =
+            TriggerComposer.Decompose(composite, ["composite-1"]);
+
+        Assert.All(recovered, r => Assert.Null(r.PollInterval));
+    }
+
+    /// <summary>
+    /// ポーリング間隔付きで組んだ複合が監視開始まで通ること。
+    /// Compose と CreateRuntime の検証が食い違うと「まとめられたのに開始できない定義」になる
+    /// (<c>Apply_AlwaysProducesADefinitionTheMonitorAccepts</c> と同じ線)。
+    /// </summary>
+    [Fact]
+    public async Task Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts()
+    {
+        TriggerDefinition composite = Compose(
+            [Simple("no-such-process-uiatrigger-a"), Simple("no-such-process-uiatrigger-b")],
+            pollInterval: TimeSpan.FromMilliseconds(500)).Definition!;
+
+        await using var monitor = new UiaTrigger.Monitoring.TriggerMonitor();
+        Exception? error = await Record.ExceptionAsync(
+            () => monitor.StartAsync([composite], TestContext.Current.CancellationToken));
+
+        Assert.Null(error);
     }
 
     // ---- Compose: 句の名前付け ----

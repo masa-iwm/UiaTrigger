@@ -161,6 +161,35 @@ public sealed class TriggerListEditorViewTests
     }
 
     /// <summary>
+    /// ポーリング間隔の欄の読み取り: 数値は値、空欄と読めない入力は null (= 値なし)。
+    /// 0 を返す形に変わると、打ち間違いが「0 秒」として Compose に届く。
+    /// </summary>
+    [Fact]
+    public void TheWpfViewReadsTheCombinePollInterval()
+    {
+        Sta.Run(() =>
+        {
+            var window = new TriggerListEditorWindow(
+                new ResxPickerStrings(), [], createPresenter: null, FakeWpfPicker);
+            try
+            {
+                var view = (ITriggerListEditorView)window;
+                Assert.Null(view.CombinePollIntervalSeconds);
+
+                window.CombinePollIntervalBox.Text = 1.5.ToString(CultureInfo.CurrentCulture);
+                Assert.Equal(1.5, view.CombinePollIntervalSeconds);
+
+                window.CombinePollIntervalBox.Text = "abc";
+                Assert.Null(view.CombinePollIntervalSeconds);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
     /// [OK] が編集後のリストを返し、閉じただけなら null のままであること。
     ///
     /// null は「プロパティを設定しない」を意味する (<c>TriggerListEditor</c> の規約)。
@@ -258,6 +287,29 @@ public sealed class TriggerListEditorViewTests
             list.SelectedIndex = 1;
 
             Assert.Equal([1], ((ITriggerListEditorView)form).SelectedIndices);
+        });
+    }
+
+    /// <summary>ポーリング間隔の欄の読み取り (WPF 側と同じ規則)。</summary>
+    [Fact]
+    public void TheWinFormsViewReadsTheCombinePollInterval()
+    {
+        Sta.Run(() =>
+        {
+            using var form = new TriggerListEditorForm(
+                new ResxPickerStrings(), [], createPresenter: null, FakeWinFormsPicker);
+            TextBox box = Assert.Single(
+                form.Controls.Cast<Control>().SelectMany(Descendants).OfType<TextBox>(),
+                c => c.Name == "CombinePollIntervalBox");
+            var view = (ITriggerListEditorView)form;
+
+            Assert.Null(view.CombinePollIntervalSeconds);
+
+            box.Text = 1.5.ToString(CultureInfo.CurrentCulture);
+            Assert.Equal(1.5, view.CombinePollIntervalSeconds);
+
+            box.Text = "abc";
+            Assert.Null(view.CombinePollIntervalSeconds);
         });
     }
 

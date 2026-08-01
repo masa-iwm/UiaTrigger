@@ -311,6 +311,52 @@ public sealed class TriggerListEditorPresenterTests
         Assert.False(composite.Clauses[1].Watch);
     }
 
+    /// <summary>
+    /// 欄の値が Compose まで届き、Snapshot (JSON クローン経由) でも欠けないこと。
+    /// 複合の PollInterval の UI からの唯一の入力口である。
+    /// </summary>
+    [Fact]
+    public void CombinePassesThePollIntervalThrough()
+    {
+        var h = new Harness();
+        h.Open([Simple("a"), Simple("b")]);
+        h.View.SelectedIndices = [0, 1];
+        h.View.CombinePollIntervalSeconds = 1.5;
+
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.Equal(TimeSpan.FromSeconds(1.5), h.Presenter.Snapshot()[^1].PollInterval);
+    }
+
+    /// <summary>欄が空なら未設定 (イベント駆動) のまま。</summary>
+    [Fact]
+    public void CombineWithoutAPollInterval_LeavesTheCompositeEventDriven()
+    {
+        var h = new Harness();
+        h.Open([Simple("a"), Simple("b")]);
+        h.View.SelectedIndices = [0, 1];
+
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.Null(h.Presenter.Snapshot()[^1].PollInterval);
+    }
+
+    /// <summary>負値は Compose の理由が Status に出て、何も足されないこと。</summary>
+    [Fact]
+    public void CombineWithANegativePollInterval_ReportsTheReasonAndAddsNothing()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineFailed] = "no: {0}";
+        h.Open([Simple("a"), Simple("b")]);
+        h.View.SelectedIndices = [0, 1];
+        h.View.CombinePollIntervalSeconds = -1;
+
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.StartsWith("no: ", h.View.LastStatus, StringComparison.Ordinal);
+        Assert.Equal(2, h.Presenter.Snapshot().Count);
+    }
+
     [Fact]
     public void CombineReportsTheReasonAndAddsNothing()
     {

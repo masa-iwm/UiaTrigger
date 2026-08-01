@@ -403,6 +403,64 @@ public sealed class TriggerPickerWpfWindowTests
     }
 
     /// <summary>
+    /// 編集セッションのコミットで窓が閉じること (WinForms 側の
+    /// <c>AnEditSessionCommit_ClosesTheFormWithoutTouchingItAfterwards</c> の WPF 対)。
+    /// </summary>
+    [Fact]
+    public void AnEditSessionCommit_ClosesTheWindow()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerWindow window = CreateWindow(new FakeStrings());
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.Left = -32000;
+            window.Top = -32000;
+            window.Show();
+            window.LoadDefinition(Editable(), editSession: true);
+            // FakeStrings はキーをそのまま返す — 文言が「更新」側へ差し替わった証拠
+            Assert.Equal(PickerStringKeys.CommitButtonUpdate, window.CommitButton.Content);
+
+            window.CommitButton.RaiseEvent(
+                new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
+            Assert.False(window.IsVisible);
+        });
+    }
+
+    /// <summary>プリフィル (編集セッションでない) のコミットでは窓が開いたままなこと。</summary>
+    [Fact]
+    public void APrefillCommit_LeavesTheWindowOpen()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerWindow window = CreateWindow(new FakeStrings());
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+            window.Left = -32000;
+            window.Top = -32000;
+            window.Show();
+            window.LoadDefinition(Editable());
+
+            window.CommitButton.RaiseEvent(
+                new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
+            Assert.True(window.IsVisible);
+            window.Close();
+        });
+    }
+
+    private static TriggerDefinition Editable() => new()
+    {
+        Id = "recorded",
+        DisplayName = "Button \"Save\"",
+        Window = new WindowIdentity { ProcessName = "notepad.exe" },
+        On = TriggerOn.PropertyChanged,
+        Clauses =
+        [
+            new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = "Save" },
+        ],
+    };
+
+    /// <summary>
     /// 確定後に、監視できるプロパティが実際にコンボへ入り、先頭が選ばれること。
     ///
     /// WinUI ではここが <c>E_INVALIDARG</c> で落ちる罠が実機で出た (docs/DESIGN.md §12 の ABI の罠)。
