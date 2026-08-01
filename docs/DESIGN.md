@@ -183,6 +183,25 @@ public sealed class TriggerDefinition
 - `HandleRemoved` の `LastMatch` は代入ではなく**評価から求める**。`false` を入れると「b が消えたら成立」の立ち上がりが起きた瞬間に潰される。その立ち上がりは `HandleRemoved` でしか起きないので、`WhileMatching` の発火はそこにも置いてある
 - **評価は各スロットの最新スナップショットに対して行う。同時に読むわけではない。**別プロセスを原子的にスナップショットする方法は無く、イベントごとに全スロットを読み直せばクロスプロセス呼び出しが要素数倍になる。ここから鋭い角が 1 つ出る — **`!b` は b のアプリが起動していない間ずっと成立する。**回避は `a && !b`
 
+### 在否と値は別の軸 — Always は presence である (C16)
+
+`ClauseValue` は**値の軸** (`IsSupported` + 値) と**在否の軸** (`IsAbsent` = スロットに要素が居ない) を別に持つ。ここを 1 本に潰すと、どちらかの意味論が必ず壊れる:
+
+- **`Op = Always` は在否で決まる** — 「その要素が在ること」(presence)。`TriggerComposer` が句なしトリガーから作る代替句と、`!presence` (消えたら成立) の意味の正体である。パターン非対応 (要素は居るが値が無い) では従来どおり成立する — あちらは「プロパティを購読する意図」であって存在の主張ではない
+- **値の述語は「最後に見えた値」で評価され続ける** — 消えたスロットでも `LastSnapshot` の値で判定する。こうでないと、**成立したまま要素が入れ替わっただけ** (ツリー再構築) で `WhileMatching` の水準が落ちて戻り、立ち下がり + 立ち上がりが鳴る洪水になる。要素の消滅そのものを知りたいなら presence 句か `ElementRemoved` で書く
+- **`ElementRemoved` の絞り込みは要素を手放す前に「最後に見えていた状態」で評価する** (C15)。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ — 購読しないと「消滅直前の値」のつもりの比較が**解決時の値**との比較になる (実際にそうなっていた不具合)。この購読は発火源ではない (`OnPropertyChanged` は `ElementRemoved` では鳴らさない)
+
+### 立ち下がり通知 — NotifyOnStoppedMatching (C14)
+
+`TriggerDefinition.NotifyOnStoppedMatching` を立てた `WhileMatching` トリガーは、条件が成立しなくなった瞬間 (立ち下がり) にも発火し、イベントは `TriggerFiredEventArgs.On = StoppedMatching` で立ち上がりと見分けられる。
+
+- **`StoppedMatching` はイベント専用の値**である。定義の `On` としては拒否する — 受けると「立ち下がりだけの WhileMatching」という二重の書き方が生まれ、以後すべての `On` 分岐が 2 値を見ることになる
+- **フラグは `WhileMatching` 専用**。他の lifecycle では追加時に拒否する (`PollInterval` と同じ「黙って効かない設定を残さない」)。`Apply` も `On` を変えた確定でフラグを落とす
+- **立ち下がりは `MinInterval` の対象外**で、`SuppressedFireCount` にも数えない。窓で落とすとホストは「まだ成立中」と信じ続ける — 状態の嘘になる。逆向きの非対称 (立ち上がりが落とされた後の立ち下がり) は冗長だが嘘ではない
+- **停止・削除では鳴らさない**。`ReleaseTrigger` は水準を代入で戻すだけで発火経路を通らない — ホストの後始末のたびに偽の立ち下がりが混ざる形にしない
+- 評価の 3 箇所 (`TryResolve` / `OnPropertyChanged` / `HandleRemoved`) すべてに立ち上がりと対で置く。ポーリングは `OnPropertyChanged` に合流するので自動で継承する
+- **出現/消滅レシピ**: `WhileMatching` + `Op=Always` の句 + このフラグで、要素の出現 (立ち上がり) と消滅 (立ち下がり) が 1 つのトリガーで届く (presence — C16)
+
 ### 発火イベントの整合
 
 - **イベントの 3 つの値 (`NewValue` / `OldValue` / `Properties`) は必ず同じ要素を指す** — 先頭の句が読む要素 (句が無ければトリガー自身の要素)。ここを崩すと複合条件で「`Properties` は B の要素、`NewValue` は A の値」という 1 つのイベントが 2 つの要素を指す状態になる。「変化した要素の値が取れない」ことは確定するが、そちらは句ごとの値 (下記) が引き取る
@@ -217,12 +236,13 @@ public sealed class TriggerDefinition
 | 句を持たない元トリガー | `Property = ControlType, Op = Always` の代替句 = 「その要素が在ること」 |
 | 複合の `On` | `WhileMatching` 固定 (成立した瞬間に 1 回) |
 | 複合の既定要素 | 先頭の元トリガーに合わせる。全句が要素を上書きするので解決には使われないが、モデルとしては空にできない |
-| `Decompose` が戻さないもの | 元の `On`・`MinInterval`・`PollInterval` (複合が記録していない)。式も捨て、`Watch` は既定へ戻す — 「絞るだけ」は複合の中でだけ意味を持つ |
+| 複合の `PollInterval` | 「まとめる」時に指定できる (`Compose` の `pollInterval`)。0 / null は未設定 (イベント駆動のまま)、負値の拒否は **`Compose` が持つ** — 呼び出し元に置くと自前の「まとめる」UI を持つホストが規則を写経することになる |
+| `Decompose` が戻さないもの | 元の `On`・`MinInterval`・`PollInterval` (複合が記録していない)。**複合自身の `PollInterval` も戻さない** — まとめた条件を読み直すための費用判断であり、どれか 1 つの句のものではない。式も捨て、`Watch` は既定へ戻す — 「絞るだけ」は複合の中でだけ意味を持つ |
 | `Decompose` が付ける id | **句の実効名** = 複合の式がその句を指していた名前。分解 → まとめ直しで同じ式がそのまま使える |
 | 非複合の `Decompose` | `ArgumentException` (プログラマ向けの契約)。呼び出し側が選択を先にガードする |
 | どちらも**非破壊** | まとめても・ほどいても元は一覧に残る。取り消し機能を持たずに取り消せる形で、2 つの操作の線が揃う |
 
-検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone`)。
+検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName` / `Compose_PollIntervalNegative`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone`)。
 
 ### トリガ一覧エディタ — 値渡し・値返し
 
@@ -248,6 +268,8 @@ public sealed class TriggerDefinition
 | 許容差は演算子が使うときだけ入れる | `Tolerance` の 0 は既定であって「未入力」ではない。使わない演算子で 0 を書くと、出ていない欄の値が見える |
 | **下書きが運べないものを持つ句は断る** | 確定は句を作り直すので、`TriggerDraft` に場所が無いものは落ちる: 句の `Window`/`Locator` → 別の要素を監視し始める / `Watch=false` → 絞るだけのつもりが発火源になる / `CustomPropertyId` → 0 に化ける。どれも例外にならず保存された JSON を見るまで分からない。`CanEdit` は複合だけでなくこの 3 つも false にし、`LoadDefinition` は `ArgumentException` で断る |
 | ピッカーで編集できるのは単純トリガーのみ | ピッカーは「条件 1 件」の編集器である。複合は分解してから編集する |
+| **編集セッションは確定 1 回で閉じる** | `LoadDefinition(definition, editSession: true)` は確定ボタンの文言を `CommitButtonUpdate` に差し替え、確定が成立したら `IPickerView.Close` を呼ぶ — 条件の編集時に追加でトリガーを設定することはない。新規追加の「開いたまま何件でもコミット」は変えない (App ホストの明文化されたワークフロー)。検証失敗では閉じない |
+| `Close` は View への**全書き込みの後** | WinForms の `Form.Close` は Show で出した Form を **Dispose する**。presenter は `TriggerCommitted` → `CommitStatus` の後にしか `Close` を呼ばず、以後 View に触らない。親エディタも `Close` を呼ばない — 既存の `Closed` → `NotifyPickerClosed` 経路だけが動く |
 
 `TriggerDraftValidator` は第三者のピッカーが同じ検証規則を得るために public であり、式を入力させるピッカーのために `ValidateExpression` / `IsValidClauseName` も持つ。**`Apply` は新しい形で意味を失った値を残さない** — 句を作り直すとき `Expression` を落とし、ポーリングできない `On` では `PollInterval` も落とす。個別規則の検査に加えて「確定できた下書きから作った定義は必ず監視開始まで通る」(`Apply_AlwaysProducesADefinitionTheMonitorAccepts`) という**規則が増えても腐らない形**の検査がある — 実行時検証 (`CreateRuntime`) に拒否理由を足して `Apply` 側を忘れると、ホストの録り直し (`RemoveAsync` → `AddAsync` の投げっぱなし) では画面に何も出ないままトリガーが消えるからである。
 
@@ -584,6 +606,9 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | C11 | `TriggerDefinition.MinInterval` が発火レート制限。`BoundingRectangle` の比較文字列は `ElementRect.ToString` の invariant な `(L,T)-(R,B)` 形式で、表示と比較で同一 | §3 |
 | C12 | `IsPassword` の要素は `Value` と `Name` を伏字化する。条件評価もスナップショット経由なので伏せた値は復活しない | §3 |
 | C13 | ピッカーはホストの PerMonitorV2 を実行時に確かめ、`CoordinateProblem` を画面に出す | §9 |
+| C14 | 立ち下がり通知 (`NotifyOnStoppedMatching` → イベントは `On=StoppedMatching`) は `WhileMatching` 専用で、`MinInterval` の対象外。停止・削除では通知しない | §4 |
+| C15 | `ElementRemoved` の条件は消滅直前の値で評価する。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ (発火源にはしない) | §4 |
+| C16 | 在否 (`IsAbsent`) と値は別の軸。`Op=Always` は「要素が在ること」(presence) で成立し、値の述語は消えた要素でも最後に見えた値で評価され続ける | §4 |
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 |
 | D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — |

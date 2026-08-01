@@ -6,6 +6,55 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
+## 0.1.0-preview.4
+
+### Added
+
+- **A trigger can now tell you when its condition stops holding.** Set
+  `TriggerDefinition.NotifyOnStoppedMatching` on a `WhileMatching` trigger and the monitor also
+  fires on the falling edge, with `TriggerFiredEventArgs.On = TriggerOn.StoppedMatching` so the two
+  edges are distinguishable. The flag is rejected on any other lifecycle, the falling edge is
+  exempt from `MinInterval` (dropping it would leave you believing the condition still holds), and
+  stopping or removing the trigger raises nothing. The picker offers the flag as an
+  "Also notify when it stops matching" checkbox, shown for `WhileMatching` only.
+- **An `Always` clause now means "the element is there".** It is satisfied exactly while the
+  clause's element is resolved, which makes three documented shapes actually work: the composite
+  clauses `TriggerComposer` builds from clause-less sources require the element's presence,
+  `!name` in an expression rises when that element disappears, and `WhileMatching` + an `Always`
+  clause + `NotifyOnStoppedMatching` reports an element appearing and disappearing with a single
+  trigger. Value predicates are unchanged: they keep evaluating against the last-seen value, so a
+  satisfied trigger does not flap when the UI tree is merely rebuilt.
+- **A composite can be given a poll interval when it is combined.** The trigger-list editor grew a
+  "Poll interval (s)" field next to the combine controls, and `TriggerComposer.Compose` takes an
+  optional `pollInterval` (a negative value is a reason not to combine; zero and null mean
+  event-driven, as everywhere else). `Decompose` does not carry the composite's interval into the
+  recovered triggers — it paid for re-reading the combined condition, not for any one clause.
+- **Editing a trigger now looks and ends like editing.** A picker opened from the trigger-list
+  editor's "Edit condition" shows **Update trigger** on the commit button instead of
+  "Add trigger", and closes as soon as the commit succeeds. Recording new triggers is unchanged:
+  that picker stays open so you can commit as many as you like.
+
+### Fixed
+
+- **`ElementRemoved` conditions now compare against the value just before removal.** They used to
+  be evaluated against the values captured when the element was first resolved, so
+  "fires when the element named *ready* disappears" silently matched the name the element had
+  when monitoring started. Triggers with watched clauses on `ElementRemoved` now keep that
+  snapshot fresh by subscribing to the watched properties (the subscription never fires the
+  trigger by itself).
+
+### Breaking (for `IPickerView` / `ITriggerListEditorView` implementers)
+
+- `IPickerView` gained `CommitCaption { set; }` and `Close()`.
+- `ITriggerListEditorView` gained `CombinePollIntervalSeconds { get; }`.
+- `OperandVisibility` gained a `StoppedMatching` flag; the positional constructor changed.
+- `TriggerDraft` gained `NotifyOnStoppedMatching`; `TriggerDraftValidator.Apply` clears the
+  definition's flag when the draft's lifecycle is not `WhileMatching`.
+- `TriggerComposer.Compose` gained an optional `pollInterval` parameter.
+- `TriggerOn` gained the event-only member `StoppedMatching`. Enums are persisted as names, so
+  saved trigger files are unaffected; a definition using it as its lifecycle is rejected when the
+  trigger is added.
+
 ## 0.1.0-preview.3
 
 ### Added
