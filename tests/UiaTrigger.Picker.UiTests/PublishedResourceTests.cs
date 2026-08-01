@@ -161,7 +161,20 @@ public sealed class PublishedResourceTests
         "AutoSelectToggle.OffContent",
         // 唯一の GetString 経路。EveryStaticLabel… とは別のテストで見る (下記)
         "SearchNoMatch",
+        // ライフサイクル (WhileMatching) でだけ出るので、静的ラベルの表には載せられない。
+        // 出入りと文言は TheStoppedMatchingChoiceFollowsTheLifecycle が見る
+        "StoppedMatchingCheck.Content",
     ];
+
+    /// <summary>
+    /// **エディタ経由の編集セッションでしか出ない**キー (<c>EditorShowcaseTests</c> が見る)。
+    /// </summary>
+    /// <remarks>
+    /// 確定ボタンの文言は <c>LoadDefinition(definition, editSession: true)</c> が実行時に
+    /// 差し替える。S4 の起動口はピッカーを直接開くだけでエディタを経由しないので、
+    /// この経路では構造的に出せない。
+    /// </remarks>
+    private static readonly string[] CheckedByTheEditorShowcase = ["CommitButtonUpdate"];
 
     /// <summary>
     /// **発行レイアウトではなく開発ビルドで**見ているキー (<c>CommitTests</c>)。
@@ -279,6 +292,7 @@ public sealed class PublishedResourceTests
         accounted.UnionWith(CheckedSeparately);
         accounted.UnionWith(NeverVisibleInUia);
         accounted.UnionWith(CheckedByTheCommitTests);
+        accounted.UnionWith(CheckedByTheEditorShowcase);
         accounted.UnionWith(NotReachableFromTheScreen);
         accounted.UnionWith(TheOtherWindowsKeys);
         // ウィンドウのタイトルは要素ではなくウィンドウ自身の Name として見る
@@ -504,6 +518,59 @@ public sealed class PublishedResourceTests
             () => picker.ById(automationId),
             TimeSpan.FromSeconds(10),
             $"{profile.Name}: PropertyChanged に戻すと '{automationId}' が再び出ること",
+            host.Diagnostics);
+    }
+
+    /// <summary>
+    /// 「成立しなくなった時も通知」の選択肢が**ライフサイクルに追随する**こと —
+    /// 既定 (未選択) では出ず、<c>WhileMatching</c> でだけ出て、出たときの文言が
+    /// リソースの値であること。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ポーリング欄と同じく、この選択肢は演算子ではなく **OnCombo (ライフサイクル)** で
+    /// 出入りする — <see cref="KeysThatNeedAnOperator"/> に入れると対照 (3) の
+    /// 「<c>Always</c> で消える」に必ず落ちる。フラグは WhileMatching 以外では Core が
+    /// 拒否するため、他のライフサイクルで出たままだと「チェックできたのに確定でエラー」になる。
+    /// </para>
+    /// <para>
+    /// CheckBox は WinUI / WPF とも内容が自分の Name に出るので、AutomationId は
+    /// 両変種で <c>StoppedMatchingCheck</c> そのもの (<c>*Label</c> の分裂が無い)。
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("WPF")]
+    [InlineData("WinUI")]
+    public void TheStoppedMatchingChoiceFollowsTheLifecycle(string profileName)
+    {
+        const string AutomationId = "StoppedMatchingCheck";
+        PickerHostProfile profile = PickerHostProfile.ByName(profileName);
+        Dictionary<string, string> expected = ExpectedLabels(profile, "en-US");
+
+        using var host = PickerHostProcess.StartForLabels(profile, "en-US");
+        host.OpenPicker();
+        AutomationElement picker = host.PickerWindow();
+
+        // 既定では出ていない (XAML の初期状態が Collapsed)
+        Ui.Never(
+            () => picker.ById(AutomationId) is not null,
+            TimeSpan.FromSeconds(3),
+            $"既定の状態で '{AutomationId}' が出ている",
+            host.Diagnostics);
+
+        picker.RequireByIdEventually("OnCombo", host.Diagnostics).SelectComboItem("WhileMatching");
+        AutomationElement check = Ui.Until(
+            () => picker.ById(AutomationId),
+            TimeSpan.FromSeconds(10),
+            $"{profile.Name}: WhileMatching で '{AutomationId}' が出ること",
+            host.Diagnostics);
+        Assert.Equal(expected["StoppedMatchingCheck.Content"], check.Current.Name);
+
+        picker.RequireByIdEventually("OnCombo", host.Diagnostics).SelectComboItem("ElementAppeared");
+        Ui.Never(
+            () => picker.ById(AutomationId) is not null,
+            TimeSpan.FromSeconds(3),
+            $"ElementAppeared で '{AutomationId}' が残る",
             host.Diagnostics);
     }
 

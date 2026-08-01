@@ -114,6 +114,72 @@ public sealed class EditorShowcaseTests
     }
 
     /// <summary>
+    /// 編集セッションの UX: [条件を編集] で開いた子ピッカーは確定ボタンが**「更新」を名乗り**、
+    /// コミット 1 回で**窓が閉じる**こと。対照として、追加の経路はコミット後も
+    /// 「追加」のまま開いたままであることを同じテストで見る。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「トリガーを追加」のままだと、編集しているのに追加されるように読める —
+    /// preview.3 の組み込み評価で実際に出た指摘である。文言はリソースから読む
+    /// (<c>PickerResources</c>) ので、翻訳を変えてもテストは追随する。
+    /// </para>
+    /// <para>
+    /// 閉じる/閉じないの判定はピッカー窓の有無で行い、真偽の根拠 (行が増えず更新される) は
+    /// 既存の <see cref="EditingThroughTheEditor_LoadsTheConditionAndWritesTheChange"/> が持つ。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EditingThroughTheEditor_ShowsUpdateAndClosesThePickerOnCommit()
+    {
+        Dictionary<string, string> expected =
+            PickerResources.For(PickerHostProfile.ByName("WinUI"), Culture);
+        using var scenario = EditorScenario.Open();
+
+        scenario.OpenEditor();
+        scenario.RecordOneThroughTheChildPicker(out string id);
+
+        // 対照 (追加の経路): コミットの後もピッカーは開いたまま、ボタンは「追加」のまま。
+        // 「開いたまま何件でもコミットできる」が新規追加の明文化されたワークフローである
+        Assert.Equal(1, scenario.PickerWindowCount());
+        Assert.Equal(
+            expected["CommitButton.Content"],
+            scenario.PickerWindow().RequireByIdEventually("CommitButton", scenario.Diagnostics).NameOf());
+
+        scenario.Accept();
+        _ = Ui.Until(
+            () => scenario.SavedTriggers().Count == 1 ? "ok" : null,
+            Settle, "1 件がファイルに入ること", scenario.Diagnostics);
+
+        // 編集の経路: ボタンが「更新」を名乗る
+        scenario.OpenEditor();
+        scenario.SelectTheFirstRow();
+        AutomationElement picker = scenario.EditTheSelectedRow();
+        AutomationElement commit = Ui.Until(
+            () => picker.ById("CommitButton") is { } button &&
+                  string.Equals(button.NameOf(), expected["CommitButtonUpdate"], StringComparison.Ordinal)
+                ? button
+                : null,
+            Settle,
+            $"確定ボタンが '{expected["CommitButtonUpdate"]}' を名乗ること",
+            scenario.Diagnostics);
+
+        // コミット 1 回で窓が閉じる (編集はその 1 回で終わる)
+        commit.Invoke();
+        Ui.Never(
+            () => scenario.PickerWindowCount() > 0,
+            TimeSpan.FromSeconds(5),
+            "編集セッションのコミット後もピッカーの窓が残る",
+            scenario.Diagnostics);
+
+        scenario.Accept();
+        TriggerDefinition saved = Assert.Single(Ui.Until(
+            () => scenario.SavedTriggers() is { Count: 1 } list ? list : null,
+            Settle, "編集後も 1 件のままファイルに入ること", scenario.Diagnostics));
+        Assert.Equal(id, saved.Id);
+    }
+
+    /// <summary>
     /// 取り消しの経路: エディタで削除してから窓を閉じると、ファイルが変わらないこと。
     /// </summary>
     /// <remarks>
@@ -191,6 +257,11 @@ public sealed class EditorShowcaseTests
         public string Diagnostics() => _host.Diagnostics();
 
         public void OpenEditor() => _host.OpenEditor();
+
+        public AutomationElement PickerWindow() => _host.PickerWindow();
+
+        /// <summary>いま開いているピッカー窓の数。閉じたこと/残っていることの判定に使う。</summary>
+        public int PickerWindowCount() => _host.PickerWindows().Count;
 
         private AutomationElement Editor() => _host.EditorWindow();
 
