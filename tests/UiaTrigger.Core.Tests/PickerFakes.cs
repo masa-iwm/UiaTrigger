@@ -216,11 +216,41 @@ internal sealed class FakePickerView : IPickerView
 
     public List<PickerTreeNode> SelectDeferredCalls { get; } = [];
 
+    /// <summary>確定ボタンの現在の文言 (null = 一度も差し替えられていない)。</summary>
+    public string? CommitCaption { get; private set; }
+
+    /// <summary><see cref="IPickerView.Close"/> が呼ばれた回数。</summary>
+    public int CloseCount { get; private set; }
+
     string IPickerView.Hint { set => LastHint = value; }
 
     string IPickerView.ConfirmedText { set => LastConfirmedText = value; }
 
-    string IPickerView.CommitStatus { set => LastCommitStatus = value; }
+    string IPickerView.CommitStatus
+    {
+        set
+        {
+            LastCommitStatus = value;
+            // Close との順序を見るために記録する。本物の WinForms View は Close で
+            // 自分を Dispose するので、Close の後の書き込みは例外になる
+            Calls.Add("CommitStatus");
+        }
+    }
+
+    string IPickerView.CommitCaption
+    {
+        set
+        {
+            CommitCaption = value;
+            Calls.Add("CommitCaption");
+        }
+    }
+
+    public void Close()
+    {
+        CloseCount++;
+        Calls.Add(nameof(Close));
+    }
 
     public void ShowProperties(IReadOnlyList<string> rows)
     {
@@ -306,6 +336,8 @@ internal sealed class FakeEditorView : ITriggerListEditorView
     public string ExpressionText { get; set; } = string.Empty;
 
     public string UnwatchedText { get; set; } = string.Empty;
+
+    public double? CombinePollIntervalSeconds { get; set; }
 
     public IReadOnlyList<int> SelectedIndices { get; set; } = [];
 

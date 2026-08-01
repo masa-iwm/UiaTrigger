@@ -106,6 +106,8 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
         CancelButton.Content = _strings.GetString(EditorStringKeys.CancelButtonContent);
         ExpressionBoxLabel.Text = _strings.GetString(EditorStringKeys.ExpressionBoxHeader);
         UnwatchedBoxLabel.Text = _strings.GetString(EditorStringKeys.UnwatchedBoxHeader);
+        CombinePollIntervalBoxLabel.Text =
+            _strings.GetString(EditorStringKeys.CombinePollIntervalBoxHeader);
         // 一覧は見出しを持たないので、読み上げに出るのはこの名前だけである
         AutomationProperties.SetName(
             EditorTriggerList, _strings.GetString(EditorStringKeys.TriggerListAutomationName));
@@ -145,6 +147,10 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
 
     string ITriggerListEditorView.UnwatchedText => UnwatchedBox.Text ?? string.Empty;
 
+    // 空欄も読めない入力も「値なし」。ピッカーの数値欄と同じ規則 (TriggerPickerWindow.ReadNumber)
+    double? ITriggerListEditorView.CombinePollIntervalSeconds =>
+        TriggerPickerWindow.ReadNumber(CombinePollIntervalBox);
+
     IReadOnlyList<int> ITriggerListEditorView.SelectedIndices =>
         [.. EditorTriggerList.SelectedItems.Cast<object>()
             .Select(item => EditorTriggerList.Items.IndexOf(item))];
@@ -163,7 +169,9 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
             open.Activate();
             if (definitionToEdit is not null)
             {
-                open.LoadDefinition(definitionToEdit);
+                // エディタ経由の読み込みは常に編集セッション — 確定 1 回で閉じ、
+                // ボタンは「更新」を名乗る (presenter が _editingId で行を差し替える)
+                open.LoadDefinition(definitionToEdit, editSession: true);
             }
             return;
         }
@@ -183,7 +191,7 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
         picker.Activate();
         if (definitionToEdit is not null)
         {
-            picker.LoadDefinition(definitionToEdit);
+            picker.LoadDefinition(definitionToEdit, editSession: true);
         }
     }
 

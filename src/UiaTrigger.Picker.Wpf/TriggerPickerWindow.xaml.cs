@@ -133,7 +133,9 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
 
         ViewCombo.ItemsSource = new[] { "Raw", "Control", "Content" };
         ViewCombo.SelectedIndex = 1;
-        OnCombo.ItemsSource = Enum.GetValues<TriggerOn>();
+        // TriggerOn は丸ごと列挙しない — StoppedMatching はイベント専用で、
+        // 定義の lifecycle としては保存できない (TriggerDraftValidator.DefinitionLifecycles)
+        OnCombo.ItemsSource = TriggerDraftValidator.DefinitionLifecycles.ToArray();
         CondCombo.ItemsSource = Enum.GetValues<ComparisonOp>();
 
         // 見るのはウィンドウのアクティブ状態ではなく**ツリーがキーボードフォーカスを
@@ -187,6 +189,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         ToleranceOperandLabel.Text = _strings.GetString(PickerStringKeys.ToleranceOperandHeader);
         MinIntervalOperandLabel.Text = _strings.GetString(PickerStringKeys.MinIntervalOperandHeader);
         PollIntervalOperandLabel.Text = _strings.GetString(PickerStringKeys.PollIntervalOperandHeader);
+        StoppedMatchingCheck.Content = _strings.GetString(PickerStringKeys.StoppedMatchingCheckContent);
         CommitButton.Content = _strings.GetString(PickerStringKeys.CommitButtonContent);
         // 初期状態 (未チェック) の文字。以後は OnAutoSelectToggled が入れ替える
         AutoSelectToggle.Content = _strings.GetString(PickerStringKeys.AutoSelectToggleOffContent);
@@ -200,12 +203,26 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// <exception cref="ArgumentException">
     /// <see cref="TriggerPickerPresenter.CanEdit"/> is false for <paramref name="definition"/>.
     /// </exception>
-    public void LoadDefinition(TriggerDefinition definition)
+    public void LoadDefinition(TriggerDefinition definition) => LoadDefinition(definition, editSession: false);
+
+    /// <summary>
+    /// Opens this picker on an existing trigger, optionally as an edit session that ends with its
+    /// one commit (see
+    /// <see cref="TriggerPickerPresenter.LoadDefinition(TriggerDefinition, bool)"/>).
+    /// </summary>
+    /// <param name="definition"><inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/param[@name='definition']"/></param>
+    /// <param name="editSession">
+    /// True to change the commit button's caption and close the window after the successful commit.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/exception"/>
+    /// </exception>
+    public void LoadDefinition(TriggerDefinition definition, bool editSession)
     {
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
         // 静止しているだけで**編集対象が別の要素に差し替わる**
         AutoSelectToggle.IsChecked = false;
-        _presenter.LoadDefinition(definition);
+        _presenter.LoadDefinition(definition, editSession);
     }
 
     /// <summary>Turns hover capture off, as if the user had switched it off.</summary>
@@ -217,7 +234,8 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// and loses the element it was showing. What it has already confirmed is unaffected.
     /// </para>
     /// <para>
-    /// This is the same reason <see cref="LoadDefinition"/> switches capture off before it loads.
+    /// This is the same reason <see cref="LoadDefinition(TriggerDefinition)"/> switches capture off
+    /// before it loads.
     /// </para>
     /// </remarks>
     public void StopAutoSelect() => AutoSelectToggle.IsChecked = false;
@@ -333,6 +351,10 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
 
     string IPickerView.CommitStatus { set => CommitStatus.Text = value; }
 
+    string IPickerView.CommitCaption { set => CommitButton.Content = value; }
+
+    // IPickerView.Close は Window.Close が暗黙に実装する (窓を閉じる以上の仕事は無い)
+
     string IPickerView.KeyText
     {
         get => KeyBox.Text ?? string.Empty;
@@ -381,6 +403,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         HighOperandPanel.Visibility = ToVisibility(visibility.Range);
         ToleranceOperandPanel.Visibility = ToVisibility(visibility.Tolerance);
         PollIntervalOperandPanel.Visibility = ToVisibility(visibility.PollInterval);
+        StoppedMatchingCheck.Visibility = ToVisibility(visibility.StoppedMatching);
     }
 
     private static Visibility ToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
@@ -410,6 +433,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
             // 発火レート制限 (docs/DESIGN.md C11)
             MinIntervalSeconds = ReadNumber(MinIntervalOperand),
             PollIntervalSeconds = ReadNumber(PollIntervalOperand),
+            NotifyOnStoppedMatching = StoppedMatchingCheck.IsChecked == true,
         };
     }
 
@@ -437,6 +461,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         WriteNumber(ToleranceOperand, draft.Tolerance);
         WriteNumber(MinIntervalOperand, draft.MinIntervalSeconds);
         WriteNumber(PollIntervalOperand, draft.PollIntervalSeconds);
+        StoppedMatchingCheck.IsChecked = draft.NotifyOnStoppedMatching;
     }
 
     /// <summary>数値欄に書く。null は空欄 (= 値なし)。</summary>

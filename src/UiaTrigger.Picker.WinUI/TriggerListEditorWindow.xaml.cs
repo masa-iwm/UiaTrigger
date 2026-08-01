@@ -125,6 +125,10 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
     string ITriggerListEditorView.UnwatchedText => UnwatchedBox.Text ?? string.Empty;
 
+    // NumberBox は「空欄」を NaN で表す。この変換は WinUI の事実なので View に残す
+    double? ITriggerListEditorView.CombinePollIntervalSeconds =>
+        double.IsNaN(CombinePollIntervalBox.Value) ? null : CombinePollIntervalBox.Value;
+
     // **具体型へ明示的にキャストする** (docs/DESIGN.md §12)。
     // IReadOnlyList<int> を狙ったコレクション式は具体型が決まらず、
     // WinRT 経路では trim / AOT で壊れる (CsWinRT1032)。
@@ -146,7 +150,9 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
             open.Activate();
             if (definitionToEdit is not null)
             {
-                open.LoadDefinition(definitionToEdit);
+                // エディタ経由の読み込みは常に編集セッション — 確定 1 回で閉じ、
+                // ボタンは「更新」を名乗る (presenter が _editingId で行を差し替える)
+                open.LoadDefinition(definitionToEdit, editSession: true);
             }
             return;
         }
@@ -162,7 +168,7 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
         picker.Activate();
         if (definitionToEdit is not null)
         {
-            picker.LoadDefinition(definitionToEdit);
+            picker.LoadDefinition(definitionToEdit, editSession: true);
         }
     }
 }

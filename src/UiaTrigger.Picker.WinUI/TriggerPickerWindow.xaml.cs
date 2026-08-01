@@ -73,7 +73,11 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
 
         ViewCombo.ItemsSource = new[] { "Raw", "Control", "Content" };
         ViewCombo.SelectedIndex = 1;
-        OnCombo.ItemsSource = Enum.GetValues<TriggerOn>();
+        // TriggerOn は丸ごと列挙しない — StoppedMatching はイベント専用で、定義の lifecycle
+        // としては保存できない (TriggerDraftValidator.DefinitionLifecycles)。
+        // **配列に具象化してから渡す** — IReadOnlyList<素の列挙型> は CsWinRT が
+        // CCW を組めず E_INVALIDARG になる (ShowProperties のコメントを参照)
+        OnCombo.ItemsSource = TriggerDraftValidator.DefinitionLifecycles.ToArray();
         CondCombo.ItemsSource = Enum.GetValues<ComparisonOp>();
 
         // 見るのはウィンドウのアクティブ状態ではなく**ツリーがフォーカスを持っているか**である。
@@ -98,12 +102,26 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// <exception cref="ArgumentException">
     /// <see cref="TriggerPickerPresenter.CanEdit"/> is false for <paramref name="definition"/>.
     /// </exception>
-    public void LoadDefinition(TriggerDefinition definition)
+    public void LoadDefinition(TriggerDefinition definition) => LoadDefinition(definition, editSession: false);
+
+    /// <summary>
+    /// Opens this picker on an existing trigger, optionally as an edit session that ends with its
+    /// one commit (see
+    /// <see cref="TriggerPickerPresenter.LoadDefinition(TriggerDefinition, bool)"/>).
+    /// </summary>
+    /// <param name="definition"><inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/param[@name='definition']"/></param>
+    /// <param name="editSession">
+    /// True to change the commit button's caption and close the window after the successful commit.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/exception"/>
+    /// </exception>
+    public void LoadDefinition(TriggerDefinition definition, bool editSession)
     {
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
         // 静止しているだけで**編集対象が別の要素に差し替わる**
         AutoSelectToggle.IsOn = false;
-        _presenter.LoadDefinition(definition);
+        _presenter.LoadDefinition(definition, editSession);
     }
 
     /// <summary>Turns hover capture off, as if the user had switched it off.</summary>
@@ -115,7 +133,8 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// and loses the element it was showing. What it has already confirmed is unaffected.
     /// </para>
     /// <para>
-    /// This is the same reason <see cref="LoadDefinition"/> switches capture off before it loads.
+    /// This is the same reason <see cref="LoadDefinition(TriggerDefinition)"/> switches capture off
+    /// before it loads.
     /// </para>
     /// </remarks>
     public void StopAutoSelect() => AutoSelectToggle.IsOn = false;
@@ -315,6 +334,10 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
 
     string IPickerView.CommitStatus { set => CommitStatus.Text = value; }
 
+    string IPickerView.CommitCaption { set => CommitButton.Content = value; }
+
+    // IPickerView.Close は Window.Close が暗黙に実装する (窓を閉じる以上の仕事は無い)
+
     string IPickerView.KeyText
     {
         get => KeyBox.Text ?? string.Empty;
@@ -371,6 +394,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         HighOperand.Visibility = ToVisibility(visibility.Range);
         ToleranceOperand.Visibility = ToVisibility(visibility.Tolerance);
         PollIntervalOperand.Visibility = ToVisibility(visibility.PollInterval);
+        StoppedMatchingCheck.Visibility = ToVisibility(visibility.StoppedMatching);
     }
 
     void IPickerView.SetCommitEnabled(bool enabled) => CommitButton.IsEnabled = enabled;
@@ -401,6 +425,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
             // 毎フレーム変わるプロパティを監視するときに要る
             MinIntervalSeconds = D(MinIntervalOperand),
             PollIntervalSeconds = D(PollIntervalOperand),
+            NotifyOnStoppedMatching = StoppedMatchingCheck.IsChecked == true,
         };
     }
 
@@ -429,6 +454,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         W(ToleranceOperand, draft.Tolerance);
         W(MinIntervalOperand, draft.MinIntervalSeconds);
         W(PollIntervalOperand, draft.PollIntervalSeconds);
+        StoppedMatchingCheck.IsChecked = draft.NotifyOnStoppedMatching;
     }
 
     void IPickerView.DiscardDeferredWork() => _treeGeneration++;

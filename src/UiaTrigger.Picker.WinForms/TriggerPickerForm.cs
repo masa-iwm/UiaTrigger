@@ -66,6 +66,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
     private readonly TextBox _minIntervalOperand = new() { Name = "MinIntervalOperand", Width = 90 };
     private readonly Label _pollIntervalLabel = new() { Name = "PollIntervalOperandLabel", AutoSize = true };
     private readonly TextBox _pollIntervalOperand = new() { Name = "PollIntervalOperand", Width = 90 };
+    private readonly CheckBox _stoppedMatchingCheck = new() { Name = "StoppedMatchingCheck", AutoSize = true, Visible = false };
     private readonly Button _commit = new() { Name = "CommitButton", AutoSize = true, Enabled = false };
     private readonly Label _commitStatus = new() { Name = "CommitStatus", AutoSize = true };
 
@@ -167,7 +168,9 @@ public sealed class TriggerPickerForm : Form, IPickerView
 
         _viewCombo.Items.AddRange(["Raw", "Control", "Content"]);
         _viewCombo.SelectedIndex = 1;
-        _onCombo.Items.AddRange([.. Enum.GetValues<TriggerOn>().Cast<object>()]);
+        // TriggerOn は丸ごと列挙しない — StoppedMatching はイベント専用で、
+        // 定義の lifecycle としては保存できない (TriggerDraftValidator.DefinitionLifecycles)
+        _onCombo.Items.AddRange([.. TriggerDraftValidator.DefinitionLifecycles.Cast<object>()]);
         _condCombo.Items.AddRange([.. Enum.GetValues<ComparisonOp>().Cast<object>()]);
 
         WireEvents();
@@ -184,12 +187,26 @@ public sealed class TriggerPickerForm : Form, IPickerView
     /// <exception cref="ArgumentException">
     /// <see cref="TriggerPickerPresenter.CanEdit"/> is false for <paramref name="definition"/>.
     /// </exception>
-    public void LoadDefinition(TriggerDefinition definition)
+    public void LoadDefinition(TriggerDefinition definition) => LoadDefinition(definition, editSession: false);
+
+    /// <summary>
+    /// Opens this picker on an existing trigger, optionally as an edit session that ends with its
+    /// one commit (see
+    /// <see cref="TriggerPickerPresenter.LoadDefinition(TriggerDefinition, bool)"/>).
+    /// </summary>
+    /// <param name="definition"><inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/param[@name='definition']"/></param>
+    /// <param name="editSession">
+    /// True to change the commit button's caption and close the window after the successful commit.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/exception"/>
+    /// </exception>
+    public void LoadDefinition(TriggerDefinition definition, bool editSession)
     {
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
         // 静止しているだけで**編集対象が別の要素に差し替わる**
         _autoSelect.Checked = false;
-        _presenter.LoadDefinition(definition);
+        _presenter.LoadDefinition(definition, editSession);
     }
 
     /// <summary>Turns hover capture off, as if the user had switched it off.</summary>
@@ -201,7 +218,8 @@ public sealed class TriggerPickerForm : Form, IPickerView
     /// and loses the element it was showing. What it has already confirmed is unaffected.
     /// </para>
     /// <para>
-    /// This is the same reason <see cref="LoadDefinition"/> switches capture off before it loads.
+    /// This is the same reason <see cref="LoadDefinition(TriggerDefinition)"/> switches capture off
+    /// before it loads.
     /// </para>
     /// </remarks>
     public void StopAutoSelect() => _autoSelect.Checked = false;
@@ -221,7 +239,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
             _textLabel, _textOperand, _valueLabel, _valueOperand,
             _lowLabel, _lowOperand, _highLabel, _highOperand,
             _toleranceLabel, _toleranceOperand, _minIntervalLabel, _minIntervalOperand,
-            _pollIntervalLabel, _pollIntervalOperand,
+            _pollIntervalLabel, _pollIntervalOperand, _stoppedMatchingCheck,
             _commit, _commitStatus,
         ]);
 
@@ -337,6 +355,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         _toleranceLabel.Text = _strings.GetString(PickerStringKeys.ToleranceOperandHeader);
         _minIntervalLabel.Text = _strings.GetString(PickerStringKeys.MinIntervalOperandHeader);
         _pollIntervalLabel.Text = _strings.GetString(PickerStringKeys.PollIntervalOperandHeader);
+        _stoppedMatchingCheck.Text = _strings.GetString(PickerStringKeys.StoppedMatchingCheckContent);
         _commit.Text = _strings.GetString(PickerStringKeys.CommitButtonContent);
         // 初期状態 (未チェック) の文字。以後は切り替えるたびに入れ替える
         _autoSelect.Text = _strings.GetString(PickerStringKeys.AutoSelectToggleHeader) +
@@ -423,6 +442,11 @@ public sealed class TriggerPickerForm : Form, IPickerView
 
     string IPickerView.CommitStatus { set => _commitStatus.Text = value; }
 
+    string IPickerView.CommitCaption { set => _commit.Text = value; }
+
+    // IPickerView.Close は Form.Close が暗黙に実装する。Close は Show で出した Form を
+    // Dispose するので、プレゼンターは View への全書き込みの後にしか呼ばない (継ぎ目の契約)
+
     string IPickerView.KeyText
     {
         get => _keyBox.Text ?? string.Empty;
@@ -483,6 +507,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         SetOperandVisible(_highLabel, _highOperand, visibility.Range);
         SetOperandVisible(_toleranceLabel, _toleranceOperand, visibility.Tolerance);
         SetOperandVisible(_pollIntervalLabel, _pollIntervalOperand, visibility.PollInterval);
+        _stoppedMatchingCheck.Visible = visibility.StoppedMatching;
     }
 
     private static void SetOperandVisible(Label label, TextBox box, bool visible)
@@ -516,6 +541,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
             // 発火レート制限 (docs/DESIGN.md C11)
             MinIntervalSeconds = ReadNumber(_minIntervalOperand),
             PollIntervalSeconds = ReadNumber(_pollIntervalOperand),
+            NotifyOnStoppedMatching = _stoppedMatchingCheck.Checked,
         };
     }
 
@@ -542,6 +568,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         WriteNumber(_toleranceOperand, draft.Tolerance);
         WriteNumber(_minIntervalOperand, draft.MinIntervalSeconds);
         WriteNumber(_pollIntervalOperand, draft.PollIntervalSeconds);
+        _stoppedMatchingCheck.Checked = draft.NotifyOnStoppedMatching;
     }
 
     /// <summary>数値欄に書く。null は空欄 (= 値なし)。</summary>

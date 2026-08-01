@@ -381,21 +381,23 @@ public sealed class TriggerPickerWpfWindowTests
 
             view.ShowOperands(new OperandVisibility(
                 Text: true, Value: false, Range: false, Tolerance: false, PollInterval: true,
-                PropertyChoiceEnabled: true));
+                PropertyChoiceEnabled: true, StoppedMatching: true));
             Assert.Equal(Visibility.Visible, window.TextOperandPanel.Visibility);
             Assert.Equal(Visibility.Collapsed, window.ValueOperandPanel.Visibility);
             Assert.Equal(Visibility.Collapsed, window.LowOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.PollIntervalOperandPanel.Visibility);
+            Assert.Equal(Visibility.Visible, window.StoppedMatchingCheck.Visibility);
             Assert.True(window.PropCombo.IsEnabled);
 
             view.ShowOperands(new OperandVisibility(
                 Text: false, Value: false, Range: true, Tolerance: true, PollInterval: false,
-                PropertyChoiceEnabled: false));
+                PropertyChoiceEnabled: false, StoppedMatching: false));
             Assert.Equal(Visibility.Collapsed, window.TextOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.LowOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.HighOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.ToleranceOperandPanel.Visibility);
             Assert.Equal(Visibility.Collapsed, window.PollIntervalOperandPanel.Visibility);
+            Assert.Equal(Visibility.Collapsed, window.StoppedMatchingCheck.Visibility);
             Assert.False(window.PropCombo.IsEnabled);
         });
     }

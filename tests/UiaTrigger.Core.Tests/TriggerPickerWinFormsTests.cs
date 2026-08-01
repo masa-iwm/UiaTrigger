@@ -260,22 +260,25 @@ public sealed class TriggerPickerWinFormsTests
             Control value = form.Controls.Find("ValueOperand", searchAllChildren: true).Single();
             Control poll = form.Controls.Find("PollIntervalOperand", searchAllChildren: true).Single();
             Control pollLabel = form.Controls.Find("PollIntervalOperandLabel", searchAllChildren: true).Single();
+            Control stopped = form.Controls.Find("StoppedMatchingCheck", searchAllChildren: true).Single();
 
             view.ShowOperands(new OperandVisibility(
                 Text: true, Value: false, Range: false, Tolerance: false, PollInterval: true,
-                PropertyChoiceEnabled: true));
+                PropertyChoiceEnabled: true, StoppedMatching: true));
             Assert.True(text.Visible);
             Assert.False(value.Visible);
             Assert.True(poll.Visible);
             Assert.True(pollLabel.Visible);
+            Assert.True(stopped.Visible);
 
             view.ShowOperands(new OperandVisibility(
                 Text: false, Value: true, Range: false, Tolerance: false, PollInterval: false,
-                PropertyChoiceEnabled: true));
+                PropertyChoiceEnabled: true, StoppedMatching: false));
             Assert.False(text.Visible);
             Assert.True(value.Visible);
             Assert.False(poll.Visible);
             Assert.False(pollLabel.Visible);
+            Assert.False(stopped.Visible);
         });
     }
 

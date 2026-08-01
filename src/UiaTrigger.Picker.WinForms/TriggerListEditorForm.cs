@@ -36,6 +36,8 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
     private readonly TextBox _expression = new() { Name = "ExpressionBox", Width = 260 };
     private readonly Label _unwatchedLabel = new() { Name = "UnwatchedBoxLabel", AutoSize = true };
     private readonly TextBox _unwatched = new() { Name = "UnwatchedBox", Width = 200 };
+    private readonly Label _combinePollIntervalLabel = new() { Name = "CombinePollIntervalBoxLabel", AutoSize = true };
+    private readonly TextBox _combinePollInterval = new() { Name = "CombinePollIntervalBox", Width = 90 };
     private readonly Button _combine = new() { Name = "CombineTriggersButton", AutoSize = true };
     private readonly Button _decompose = new() { Name = "DecomposeTriggerButton", AutoSize = true };
     private readonly Label _status = new()
@@ -140,7 +142,10 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
             Dock = DockStyle.Bottom, AutoSize = true, WrapContents = true,
         };
         combineBar.Controls.AddRange(
-            [_expressionLabel, _expression, _unwatchedLabel, _unwatched, _combine, _decompose]);
+        [
+            _expressionLabel, _expression, _unwatchedLabel, _unwatched,
+            _combinePollIntervalLabel, _combinePollInterval, _combine, _decompose,
+        ]);
 
         var bottomBar = new FlowLayoutPanel
         {
@@ -172,6 +177,8 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         _cancel.Text = _strings.GetString(EditorStringKeys.CancelButtonContent);
         _expressionLabel.Text = _strings.GetString(EditorStringKeys.ExpressionBoxHeader);
         _unwatchedLabel.Text = _strings.GetString(EditorStringKeys.UnwatchedBoxHeader);
+        _combinePollIntervalLabel.Text =
+            _strings.GetString(EditorStringKeys.CombinePollIntervalBoxHeader);
         // 一覧は見出しを持たないので、読み上げに出るのはこの名前だけである
         _list.AccessibleName = _strings.GetString(EditorStringKeys.TriggerListAutomationName);
     }
@@ -189,6 +196,10 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
     string ITriggerListEditorView.ExpressionText => _expression.Text ?? string.Empty;
 
     string ITriggerListEditorView.UnwatchedText => _unwatched.Text ?? string.Empty;
+
+    // 空欄も読めない入力も「値なし」。ピッカーの数値欄と同じ規則 (TriggerPickerForm.ReadNumber)
+    double? ITriggerListEditorView.CombinePollIntervalSeconds =>
+        TriggerPickerForm.ReadNumber(_combinePollInterval);
 
     IReadOnlyList<int> ITriggerListEditorView.SelectedIndices => [.. _list.SelectedIndices.Cast<int>()];
 
@@ -215,7 +226,9 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
             open.Activate();
             if (definitionToEdit is not null)
             {
-                open.LoadDefinition(definitionToEdit);
+                // エディタ経由の読み込みは常に編集セッション — 確定 1 回で閉じ、
+                // ボタンは「更新」を名乗る (presenter が _editingId で行を差し替える)
+                open.LoadDefinition(definitionToEdit, editSession: true);
             }
             return;
         }
@@ -234,7 +247,7 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         picker.Activate();
         if (definitionToEdit is not null)
         {
-            picker.LoadDefinition(definitionToEdit);
+            picker.LoadDefinition(definitionToEdit, editSession: true);
         }
     }
 

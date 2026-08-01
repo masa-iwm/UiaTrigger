@@ -53,6 +53,25 @@
         が false である。
       </exception>
     </member>
+    <member name="M:UiaTrigger.Picker.WinUI.TriggerPickerWindow.LoadDefinition(UiaTrigger.Models.TriggerDefinition,System.Boolean)">
+      <summary>
+        既存のトリガーを開く。編集セッション — 確定 1 回で終わる — にもできる
+        (<see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.LoadDefinition(UiaTrigger.Models.TriggerDefinition,System.Boolean)" />
+        を参照)。
+      </summary>
+      <param name="definition">
+        編集するトリガー。ピッカーがこれを引き取り、確定された条件を**この実体へ**書き戻すので、
+        元をそのまま残す必要があるときは写しを渡すこと。
+      </param>
+      <param name="editSession">
+        true にすると確定ボタンの文言が変わり、確定が成立したらウィンドウを閉じる。
+      </param>
+      <exception cref="T:System.ArgumentException">
+        <paramref name="definition" /> に対して
+        <see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.CanEdit(UiaTrigger.Models.TriggerDefinition)" />
+        が false である。
+      </exception>
+    </member>
     <member name="M:UiaTrigger.Picker.WinUI.TriggerPickerWindow.StopAutoSelect">
       <summary>マウス自動選択を、利用者が切ったのと同じように切る。</summary>
       <remarks>

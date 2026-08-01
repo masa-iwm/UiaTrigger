@@ -233,6 +233,29 @@
         ホバー捕捉自体は従来どおり働き、要素を確定すれば記録済みの要素は差し替わる。
       </remarks>
     </member>
+    <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.LoadDefinition(UiaTrigger.Models.TriggerDefinition,System.Boolean)">
+      <summary>既存のトリガーを読み込む。編集セッション (確定 1 回で終わる) にもできる。</summary>
+      <param name="definition">
+        編集するトリガー。プレゼンターがこれを引き取り、確定された条件を**この実体へ**書き戻すので、
+        元をそのまま残す必要があるときは写しを渡すこと。
+      </param>
+      <param name="editSession">
+        プリフィルではなく、記録済みトリガーの編集として読み込むとき true。編集セッションでは
+        確定ボタンの文言が <see cref="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonUpdate" />
+        に変わり、確定が成立したら View を閉じる — 編集はその 1 回の確定で終わる。
+        開いたまま何件でも確定できる新規追加とはここで分かれる。
+      </param>
+      <exception cref="T:System.ArgumentException">
+        <paramref name="definition" /> に対して
+        <see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.CanEdit(UiaTrigger.Models.TriggerDefinition)" />
+        が false である。
+      </exception>
+      <remarks>
+        要素は読み直さない。記録済みのウィンドウと経路をそのまま保つことが要点である —
+        しきい値を 1 つ変えるためにもう一度要素をホバーで捕まえ直す必要は無い。
+        ホバー捕捉自体は従来どおり働き、要素を確定すれば記録済みの要素は差し替わる。
+      </remarks>
+    </member>
     <member name="M:UiaTrigger.Picker.TriggerPickerPresenter.ConditionShapeChanged(UiaTrigger.Models.TriggerOn,UiaTrigger.Models.ComparisonOp)">
       <summary>ユーザーがトリガーの形を変えたことを伝える。これで値の欄が決まる。</summary>
     </member>
@@ -298,6 +321,23 @@
     </member>
     <member name="P:UiaTrigger.Picker.IPickerView.CommitStatus">
       <summary>直前の確定操作の結果を説明する行を設定する。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.IPickerView.CommitCaption">
+      <summary>確定ボタンの文言を設定する。</summary>
+      <remarks>
+        編集セッションの開始時
+        (<see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.LoadDefinition(UiaTrigger.Models.TriggerDefinition,System.Boolean)" />)
+        に書かれる。「トリガーを追加」のままでは、ボタンがすることの説明として誤りになるからである。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.IPickerView.Close">
+      <summary>ピッカーを載せているウィンドウを閉じる。</summary>
+      <remarks>
+        編集セッションが確定したときに呼ばれる。編集はその 1 回の確定で終わる — 次のトリガーの
+        ためにピッカーを開いたままにする新規追加とは違う。プレゼンターはその確定の
+        **他のすべての View 書き込みの後**にこれを呼ぶ。View はここで自分自身を破棄してよく、
+        以後この View に触れるものがあってはならない。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Picker.IPickerView.KeyText">
       <summary>ユーザーが入力したトリガー Id。空のときはプレゼンターが既定値を入れる。</summary>
@@ -413,7 +453,7 @@
     </member>
 
     <!-- ================= OperandVisibility ================= -->
-    <member name="M:UiaTrigger.Picker.OperandVisibility.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)">
+    <member name="M:UiaTrigger.Picker.OperandVisibility.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)">
       <summary>条件がどの値の欄を必要とするかを表す。</summary>
       <param name="Text">文字列の値を使うかどうか。</param>
       <param name="Value">単一の数値を使うかどうか。</param>
@@ -426,6 +466,11 @@
       <param name="PropertyChoiceEnabled">
         監視するプロパティを選べるかどうか。要素の出現・削除だけを見るトリガーは条件を
         持たないことができ、その場合は選ぶべきプロパティが無い。
+      </param>
+      <param name="StoppedMatching">
+        「成立しなくなった時も通知」の選択肢を使うかどうか。立ち下がりは
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> の成立状態から作られるので、
+        他のライフサイクルではこの選択肢に意味が無く、モニターもフラグを拒否する。
       </param>
     </member>
     <member name="P:UiaTrigger.Picker.OperandVisibility.Text">
@@ -445,6 +490,9 @@
     </member>
     <member name="P:UiaTrigger.Picker.OperandVisibility.PropertyChoiceEnabled">
       <summary>監視するプロパティを選べるかどうか。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.StoppedMatching">
+      <summary>「成立しなくなった時も通知」の選択肢を使うかどうか。</summary>
     </member>
 
     <!-- ================= TriggerCommittedEventArgs ================= -->
@@ -545,8 +593,20 @@
     <member name="F:UiaTrigger.Picker.PickerStringKeys.PollIntervalOperandHeader">
       <summary>ポーリング間隔 (秒) を入れる欄のラベル。</summary>
     </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.StoppedMatchingCheckContent">
+      <summary>条件が成立しなくなった時も通知するかの選択肢のラベル。</summary>
+    </member>
     <member name="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonContent">
       <summary>トリガーを確定するボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonUpdate">
+      <summary>編集セッションを読み込んでいる間の確定ボタンの文字。</summary>
+      <remarks>
+        コントロールのキーではない。文言は
+        <see cref="M:UiaTrigger.Picker.TriggerPickerPresenter.LoadDefinition(UiaTrigger.Models.TriggerDefinition,System.Boolean)" />
+        が編集セッションを始めた実行時に差し替わるので、どの View も <c>x:Uid</c> ではなく
+        コードで代入する。
+      </remarks>
     </member>
     <member name="F:UiaTrigger.Picker.PickerStringKeys.CaptureFailed">
       <summary>ホバー捕捉に失敗した。例外のメッセージを受け取る。</summary>
@@ -606,6 +666,16 @@
     </member>
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.UnwatchedText">
       <summary>監視ではなく絞り込みだけに使いたいトリガーの id。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.CombinePollIntervalSeconds">
+      <summary>これからまとめる複合のポーリング間隔 (秒)。欄が空のときは null。</summary>
+      <remarks>
+        読み取りが View の仕事なのは <see cref="M:UiaTrigger.Picker.IPickerView.ReadDraft" /> と
+        同じ理由である — 「値なし」の表し方はフレームワーク固有で、WinUI の <c>NumberBox</c> は
+        空欄を <see cref="F:System.Double.NaN" /> として報告する。負の数はそのまま渡す。
+        拒否は <see cref="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan})" />
+        が持ち、どのホストも同じ理由を出す。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.SelectedIndices">
       <summary>選択されている行。最後に表示した一覧に対する添字で、昇順。</summary>
@@ -742,6 +812,9 @@
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.ExpressionBoxHeader">
       <summary>まとめるときに使う条件式の入力欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombinePollIntervalBoxHeader">
+      <summary>これからまとめる複合のポーリング間隔を入れる欄のラベル。</summary>
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.UnwatchedBoxHeader">
       <summary>絞るだけにするトリガーを並べる入力欄のラベル。</summary>

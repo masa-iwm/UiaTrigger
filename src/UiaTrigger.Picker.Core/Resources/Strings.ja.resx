@@ -125,8 +125,14 @@
   <data name="PollIntervalOperand.Header" xml:space="preserve">
     <value>ポーリング間隔 (秒)</value>
   </data>
+  <data name="StoppedMatchingCheck.Content" xml:space="preserve">
+    <value>成立しなくなった時も通知</value>
+  </data>
   <data name="CommitButton.Content" xml:space="preserve">
     <value>トリガーを追加</value>
+  </data>
+  <data name="CommitButtonUpdate" xml:space="preserve">
+    <value>トリガーを更新</value>
   </data>
 
   <data name="CaptureFailed" xml:space="preserve">
@@ -210,6 +216,9 @@
   </data>
   <data name="UnwatchedBox.Header" xml:space="preserve">
     <value>絞るだけで発火させないトリガー (id をカンマ区切り):</value>
+  </data>
+  <data name="CombinePollIntervalBox.Header" xml:space="preserve">
+    <value>ポーリング間隔 (秒)</value>
   </data>
   <data name="EditorTriggerList.AutomationProperties.Name" xml:space="preserve">
     <value>トリガー一覧</value>

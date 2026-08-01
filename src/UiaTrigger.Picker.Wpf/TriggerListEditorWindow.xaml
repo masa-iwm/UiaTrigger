@@ -41,7 +41,9 @@
                 <TextBlock x:Name="ExpressionBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
                 <TextBox x:Name="ExpressionBox" Width="260" Margin="0,0,8,0" />
                 <TextBlock x:Name="UnwatchedBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <TextBox x:Name="UnwatchedBox" Width="200" />
+                <TextBox x:Name="UnwatchedBox" Width="200" Margin="0,0,8,0" />
+                <TextBlock x:Name="CombinePollIntervalBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                <TextBox x:Name="CombinePollIntervalBox" Width="100" />
             </WrapPanel>
             <WrapPanel>
                 <Button x:Name="CombineTriggersButton" Padding="10,3" Margin="0,0,8,0" Click="OnCombine" />

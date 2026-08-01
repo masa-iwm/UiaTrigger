@@ -52,6 +52,9 @@ public static class EditorStringKeys
     /// <summary>Label of the box listing the triggers that should only narrow.</summary>
     public const string UnwatchedBoxHeader = "UnwatchedBox.Header";
 
+    /// <summary>Label of the box holding the poll interval for the composite about to be combined.</summary>
+    public const string CombinePollIntervalBoxHeader = "CombinePollIntervalBox.Header";
+
     /// <summary>Accessible name of the list of triggers.</summary>
     /// <remarks>
     /// The list has no visible label of its own, so this is all a screen reader has to announce.
@@ -106,7 +109,8 @@ public static class EditorStringKeys
         WindowTitle,
         AddButtonContent, EditButtonContent, DeleteButtonContent, CombineButtonContent,
         DecomposeButtonContent, AcceptButtonContent, CancelButtonContent,
-        ExpressionBoxHeader, UnwatchedBoxHeader, TriggerListAutomationName,
+        ExpressionBoxHeader, UnwatchedBoxHeader, CombinePollIntervalBoxHeader,
+        TriggerListAutomationName,
         TriggerRow, CompositeRow, NoClauses,
         SelectOneToEdit, CannotEditWithThePicker, SelectACompositeToDecompose,
         CombineDone, CombineFailed, DecomposeDone, DeleteDone, SelectSomething,

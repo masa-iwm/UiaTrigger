@@ -117,8 +117,17 @@ public static class PickerStringKeys
     /// <summary>Label of the poll interval, in seconds.</summary>
     public const string PollIntervalOperandHeader = "PollIntervalOperand.Header";
 
+    /// <summary>Label of the choice to also notify when the condition stops matching.</summary>
+    public const string StoppedMatchingCheckContent = "StoppedMatchingCheck.Content";
+
     /// <summary>Caption of the button that commits the trigger.</summary>
     public const string CommitButtonContent = "CommitButton.Content";
+
+    /// <summary>Caption of the commit button while an edit session is loaded.</summary>
+    /// <remarks>Not a control key: the caption is swapped at run time when
+    /// <see cref="TriggerPickerPresenter.LoadDefinition(Models.TriggerDefinition, bool)"/> starts an
+    /// edit session, so every view assigns it in code rather than through <c>x:Uid</c>.</remarks>
+    public const string CommitButtonUpdate = "CommitButtonUpdate";
 
     // ---- プレゼンターが組み立てる ----
 
@@ -178,7 +187,8 @@ public static class PickerStringKeys
         ConditionHeadingText, ConfirmedTextText, KeyBoxHeader, DisplayNameBoxHeader, OnComboHeader,
         PropComboHeader, CondComboHeader, TextOperandHeader, ValueOperandHeader, LowOperandHeader,
         HighOperandHeader, ToleranceOperandHeader, MinIntervalOperandHeader,
-        PollIntervalOperandHeader, CommitButtonContent,
+        PollIntervalOperandHeader, StoppedMatchingCheckContent, CommitButtonContent,
+        CommitButtonUpdate,
         CaptureFailed, ViewSwitchFailed, SearchNoMatch, SearchPosition, OverlapPosition,
         OverlapFailed, ConfirmFailedElementGone, Confirmed, ConfirmFailed, SelectTriggerShape,
         TriggerAdded,

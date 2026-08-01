@@ -202,6 +202,8 @@
                     <NumberBox x:Name="ToleranceOperand" x:Uid="ToleranceOperand" Width="120" Visibility="Collapsed" />
                     <NumberBox x:Name="MinIntervalOperand" x:Uid="MinIntervalOperand" Width="160" />
                     <NumberBox x:Name="PollIntervalOperand" x:Uid="PollIntervalOperand" Width="160" />
+                    <CheckBox x:Name="StoppedMatchingCheck" x:Uid="StoppedMatchingCheck"
+                              VerticalAlignment="Bottom" Visibility="Collapsed" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Name="CommitButton" x:Uid="CommitButton" IsEnabled="False" Click="OnCommit"

@@ -31,6 +31,18 @@ public interface ITriggerListEditorView
     /// <summary>Ids of the triggers the user wants to narrow with rather than watch.</summary>
     string UnwatchedText { get; }
 
+    /// <summary>
+    /// Poll interval in seconds for the composite about to be combined, or null when the field is
+    /// empty.
+    /// </summary>
+    /// <remarks>
+    /// Reading is the view's job for the same reason as <see cref="IPickerView.ReadDraft"/>: how a
+    /// field says "no value" is framework-specific — WinUI's <c>NumberBox</c> reports an empty box
+    /// as <see cref="double.NaN"/>. A negative number is handed on as it is;
+    /// <see cref="TriggerComposer.Compose"/> owns that refusal, so every host states the same reason.
+    /// </remarks>
+    double? CombinePollIntervalSeconds { get; }
+
     /// <summary>The selected rows, as indices into the list last shown, in ascending order.</summary>
     IReadOnlyList<int> SelectedIndices { get; }
 
@@ -166,11 +178,14 @@ public sealed class TriggerListEditorPresenter
         string[] unwatched = _view.UnwatchedText.Split(
             ',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
+        // 負値もそのまま渡す。拒否の理由は Compose が 1 か所で持つ — ここで先に弾くと、
+        // 自前の「まとめる」UI を持つホストと理由の文言がずれていく
         TriggerCompositionResult result = TriggerComposer.Compose(
             [.. selected.Select(i => _working[i])],
             _view.ExpressionText,
             unwatched,
-            _working.Select(t => t.Id));
+            _working.Select(t => t.Id),
+            _view.CombinePollIntervalSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null);
         if (!result.IsValid)
         {
             _view.Status = Format(EditorStringKeys.CombineFailed, result.Error);

@@ -207,10 +207,12 @@
                         <TextBlock x:Name="MinIntervalOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
                         <TextBox x:Name="MinIntervalOperand" Width="100" />
                     </StackPanel>
-                    <StackPanel x:Name="PollIntervalOperandPanel" Orientation="Horizontal">
+                    <StackPanel x:Name="PollIntervalOperandPanel" Orientation="Horizontal" Margin="0,0,8,0">
                         <TextBlock x:Name="PollIntervalOperandLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
                         <TextBox x:Name="PollIntervalOperand" Width="100" />
                     </StackPanel>
+                    <CheckBox x:Name="StoppedMatchingCheck" VerticalAlignment="Center"
+                              Visibility="Collapsed" />
                 </WrapPanel>
                 <StackPanel Orientation="Horizontal">
                     <Button x:Name="CommitButton" IsEnabled="False" Padding="10,3" Margin="0,0,8,0"

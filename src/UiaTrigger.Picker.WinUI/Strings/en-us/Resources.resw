@@ -134,8 +134,14 @@
   <data name="PollIntervalOperand.Header" xml:space="preserve">
     <value>Poll interval (s)</value>
   </data>
+  <data name="StoppedMatchingCheck.Content" xml:space="preserve">
+    <value>Also notify when it stops matching</value>
+  </data>
   <data name="CommitButton.Content" xml:space="preserve">
     <value>Add trigger</value>
+  </data>
+  <data name="CommitButtonUpdate" xml:space="preserve">
+    <value>Update trigger</value>
   </data>
 
   <!-- コードから組み立てる文字列 -->
@@ -224,6 +230,9 @@
   </data>
   <data name="UnwatchedBox.Header" xml:space="preserve">
     <value>Only narrow, never fire (ids, comma separated):</value>
+  </data>
+  <data name="CombinePollIntervalBox.Header" xml:space="preserve">
+    <value>Poll interval (s)</value>
   </data>
   <data name="EditorTriggerList.AutomationProperties.Name" xml:space="preserve">
     <value>Triggers</value>

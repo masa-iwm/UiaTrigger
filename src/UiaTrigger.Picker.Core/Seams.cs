@@ -103,13 +103,19 @@ public interface IPickerStrings
 /// Whether the property to watch can be chosen. Triggers that only watch for an element appearing
 /// or being removed may carry no condition at all, and then there is no property to pick.
 /// </param>
+/// <param name="StoppedMatching">
+/// Whether the "also notify when it stops matching" choice applies. The falling edge is derived
+/// from the <see cref="TriggerOn.WhileMatching"/> level, so the choice means nothing — and the
+/// monitor rejects the flag — on any other lifecycle.
+/// </param>
 public readonly record struct OperandVisibility(
     bool Text,
     bool Value,
     bool Range,
     bool Tolerance,
     bool PollInterval,
-    bool PropertyChoiceEnabled);
+    bool PropertyChoiceEnabled,
+    bool StoppedMatching);
 
 /// <summary>The picker's view, as its presenter sees it.</summary>
 /// <remarks>
@@ -135,6 +141,22 @@ public interface IPickerView
 
     /// <summary>Sets the line describing the outcome of the last commit.</summary>
     string CommitStatus { set; }
+
+    /// <summary>Sets the caption of the commit button.</summary>
+    /// <remarks>
+    /// Written when an edit session begins
+    /// (<see cref="TriggerPickerPresenter.LoadDefinition(TriggerDefinition, bool)"/>), where
+    /// "Add trigger" would misdescribe what the button does.
+    /// </remarks>
+    string CommitCaption { set; }
+
+    /// <summary>Closes the window hosting the picker.</summary>
+    /// <remarks>
+    /// Called when an edit session commits: editing ends with the one commit, unlike adding, which
+    /// keeps the picker open for the next trigger. The presenter calls this after every other view
+    /// write of the commit — a view may dispose itself here, so nothing may touch it afterwards.
+    /// </remarks>
+    void Close();
 
     /// <summary>The trigger id the user typed. The presenter fills in a default when it is empty.</summary>
     string KeyText { get; set; }

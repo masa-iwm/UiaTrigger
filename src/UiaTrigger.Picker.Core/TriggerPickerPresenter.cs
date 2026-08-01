@@ -95,6 +95,13 @@ public sealed class TriggerPickerPresenter : IDisposable
     private TriggerDefinition? _confirmedDef;
 
     /// <summary>
+    /// 編集セッションか (<see cref="LoadDefinition(TriggerDefinition, bool)"/>)。
+    /// 真なら確定 1 回で窓を閉じ、ボタンの文言も「更新」になる。
+    /// 新規追加の「開いたまま何件でもコミット」とはここで分かれる
+    /// </summary>
+    private bool _editSession;
+
+    /// <summary>
     /// いまオーバーレイに出している矩形。<see cref="IPickerElement.BoundingRectangle"/> は
     /// ハンドルを作った時点のスナップショットなので、対象ウィンドウが動くと古くなる。
     /// 確定アイコンの当たり判定も**画面に出ている枠**に合わせないと、
@@ -304,7 +311,23 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// the point — changing a threshold should not need the element to be hovered again. Hovering
     /// still works, and confirming an element replaces the recorded one as usual.
     /// </remarks>
-    public void LoadDefinition(TriggerDefinition definition)
+    public void LoadDefinition(TriggerDefinition definition) => LoadDefinition(definition, editSession: false);
+
+    /// <summary>
+    /// Loads an existing trigger, optionally as an edit session that ends with its one commit.
+    /// </summary>
+    /// <param name="definition"><inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/param[@name='definition']"/></param>
+    /// <param name="editSession">
+    /// True when the load is an edit of a recorded trigger rather than a prefill. An edit session
+    /// changes the commit button's caption to <see cref="PickerStringKeys.CommitButtonUpdate"/> and
+    /// closes the view after the successful commit — editing ends with that commit, unlike adding,
+    /// which keeps the picker open for the next trigger.
+    /// </param>
+    /// <exception cref="ArgumentException">
+    /// <inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/exception"/>
+    /// </exception>
+    /// <remarks><inheritdoc cref="LoadDefinition(TriggerDefinition)" path="/remarks"/></remarks>
+    public void LoadDefinition(TriggerDefinition definition, bool editSession)
     {
         ArgumentNullException.ThrowIfNull(definition);
         if (!CanEdit(definition))
@@ -317,6 +340,11 @@ public sealed class TriggerPickerPresenter : IDisposable
         }
 
         _confirmedDef = definition;
+        _editSession = editSession;
+        if (editSession)
+        {
+            _view.CommitCaption = _strings.GetString(PickerStringKeys.CommitButtonUpdate);
+        }
         _view.ConfirmedText = Format(
             PickerStringKeys.Confirmed, definition.DisplayName, definition.Window.ProcessName);
 
@@ -337,6 +365,7 @@ public sealed class TriggerPickerPresenter : IDisposable
             Tolerance = clause is { } c && TriggerDraftValidator.UsesTolerance(c.Op) ? c.Tolerance : null,
             MinIntervalSeconds = definition.MinInterval?.TotalSeconds,
             PollIntervalSeconds = definition.PollInterval?.TotalSeconds,
+            NotifyOnStoppedMatching = definition.NotifyOnStoppedMatching,
         };
 
         _view.ShowTriggerShape(PropertiesFor(draft.Property), draft.On, draft.Op);
@@ -399,7 +428,8 @@ public sealed class TriggerPickerPresenter : IDisposable
             // 許容差は数値比較のときだけ意味がある (docs/DESIGN.md A12)
             Tolerance: TriggerDraftValidator.UsesTolerance(op),
             PollInterval: TriggerDraftValidator.UsesPollInterval(lifecycle),
-            PropertyChoiceEnabled: !lifecycleOnly || op != ComparisonOp.Always);
+            PropertyChoiceEnabled: !lifecycleOnly || op != ComparisonOp.Always,
+            StoppedMatching: TriggerDraftValidator.UsesNotifyOnStoppedMatching(lifecycle));
     }
 
     /// <summary>Validates what the user filled in and, if it holds together, commits the trigger.</summary>
@@ -427,6 +457,13 @@ public sealed class TriggerPickerPresenter : IDisposable
 
         TriggerCommitted?.Invoke(this, new TriggerCommittedEventArgs { Definition = _confirmedDef });
         _view.CommitStatus = Format(PickerStringKeys.TriggerAdded, _confirmedDef.Id);
+        // 閉じるのは**最後**。Close で自分を Dispose する View (WinForms の Form) があるので、
+        // この後に _view へ触る行を置いてはいけない。閉じるのは編集セッションのコミットが
+        // 成立したときだけ — 検証失敗の early return はこの行に来ない
+        if (_editSession)
+        {
+            _view.Close();
+        }
     }
 
     /// <summary>Stops the timer and releases the overlay and the UI Automation session.</summary>
