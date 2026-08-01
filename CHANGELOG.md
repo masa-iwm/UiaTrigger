@@ -6,6 +6,35 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
+## 0.1.0-preview.3
+
+### Added
+
+- **The picker can now set `PollInterval`.** A "Poll interval (s)" field sits next to the
+  minimum-interval field. It only appears for the lifecycles that can poll (`PropertyChanged` /
+  `WhileMatching`) — the monitor rejects polling for `ElementAppeared` / `ElementRemoved`, so the
+  field hides rather than letting you type a value that would fail on commit.
+- **The picker can now edit the trigger's display name.** The recorded name is suggested on
+  confirm, exactly like the id: typing your own keeps it, and re-confirming another element only
+  replaces a suggestion you did not touch. Leaving the field blank keeps the recorded name.
+
+### Changed
+
+- **The picker windows use a two-band layout.** The element tree and the property list now sit
+  side by side in the upper band, and the condition fields span the full window width below them.
+  The condition rows are the widest content in the window, so they get the width.
+
+### Breaking (for `IPickerView` implementers and draft consumers)
+
+- `OperandVisibility` gained a `PollInterval` flag; the positional constructor changed.
+- `IPickerView` gained `DisplayNameText { get; set; }`.
+- `TriggerDraft` gained `PollIntervalSeconds` and `DisplayName`; `TriggerDraftResult` gained a
+  `PollInterval` positional parameter.
+- `TriggerDraftValidator.Apply` now writes the definition's `PollInterval` from the draft — an
+  empty field clears it, the same meaning the minimum interval already had. A draft that does not
+  set `PollIntervalSeconds` therefore clears a recorded poll interval on commit; the picker itself
+  round-trips the value through its new field, so nothing is lost when editing there.
+
 ## 0.1.0-preview.2
 
 ### Fixed
