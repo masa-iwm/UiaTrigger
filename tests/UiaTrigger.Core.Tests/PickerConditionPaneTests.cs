@@ -32,6 +32,12 @@ public sealed class PickerConditionPaneTests
     /// 行は <c>Orientation="Horizontal"</c> の <c>StackPanel</c> で折り返さず、いちばん広い行は
     /// 724px ある。窓を狭めると**右が黙って切れる** — 例外も、切れたという表示も出ない。
     /// </para>
+    /// <para>
+    /// **2 つは独立した設定ではない。**<c>HorizontalScrollBarVisibility="Auto"</c> が在れば
+    /// <c>HorizontalScrollMode</c> を <c>Disabled</c> にしてもスクロールは生きたままである
+    /// (実測)。つまり**片方だけを外した退行は振る舞いには出ない**ので、対で縛るここが
+    /// その退行に対する唯一の網である。
+    /// </para>
     /// </summary>
     [Theory]
     [InlineData("HorizontalScrollMode=\"Enabled\"")]

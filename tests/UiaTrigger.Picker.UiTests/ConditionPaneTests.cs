@@ -26,10 +26,13 @@ public sealed class ConditionPaneTests
     /// 例外も、切れたという表示も出ない (実測)。
     /// </para>
     /// <para>
-    /// **前提が画面の広さに依存する** (docs/TESTING.md §5 の 5)。WinUI のピッカーは
-    /// 自分の窓サイズを設定しておらず (WPF / Windows Forms の 1100 に相当するものが無い)、
-    /// 窓幅は OS 既定 = 画面に比例する。広い画面では 724px が収まってしまい、
-    /// 「はみ出しが起きない」という理由付きの失敗になる。
+    /// **窓の幅は <see cref="DesktopLayout.NarrowHost"/> で固定する。**ハーネスはホストの窓を
+    /// 割り付けの矩形へ退かす際に**寸法も合わせる**ので、既定の <see cref="DesktopLayout.Host"/>
+    /// だと窓幅が画面の広さに比例してしまう (ピッカー自身の既定サイズは、退かされた時点で
+    /// 上書きされるので効かない)。3840x2160 / 175% では条件欄が 1550px 取れて
+    /// 最広行が収まり、「はみ出しが起きない」という理由付きの失敗になっていた。
+    /// 1100px 固定なら条件欄は約 490px で、**表示スケールが上がるほど内容だけが大きくなる**
+    /// (窓は物理ピクセル固定) ので、はみ出しはどの機械でも成立する。
     /// </para>
     /// <para>
     /// **負の対照は置けない。**「広ければ横バーは出ない」を見るには条件欄を 724px より
@@ -39,14 +42,23 @@ public sealed class ConditionPaneTests
     /// そちらは MANUAL-CHECKS §4.3.1 の目視に置いてある。
     /// </para>
     /// <para>
-    /// 退行: XAML の <c>HorizontalScrollMode</c> を <c>Disabled</c> に戻す → 落ちる (実測)。
+    /// 退行: XAML の <c>ConditionScroll</c> から <c>HorizontalScrollMode</c> と
+    /// <c>HorizontalScrollBarVisibility</c> を**両方**外す → 落ちる (実測。
+    /// 本文は「横=False (見えている割合 100%)」— 切り落とされているので割合は 100% になる)。
+    /// </para>
+    /// <para>
+    /// **<c>HorizontalScrollMode</c> だけを <c>Disabled</c> にしても落ちない** (実測)。
+    /// <c>HorizontalScrollBarVisibility="Auto"</c> がスクロールを生かしたままにするためで、
+    /// 2 つは独立した設定ではない。**片方だけの退行はここでは捕まらない**が、
+    /// 属性の対は T1 (<c>PickerConditionPaneTests</c>) が縛っている。
     /// </para>
     /// </remarks>
     [Fact]
     public void TheWinUiConditionPaneCanScrollSideways()
     {
         PickerHostProfile profile = PickerHostProfile.WinUI;
-        using PickerHostProcess host = PickerHostProcess.StartWithoutATarget(profile, "en-US");
+        using PickerHostProcess host = PickerHostProcess.StartWithoutATarget(
+            profile, "en-US", DesktopLayout.NarrowHost);
         host.OpenPicker();
 
         AutomationElement picker = host.PickerWindow();
@@ -57,10 +69,12 @@ public sealed class ConditionPaneTests
             "条件欄の ScrollViewer が Scroll パターンを出していません。" + host.Diagnostics());
 
         ScrollPattern.ScrollPatternInformation info = ((ScrollPattern)raw).Current;
+        System.Windows.Rect window = picker.Current.BoundingRectangle;
         string measured = string.Create(
             CultureInfo.InvariantCulture,
             $"横={info.HorizontallyScrollable} (見えている割合 {info.HorizontalViewSize}%) " +
-            $"縦={info.VerticallyScrollable} (見えている割合 {info.VerticalViewSize}%)");
+            $"縦={info.VerticallyScrollable} (見えている割合 {info.VerticalViewSize}%) " +
+            $"ピッカーの窓={window.Width}x{window.Height}");
 
         Assert.True(
             info.HorizontallyScrollable,

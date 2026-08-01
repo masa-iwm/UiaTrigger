@@ -227,12 +227,16 @@ internal sealed class PickerHostProcess : IDisposable
     /// 配置を見るテスト (<c>SplitterTests</c>) はまさにそれで、
     /// XAML を直しても発行し直すまで古い配置を通し続けてしまう。
     /// </remarks>
-    public static PickerHostProcess StartWithoutATarget(PickerHostProfile profile, string culture)
+    public static PickerHostProcess StartWithoutATarget(
+        PickerHostProfile profile,
+        string culture,
+        (int Left, int Top, int Width, int Height)? hostRect = null)
         => StartCore(
             profile,
             ["--culture", culture, "--pick-at", OffScreenPoint],
             pickPoints: [],
-            preferPublished: false);
+            preferPublished: false,
+            hostRect: hostRect);
 
     /// <summary>画面のどこでもない点。<see cref="StartForLabels"/> の remarks を参照。</summary>
     private const string OffScreenPoint = "-30000,-30000";
