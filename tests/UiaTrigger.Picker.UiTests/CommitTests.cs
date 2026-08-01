@@ -63,7 +63,9 @@ public sealed class CommitTests
         // そろうまで待つ (そろわなければ ComboItems が見えている項目を添えて落とす)
         _ = scenario.ComboItems("PropCombo", atLeast: 10);
 
-        // プロパティ一覧はプレゼンターが組み立てる。ControlType の行だけ書式が違う
+        // プロパティ一覧はプレゼンターが組み立てる。ControlType の行だけ書式が違う。
+        // ここの主張は「往復の中で行が出る」まで — 表示名も含めた厳密な対の検査は
+        // TheTreeAndThePropertyList_NameTheControlTypeTheWayTheTargetDoes が持つ
         string[] rows = scenario.PropertyRows();
         Assert.Contains(
             string.Format(CultureInfo.InvariantCulture, scenario.Resource("PropertyRow"), "AutomationId", Target),
@@ -83,6 +85,72 @@ public sealed class CommitTests
         Assert.Equal(id, saved.Id);
         Assert.Equal("UiaTrigger.TestTarget.exe", saved.Window.ProcessName);
         Assert.Equal(Target, saved.Locator.Steps[^1].AutomationId);
+    }
+
+    /// <summary>
+    /// ツリーの行とプロパティ一覧が、**対象アプリの言い方**でコントロール型を出すこと
+    /// (docs/MANUAL-CHECKS.md §4.2)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 期待値は pick 点の要素からテスト側の UIA で**独立に**読む
+    /// (<see cref="CommitScenario.ProbeTheTarget"/> — 別実装の相互検算)。
+    /// 「対象アプリの言語になっているか」そのものは自動では言えない — 対象アプリの言語を
+    /// 切り替える口が無く、実言語の確認は MANUAL-CHECKS §4.2 に残る。ここで固定するのは
+    /// **対象アプリのプロバイダーが言ったとおりの表示名が画面に出ていて、
+    /// 条件に書く安定名と併記されている**ことである。
+    /// </para>
+    /// <para>
+    /// 前提検証を 2 つ置く: 独立読みが本当に対象のボタンを読んでいること /
+    /// 表示名が安定名 "Button" と序数で一致しないこと (en でも "button" と小文字なので
+    /// 成立する — T3 の <c>ControlTypeNameScenarioTests</c> と同じ言語非依存の根拠)。
+    /// どちらかが崩れた環境では以降の assert に検出力が無いので、
+    /// 時間切れではなく理由付きで落とす。
+    /// </para>
+    /// <para>
+    /// 退行の向き (どちらも実測済み): プレゼンターの行の書式で表示名と安定名を
+    /// 入れ替える → 厳密一致だけが落ちる (往復テストの <c>Contains("Button")</c> は
+    /// 緑のまま)。継ぎ目の中継 (<c>PickerServices.DisplayLabel</c>) が <c>Label</c> を
+    /// 返す → 行の先頭が安定名になり、序数比較で落ちる。
+    /// なお「<c>CreateNode</c> を <c>Label</c> で作る」形の退行は**書けない** —
+    /// <c>IPickerElement</c> は表示用に <c>DisplayLabel</c> しか出しておらず CS1061 になる
+    /// (実測)。型が既に半分を守っており、このテストが見るのは残り半分
+    /// (中継と <c>UiaElement</c> 自身の組み立て) である。
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(PickerHostProfile.AllNames), MemberType = typeof(PickerHostProfile))]
+    public void TheTreeAndThePropertyList_NameTheControlTypeTheWayTheTargetDoes(string profileName)
+    {
+        using var scenario = CommitScenario.Open(profileName);
+
+        (string automationId, string localized, int controlTypeId) = scenario.ProbeTheTarget();
+
+        // 前提検証 (remarks を参照)
+        Assert.True(
+            string.Equals(automationId, Target, StringComparison.Ordinal),
+            $"pick 点の独立読みが対象のボタンではなく AutomationId '{automationId}' を返しました。" +
+            "このままでは期待値が別の要素のものになります。" + scenario.Diagnostics());
+        Assert.False(
+            string.Equals(localized, "Button", StringComparison.Ordinal),
+            "対象の LocalizedControlType が安定名と同じ文字列で、表示名と安定名を区別する " +
+            "assert がこの環境では成立しません (実測では en でも 'button' と小文字で別物)。");
+
+        // ツリーの行は表示名で始まる —
+        // DisplayLabel = "{LocalizedControlType} \"{Name}\" [{AutomationId}]" (UiaElement)
+        string row = scenario.SelectedRowName();
+        Assert.StartsWith(localized + " \"", row, StringComparison.Ordinal);
+
+        scenario.ConfirmTheSelectedRow();
+
+        // ControlType の行は表示名・安定名・数値 id を併記する。書式ごと厳密に見る
+        string want = string.Format(
+            CultureInfo.InvariantCulture,
+            scenario.Resource("PropertyRowControlType"),
+            localized,
+            "Button",
+            controlTypeId);
+        Assert.Contains(want, scenario.PropertyRows());
     }
 
     /// <summary>
@@ -236,13 +304,18 @@ public sealed class CommitTests
         private readonly TestTargetProcess _target;
         private readonly PickerHostProcess _host;
         private readonly Dictionary<string, string> _resources;
+        private readonly (int X, int Y) _pickPoint;
 
         private CommitScenario(
-            TestTargetProcess target, PickerHostProcess host, Dictionary<string, string> resources)
+            TestTargetProcess target,
+            PickerHostProcess host,
+            Dictionary<string, string> resources,
+            (int X, int Y) pickPoint)
         {
             _target = target;
             _host = host;
             _resources = resources;
+            _pickPoint = pickPoint;
         }
 
         public static CommitScenario Open(string profileName)
@@ -264,7 +337,7 @@ public sealed class CommitTests
                 {
                     host.OpenPicker();
                     var scenario = new CommitScenario(
-                        target, host, PickerResources.For(profile, Culture));
+                        target, host, PickerResources.For(profile, Culture), (x, y));
                     scenario.WaitForTheTargetToBeSelected();
                     return scenario;
                 }
@@ -292,6 +365,27 @@ public sealed class CommitTests
         public string Read(string automationId) => Picker().ById(automationId)?.NameOf() ?? string.Empty;
 
         public string KeyText() => Picker().RequireById("KeyBox").ValueOf() ?? string.Empty;
+
+        public string SelectedRowName() => _host.Tree().SelectedRow()?.NameOf() ?? string.Empty;
+
+        /// <summary>
+        /// pick 点の要素をテスト側の UIA で**独立に**読む。
+        /// </summary>
+        /// <remarks>
+        /// 製品は手書き interop、こちらは <c>System.Windows.Automation</c> —
+        /// 別実装の相互検算である。枠のオーバーレイは pick 点の上に居るが、
+        /// <c>WS_EX_TRANSPARENT</c> なのでヒットテストに入らない (docs/DESIGN.md §10)。
+        /// 別の要素を掴んだ場合は呼び出し側の前提検証が名指しで落とす。
+        /// </remarks>
+        public (string AutomationId, string LocalizedControlType, int ControlTypeId) ProbeTheTarget()
+        {
+            AutomationElement element = AutomationElement.FromPoint(
+                new System.Windows.Point(_pickPoint.X, _pickPoint.Y));
+            return (
+                element.Current.AutomationId,
+                element.Current.LocalizedControlType,
+                element.Current.ControlType.Id);
+        }
 
         public void SetKeyText(string text) => Picker().RequireById("KeyBox").SetText(text);
 
