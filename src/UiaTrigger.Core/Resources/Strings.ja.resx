@@ -105,6 +105,14 @@
     <value>トリガー '{0}': On='{1}' では、条件が自前のウィンドウや経路を名指せません (トリガー自身の要素の出現・消滅で発火するため)。どの条件もその要素を読みます。条件ごとのウィンドウ・経路を外すか、プロパティの変化を見る形にしてください。</value>
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
   </data>
+  <data name="Error_StoppedMatchingIsEventOnly" xml:space="preserve">
+    <value>トリガー '{0}': On='StoppedMatching' はイベント専用の値です。WhileMatching のトリガーが NotifyOnStoppedMatching 付きで成立しなくなったときに TriggerFiredEventArgs.On に載ります。On='WhileMatching' + NotifyOnStoppedMatching を使ってください。</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_NotifyOnStoppedMatchingRequiresWhileMatching" xml:space="preserve">
+    <value>トリガー '{0}': On='{1}' では NotifyOnStoppedMatching は効きません。立ち下がりは WhileMatching の成立状態から作られるため、このフラグは On='WhileMatching' 専用です。</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
   <data name="Error_ClausesRequired" xml:space="preserve">
     <value>トリガー '{0}': On='{1}' には Watch=true の句が 1 つ以上必要です (どのプロパティを監視するかは、監視する句が決めるため)。</value>
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
@@ -241,6 +249,9 @@
   <!-- 複合条件を組む規則 (TriggerComposer)。まとめられない理由 -->
   <data name="Compose_NeedsTwo" xml:space="preserve">
     <value>まとめるトリガーを 2 つ以上選んでください。</value>
+  </data>
+  <data name="Compose_PollIntervalNegative" xml:space="preserve">
+    <value>ポーリング間隔に負の値は指定できません。</value>
   </data>
   <data name="Compose_UnknownName" xml:space="preserve">
     <value>'{0}' は、まとめようとしている条件のどれでもありません。</value>

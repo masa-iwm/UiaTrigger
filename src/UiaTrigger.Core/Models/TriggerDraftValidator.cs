@@ -56,6 +56,17 @@ public sealed class TriggerDraft
     /// <summary>Half-width of the band treated as equal when comparing numbers.</summary>
     public double? Tolerance { get; set; }
 
+    /// <summary>
+    /// Whether to also raise an event when the condition stops being satisfied
+    /// (see <see cref="TriggerDefinition.NotifyOnStoppedMatching"/>).
+    /// </summary>
+    /// <remarks>
+    /// Ignored — and cleared from the definition by <see cref="TriggerDraftValidator.Apply"/> —
+    /// unless <see cref="On"/> is <see cref="TriggerOn.WhileMatching"/>, the only lifecycle the
+    /// monitor accepts the flag with.
+    /// </remarks>
+    public bool NotifyOnStoppedMatching { get; set; }
+
     /// <summary>Minimum interval between firings, in seconds. Null or non-positive means none.</summary>
     public double? MinIntervalSeconds { get; set; }
 
@@ -147,6 +158,27 @@ public static class TriggerDraftValidator
     /// </remarks>
     public static bool UsesPollInterval(TriggerOn on) =>
         on is TriggerOn.PropertyChanged or TriggerOn.WhileMatching;
+
+    /// <summary>Whether <see cref="TriggerDraft.NotifyOnStoppedMatching"/> applies to a lifecycle.</summary>
+    /// <remarks>
+    /// The falling edge is derived from the <see cref="TriggerOn.WhileMatching"/> level, so the
+    /// monitor rejects the flag on any other lifecycle
+    /// (see <see cref="TriggerDefinition.NotifyOnStoppedMatching"/>).
+    /// </remarks>
+    public static bool UsesNotifyOnStoppedMatching(TriggerOn on) => on is TriggerOn.WhileMatching;
+
+    /// <summary>The lifecycles a definition can use as its <see cref="TriggerDefinition.On"/>.</summary>
+    /// <remarks>
+    /// A picker's lifecycle choice offers exactly these. <see cref="TriggerOn.StoppedMatching"/> is
+    /// not among them: it is event-only, reported on
+    /// <see cref="Monitoring.TriggerFiredEventArgs.On"/> and rejected as a definition's lifecycle,
+    /// so enumerating <see cref="TriggerOn"/> itself would offer a value that can never be saved.
+    /// </remarks>
+    public static IReadOnlyList<TriggerOn> DefinitionLifecycles { get; } =
+    [
+        TriggerOn.ElementAppeared, TriggerOn.ElementRemoved,
+        TriggerOn.PropertyChanged, TriggerOn.WhileMatching,
+    ];
 
     /// <summary>Validates a draft.</summary>
     /// <param name="draft">The values collected from the user.</param>
@@ -330,6 +362,10 @@ public static class TriggerDraftValidator
             definition.DisplayName = draft.DisplayName.Trim();
         }
         definition.On = draft.On;
+        // 新しい On で意味を失った値を残さない (Expression / PollInterval と同じ規律)。
+        // 残すと CreateRuntime に拒否され、「確定できたのに開始できない定義」になる
+        definition.NotifyOnStoppedMatching =
+            UsesNotifyOnStoppedMatching(draft.On) && draft.NotifyOnStoppedMatching;
         definition.Combine = ClauseCombinator.All;
         definition.Clauses.Clear();
         // 式も落とすこと。doc は "replacing its clauses" と言っているのに式だけ残ると、

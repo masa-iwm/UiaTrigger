@@ -282,8 +282,16 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
 
         /// <summary>このスロットのプロパティ変化を購読する必要があるか。</summary>
+        /// <remarks>
+        /// ElementRemoved も Watch な句があれば購読する。発火源にするためではなく
+        /// (OnPropertyChanged は ElementRemoved では鳴らさない)、LastSnapshot を最新に
+        /// 保つためである — 購読しないと HandleRemoved の「最後に見えていた状態」が
+        /// 実際には**解決時の状態**になり、条件が古い値と比較される (docs/DESIGN.md C15)。
+        /// ElementAppeared は対象外 — 発火は解決の瞬間だけで、以後の鮮度に意味が無い
+        /// </remarks>
         public bool WatchesProperties(ElementSlot slot) =>
-            Definition.On is TriggerOn.PropertyChanged or TriggerOn.WhileMatching && slot.PropertyIds.Length > 0;
+            Definition.On is TriggerOn.PropertyChanged or TriggerOn.WhileMatching or TriggerOn.ElementRemoved
+                && slot.PropertyIds.Length > 0;
 
         /// <summary>句が読むスロット。</summary>
         public ElementSlot SlotOf(int clauseIndex) => Slots[ClauseSlots[clauseIndex]];
@@ -446,6 +454,21 @@ public sealed class TriggerMonitor : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(definition.Locator);
         ArgumentNullException.ThrowIfNull(definition.Clauses);
 
+        // StoppedMatching は TriggerFiredEventArgs.On に載せるためだけの値である。
+        // 定義の lifecycle として受けると「立ち下がりだけの WhileMatching」という
+        // 二重の書き方が生まれ、以後すべての On 分岐が 2 値を見ることになる
+        if (definition.On == TriggerOn.StoppedMatching)
+        {
+            throw new ArgumentException(Message.Format(Strings.Error_StoppedMatchingIsEventOnly, id));
+        }
+        // 黙って効かない設定を残さない (Error_PollIntervalNotApplicable と同じ規律)。
+        // 立ち下がりは WhileMatching の水準 (LastMatch) から作られるので、他の lifecycle に
+        // このフラグが載っていても鳴る日は来ない
+        if (definition.NotifyOnStoppedMatching && definition.On != TriggerOn.WhileMatching)
+        {
+            throw new ArgumentException(
+                Message.Format(Strings.Error_NotifyOnStoppedMatchingRequiresWhileMatching, id, definition.On));
+        }
         if (definition.MinInterval is { Ticks: < 0 })
         {
             throw new ArgumentException(Message.Format(Strings.Error_MinIntervalNegative, id));
@@ -1196,6 +1219,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         {
             Fire(rt, TriggerOn.WhileMatching, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
         }
+        // 立ち下がり。解決で起きるのは「入れ替わった要素では条件が満たせない」形である。
+        // 3 値は同じサイトの立ち上がりの鏡映し (docs/DESIGN.md C14)
+        else if (!matched && wasMatching && rt.Definition.On == TriggerOn.WhileMatching &&
+            rt.Definition.NotifyOnStoppedMatching)
+        {
+            Fire(rt, TriggerOn.StoppedMatching, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
+        }
     }
 
     /// <summary>
@@ -1521,6 +1551,15 @@ public sealed class TriggerMonitor : IAsyncDisposable
         {
             Fire(rt, TriggerOn.WhileMatching, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
         }
+        // 立ち下がり — 成立中に要素が消えて条件が満たせなくなった形。
+        // ElementRemoved の分岐と両方鳴ることは構造的に無い: あちらは On==ElementRemoved、
+        // こちらは On==WhileMatching のときだけ入り、フラグは WhileMatching 専用
+        // (CreateRuntime が弾く)。3 値は同じサイトの立ち上がりの鏡映し (docs/DESIGN.md C14)
+        else if (rt.Definition.On == TriggerOn.WhileMatching && rt.Definition.NotifyOnStoppedMatching &&
+            !matched && wasMatching)
+        {
+            Fire(rt, TriggerOn.StoppedMatching, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
+        }
     }
 
     /// <param name="rt">評価するトリガー。</param>
@@ -1597,7 +1636,15 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 {
                     Fire(rt, TriggerOn.WhileMatching, oldValue, newValue, CurrentSnapshot(rt));
                 }
+                // 立ち下がりも同じくエッジ 1 回。ポーリング経路 (PollRound) はこの
+                // メソッドに合流するので、通知の無い立ち下がりもここで拾える
+                else if (!matched && wasMatching && rt.Definition.NotifyOnStoppedMatching)
+                {
+                    Fire(rt, TriggerOn.StoppedMatching, oldValue, newValue, CurrentSnapshot(rt));
+                }
                 break;
+            // ElementRemoved の購読は LastSnapshot を最新に保つためだけにある
+            // (WatchesProperties を参照)。ここでは何も鳴らさない — 鳴るのは HandleRemoved
         }
     }
 
@@ -1832,8 +1879,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         ElementPropertySnapshot? snapshot)
     {
         // レート制限は「発火が決まったあと」に掛ける。条件評価の状態 (LastMatch) は
-        // 落とした発火でも進めておかないと、制限が解けた瞬間に古い立ち上がりが鳴る
-        if (!rt.Gate.TryPass())
+        // 落とした発火でも進めておかないと、制限が解けた瞬間に古い立ち上がりが鳴る。
+        //
+        // 立ち下がり (StoppedMatching) はゲートの対象外。窓で落とすとホストは
+        // 「まだ成立中」と信じ続ける — 状態の嘘になる。逆向きの非対称 (立ち上がりが
+        // 落とされた後に立ち下がりだけ届く) は冗長だが嘘ではない (docs/DESIGN.md C14)。
+        // SuppressedFireCount にも数えない — あれは「MinInterval が落とした数」である
+        if (on != TriggerOn.StoppedMatching && !rt.Gate.TryPass())
         {
             Interlocked.Increment(ref _suppressedFireCount);
             return;

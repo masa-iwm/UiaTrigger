@@ -101,6 +101,14 @@ public enum TriggerOn
     /// while they keep holding.
     /// </summary>
     WhileMatching = 3,
+    /// <summary>The clauses stopped being satisfied. Fires on the falling edge only.</summary>
+    /// <remarks>
+    /// Event-only: this value appears on <see cref="Monitoring.TriggerFiredEventArgs.On"/> when a
+    /// <see cref="TriggerOn.WhileMatching"/> trigger with
+    /// <see cref="TriggerDefinition.NotifyOnStoppedMatching"/> stops matching. A definition cannot
+    /// use it as its own lifecycle; the monitor rejects that when the trigger is added.
+    /// </remarks>
+    StoppedMatching = 4,
 }
 
 /// <summary>How the clauses of a trigger are combined.</summary>
@@ -450,4 +458,28 @@ public sealed class TriggerDefinition
     /// </para>
     /// </remarks>
     public TimeSpan? PollInterval { get; set; }
+
+    /// <summary>
+    /// Whether to also raise an event when the clauses stop being satisfied. Default false.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only meaningful with <see cref="TriggerOn.WhileMatching"/>; any other lifecycle is rejected
+    /// when the trigger is added, so the flag cannot sit silently on a definition it does not
+    /// affect. The falling-edge event carries <see cref="TriggerOn.StoppedMatching"/> on
+    /// <see cref="Monitoring.TriggerFiredEventArgs.On"/>, so one trigger reports both edges and the
+    /// host can tell them apart.
+    /// </para>
+    /// <para>
+    /// The falling edge is exempt from <see cref="MinInterval"/>: dropping it would leave the host
+    /// believing the condition still holds. Stopping or removing the trigger is not the condition
+    /// ceasing and raises nothing.
+    /// </para>
+    /// <para>
+    /// A clause with <see cref="ComparisonOp.Always"/> holds exactly while its element is resolved,
+    /// so <see cref="TriggerOn.WhileMatching"/> plus this flag reports an element appearing (rising
+    /// edge) and disappearing (falling edge) with a single trigger.
+    /// </para>
+    /// </remarks>
+    public bool NotifyOnStoppedMatching { get; set; }
 }

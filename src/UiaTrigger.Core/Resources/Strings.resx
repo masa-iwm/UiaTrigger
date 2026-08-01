@@ -104,6 +104,14 @@
     <value>Trigger '{0}': a condition cannot name its own window or locator with On='{1}', which fires when the trigger's own element appears or disappears. Every condition reads that element; drop the per-condition window and locator, or watch a property instead.</value>
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
   </data>
+  <data name="Error_StoppedMatchingIsEventOnly" xml:space="preserve">
+    <value>Trigger '{0}': On='StoppedMatching' is event-only. It appears on TriggerFiredEventArgs.On when a WhileMatching trigger with NotifyOnStoppedMatching stops matching; use On='WhileMatching' and set NotifyOnStoppedMatching instead.</value>
+    <comment>{0} = trigger id</comment>
+  </data>
+  <data name="Error_NotifyOnStoppedMatchingRequiresWhileMatching" xml:space="preserve">
+    <value>Trigger '{0}': NotifyOnStoppedMatching has no effect with On='{1}'. The falling edge is derived from the WhileMatching level, so the flag applies to On='WhileMatching' only.</value>
+    <comment>{0} = trigger id, {1} = TriggerOn value</comment>
+  </data>
   <data name="Error_ClausesRequired" xml:space="preserve">
     <value>Trigger '{0}': On='{1}' needs at least one clause with Watch=true, because the watched clauses decide which properties are observed.</value>
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
@@ -244,5 +252,8 @@
   <data name="Compose_UnknownName" xml:space="preserve">
     <value>'{0}' is not one of the conditions being combined.</value>
     <comment>{0} = the name that was typed</comment>
+  </data>
+  <data name="Compose_PollIntervalNegative" xml:space="preserve">
+    <value>The poll interval cannot be negative.</value>
   </data>
 </root>

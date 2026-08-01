@@ -47,6 +47,11 @@ public static class TriggerComposer
     /// <param name="existingIds">
     /// Ids already in use. The composite's id is the first <c>composite-N</c> not among them.
     /// </param>
+    /// <param name="pollInterval">
+    /// How often the composite's resolved elements are re-read, or null — the default — for
+    /// event-driven monitoring only. Zero also means unset, matching
+    /// <see cref="TriggerDefinition.PollInterval"/>; a negative value is a reason not to combine.
+    /// </param>
     /// <returns>A result carrying either a localized reason, or the composite definition.</returns>
     /// <remarks>
     /// The sources are left untouched; the composite carries copies of their clauses, each clause
@@ -58,7 +63,8 @@ public static class TriggerComposer
         IReadOnlyList<TriggerDefinition> sources,
         string? expression,
         IReadOnlyCollection<string> unwatchedNames,
-        IEnumerable<string> existingIds)
+        IEnumerable<string> existingIds,
+        TimeSpan? pollInterval = null)
     {
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(unwatchedNames);
@@ -67,6 +73,12 @@ public static class TriggerComposer
         if (sources.Count < 2)
         {
             return new TriggerCompositionResult(Strings.Compose_NeedsTwo, null);
+        }
+        // 検証は Compose が持つ (docs/DESIGN.md §4)。呼び出し元 (エディタ) に置くと、
+        // 自前の「まとめる」UI を持つホストが同じ規則を写経することになる
+        if (pollInterval is { Ticks: < 0 })
+        {
+            return new TriggerCompositionResult(Strings.Compose_PollIntervalNegative, null);
         }
 
         // 呼び出し元のコレクションを変異させない。消し込みはこの写しに対して行う
@@ -138,6 +150,9 @@ public static class TriggerComposer
             On = TriggerOn.WhileMatching,
             Expression = trimmed,
             Clauses = clauses,
+            // 0 は「未設定」に倒す — TriggerDefinition.PollInterval の意味論 (Null or Zero =
+            // イベント駆動) と揃える。負値は上で拒否済み
+            PollInterval = pollInterval is { Ticks: > 0 } ? pollInterval : null,
         };
         return new TriggerCompositionResult(null, composite);
     }
@@ -162,9 +177,10 @@ public static class TriggerComposer
     /// <para>
     /// What the composite does not record cannot come back: the lifecycle moment, rate limit and
     /// poll interval of the original sources are gone, so every recovered trigger fires on
-    /// <see cref="TriggerOn.WhileMatching"/> with no intervals set. The expression itself is
-    /// dropped, and <see cref="PropertyClause.Watch"/> is reset — narrowing only means something
-    /// inside a composite.
+    /// <see cref="TriggerOn.WhileMatching"/> with no intervals set. The composite's own poll
+    /// interval stays behind too — it paid for re-reading the combined condition, not for any one
+    /// clause. The expression itself is dropped, and <see cref="PropertyClause.Watch"/> is reset —
+    /// narrowing only means something inside a composite.
     /// </para>
     /// </remarks>
     public static IReadOnlyList<TriggerDefinition> Decompose(

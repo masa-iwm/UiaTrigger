@@ -131,6 +131,15 @@
         句が成立し始めたとき。立ち上がりでのみ発火し、成立し続けている間の変化では発火しない。
       </summary>
     </member>
+    <member name="F:UiaTrigger.Models.TriggerOn.StoppedMatching">
+      <summary>句が成立しなくなったとき。立ち下がりでのみ発火する。</summary>
+      <remarks>
+        イベント専用の値である。<see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" />
+        を立てた <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> のトリガーが成立しなくなったとき、
+        <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.On" /> に載る。定義自身の
+        lifecycle としては使えず、トリガー追加時にモニターが拒否する。
+      </remarks>
+    </member>
     <member name="F:UiaTrigger.Models.TriggerProperty.AcceleratorKey">
       <summary>アクセラレーターキー ("Ctrl+S" 等)。プロバイダーが報告する形のまま。</summary>
     </member>
@@ -315,7 +324,7 @@
     <member name="M:UiaTrigger.Models.ElementRect.ToString">
       <summary>invariant な <c>(L,T)-(R,B)</c> 形式。表示にも比較にも使われる。</summary>
     </member>
-    <member name="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String})">
+    <member name="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan})">
       <summary><paramref name="sources" /> を 1 つの複合トリガーにまとめる。</summary>
       <param name="sources">まとめるトリガー (並び順のまま)。2 つ以上。</param>
       <param name="expression">
@@ -329,6 +338,11 @@
         式が使う <c>-1</c>/<c>-2</c> の展開より前の名前である。
       </param>
       <param name="existingIds">使用中の id。複合の id はこの中に無い最初の <c>composite-N</c> になる。</param>
+      <param name="pollInterval">
+        複合の解決済み要素を読み直す周期。null (既定) はイベント駆動のみ。
+        0 も「未設定」を意味し、<see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" />
+        と揃う。負の値はまとめられない理由になる。
+      </param>
       <returns>ローカライズ済みの理由か、複合の定義のどちらかを運ぶ結果。</returns>
       <remarks>
         元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
@@ -357,6 +371,8 @@
           複合が記録していないものは戻らない: 元トリガーの発火契機・レート制限・ポーリング間隔は
           失われており、復元されたトリガーはどれも
           <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火し、間隔類を持たない。
+          複合自身のポーリング間隔も持ち出されない — あれは「まとめた条件を読み直す」ための
+          費用であって、どれか 1 つの条件のものではない。
           式そのものは捨てられ、<see cref="P:UiaTrigger.Models.PropertyClause.Watch" /> も既定へ戻る —
           「絞るだけ」は複合の中でだけ意味を持つ。
         </para>
@@ -438,6 +454,24 @@
         ポーリングは解決済みの要素を読み直すものなので、要素の出現・消滅だけを見るトリガーには
         効きようがない — その組み合わせはトリガー追加時にモニターが拒否する
         (<see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> を参照)。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesNotifyOnStoppedMatching(UiaTrigger.Models.TriggerOn)">
+      <summary><see cref="P:UiaTrigger.Models.TriggerDraft.NotifyOnStoppedMatching" /> がそのライフサイクルに適用されるか。</summary>
+      <remarks>
+        立ち下がりは <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> の成立状態から
+        作られるので、他のライフサイクルではモニターがこのフラグを拒否する
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" /> を参照)。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraftValidator.DefinitionLifecycles">
+      <summary>定義が <see cref="P:UiaTrigger.Models.TriggerDefinition.On" /> に使えるライフサイクル。</summary>
+      <remarks>
+        ピッカーの発火契機の選択肢はちょうどこれを出す。<see cref="F:UiaTrigger.Models.TriggerOn.StoppedMatching" />
+        は含まれない — あれはイベント専用で、
+        <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.On" /> に載るだけであり、定義の
+        lifecycle としては拒否される。<see cref="T:UiaTrigger.Models.TriggerOn" /> をそのまま列挙すると
+        保存できない値を選ばせてしまう。
       </remarks>
     </member>
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.Validate(UiaTrigger.Models.TriggerDraft,System.TimeSpan)">
@@ -1059,6 +1093,29 @@
         </para>
       </remarks>
     </member>
+    <member name="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching">
+      <summary>句が成立しなくなったときにもイベントを上げるか。既定は false。</summary>
+      <remarks>
+        <para>
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> でだけ意味を持つ。他の
+          ライフサイクルではトリガー追加時に拒否されるので、効かないフラグが定義の上に
+          黙って残ることはない。立ち下がりのイベントは
+          <see cref="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.On" /> に
+          <see cref="F:UiaTrigger.Models.TriggerOn.StoppedMatching" /> を載せて届くため、
+          1 つのトリガーで両方の縁を受けつつ、ホストはどちらかを見分けられる。
+        </para>
+        <para>
+          立ち下がりは <see cref="P:UiaTrigger.Models.TriggerDefinition.MinInterval" /> の対象外である。
+          窓で落とすと、ホストは条件がまだ成立していると信じ続けることになる。
+          トリガーの停止・削除は「条件が成立しなくなった」ではなく、何も上げない。
+        </para>
+        <para>
+          <see cref="F:UiaTrigger.Models.ComparisonOp.Always" /> の句は要素が解決している間だけ
+          成立するので、<see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> とこのフラグを
+          組み合わせると、要素の出現 (立ち上がり) と消滅 (立ち下がり) を 1 つのトリガーで受けられる。
+        </para>
+      </remarks>
+    </member>
     <member name="P:UiaTrigger.Models.TriggerDefinition.On">
       <summary>このトリガーを評価するライフサイクル上の契機。</summary>
     </member>
@@ -1089,6 +1146,19 @@
     </member>
     <member name="P:UiaTrigger.Models.TriggerDraft.MinIntervalSeconds">
       <summary>発火間隔の下限 (秒)。null または 0 以下なら制限しない。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.NotifyOnStoppedMatching">
+      <summary>
+        条件が成立しなくなったときにもイベントを上げるか
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" /> を参照)。
+      </summary>
+      <remarks>
+        <see cref="P:UiaTrigger.Models.TriggerDraft.On" /> が
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> — モニターがこのフラグを
+        受け付ける唯一のライフサイクル — でなければ無視され、
+        <see cref="M:UiaTrigger.Models.TriggerDraftValidator.Apply(UiaTrigger.Models.TriggerDefinition,UiaTrigger.Models.TriggerDraft,UiaTrigger.Models.TriggerDraftResult@)" />
+        が定義からも落とす。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Models.TriggerDraft.On">
       <summary>トリガーが発火するライフサイクル上の契機。</summary>
