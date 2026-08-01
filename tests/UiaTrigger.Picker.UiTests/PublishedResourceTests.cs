@@ -68,10 +68,14 @@ public sealed class PublishedResourceTests
                 ["ViewCombo.Header"] = "ViewCombo",
                 ["SearchBox.Header"] = "SearchBox",
                 ["KeyBox.Header"] = "KeyBox",
+                ["DisplayNameBox.Header"] = "DisplayNameBox",
                 ["OnCombo.Header"] = "OnCombo",
                 ["PropCombo.Header"] = "PropCombo",
                 ["CondCombo.Header"] = "CondCombo",
                 ["MinIntervalOperand.Header"] = "MinIntervalOperand",
+                // 既定のライフサイクル (PropertyChanged) では出ている。出入りのほうは
+                // ThePollIntervalFieldFollowsTheLifecycle が見る
+                ["PollIntervalOperand.Header"] = "PollIntervalOperand",
                 ["SearchNextButton.Content"] = "SearchNextButton",
                 ["CommitButton.Content"] = "CommitButton",
                 ["HintText.Text"] = "HintText",
@@ -90,10 +94,14 @@ public sealed class PublishedResourceTests
                 ["ViewCombo.Header"] = "ViewComboLabel",
                 ["SearchBox.Header"] = "SearchBoxLabel",
                 ["KeyBox.Header"] = "KeyBoxLabel",
+                ["DisplayNameBox.Header"] = "DisplayNameBoxLabel",
                 ["OnCombo.Header"] = "OnComboLabel",
                 ["PropCombo.Header"] = "PropComboLabel",
                 ["CondCombo.Header"] = "CondComboLabel",
                 ["MinIntervalOperand.Header"] = "MinIntervalOperandLabel",
+                // 既定のライフサイクル (PropertyChanged) では出ている。出入りのほうは
+                // ThePollIntervalFieldFollowsTheLifecycle が見る
+                ["PollIntervalOperand.Header"] = "PollIntervalOperandLabel",
                 ["SearchNextButton.Content"] = "SearchNextButton",
                 ["CommitButton.Content"] = "CommitButton",
                 ["HintText.Text"] = "HintText",
@@ -450,6 +458,53 @@ public sealed class PublishedResourceTests
             $"{profile.Name} / {culture}: 操作後に出るラベルが解決できていません ({wrong.Count} 件):" +
             $"{Environment.NewLine}{string.Join(Environment.NewLine, wrong)}{Environment.NewLine}" +
             host.Diagnostics());
+    }
+
+    /// <summary>
+    /// ポーリング間隔の欄が**ライフサイクルに追随する**こと — 出現・削除では消え、
+    /// <c>PropertyChanged</c> に戻すと再び出る。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 5 つのオペランドは**演算子**で出入りするが、この欄だけは **OnCombo (ライフサイクル)** で
+    /// 出入りする。<see cref="KeysThatNeedAnOperator"/> に入れると対照 (3) の
+    /// 「<c>Always</c> で消える」に必ず落ちる (この欄は演算子では消えない) ので、専用にする。
+    /// ポーリングは出現・削除では Core が拒否するため、欄が出たままだと
+    /// 「入力できたのに確定でエラー」になる — その一次の網である。
+    /// </para>
+    /// <para>
+    /// 消える側がネガティブコントロールで、<c>Ui.Never</c> で見る。
+    /// ラベルの文言そのものは静的ラベルの検査 (<see cref="LabelHosts"/>) が持つ。
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData("WPF")]
+    [InlineData("WinUI")]
+    public void ThePollIntervalFieldFollowsTheLifecycle(string profileName)
+    {
+        PickerHostProfile profile = PickerHostProfile.ByName(profileName);
+        string automationId = OperandHost(profile, "PollIntervalOperand.Header");
+
+        using var host = PickerHostProcess.StartForLabels(profile, "en-US");
+        host.OpenPicker();
+        AutomationElement picker = host.PickerWindow();
+
+        // 既定 (PropertyChanged) では出ている
+        picker.RequireByIdEventually(automationId, host.Diagnostics);
+
+        picker.RequireByIdEventually("OnCombo", host.Diagnostics).SelectComboItem("ElementAppeared");
+        Ui.Never(
+            () => picker.ById(automationId) is not null,
+            TimeSpan.FromSeconds(3),
+            $"ElementAppeared で '{automationId}' が残る",
+            host.Diagnostics);
+
+        picker.RequireByIdEventually("OnCombo", host.Diagnostics).SelectComboItem("PropertyChanged");
+        _ = Ui.Until(
+            () => picker.ById(automationId),
+            TimeSpan.FromSeconds(10),
+            $"{profile.Name}: PropertyChanged に戻すと '{automationId}' が再び出ること",
+            host.Diagnostics);
     }
 
     /// <summary>

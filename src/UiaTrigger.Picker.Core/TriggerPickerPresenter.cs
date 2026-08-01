@@ -105,6 +105,9 @@ public sealed class TriggerPickerPresenter : IDisposable
     /// <summary>最後にこちらから入れた既定 id。ユーザーが書き換えたかどうかの判定に使う。</summary>
     private string _suggestedId = string.Empty;
 
+    /// <summary>最後にこちらから入れた提案表示名。ユーザーが書き換えたかどうかの判定に使う。</summary>
+    private string _suggestedDisplayName = string.Empty;
+
     private bool _treeHasFocus;
     private int _searchCursor = -1;
     private bool _disposed;
@@ -321,6 +324,7 @@ public sealed class TriggerPickerPresenter : IDisposable
         var draft = new TriggerDraft
         {
             Id = definition.Id,
+            DisplayName = definition.DisplayName,
             On = definition.On,
             Property = clause?.Property ?? TriggerProperty.Name,
             Op = clause?.Op ?? ComparisonOp.Always,
@@ -332,6 +336,7 @@ public sealed class TriggerPickerPresenter : IDisposable
             // そこへ 0 を書いても混乱を招くだけである
             Tolerance = clause is { } c && TriggerDraftValidator.UsesTolerance(c.Op) ? c.Tolerance : null,
             MinIntervalSeconds = definition.MinInterval?.TotalSeconds,
+            PollIntervalSeconds = definition.PollInterval?.TotalSeconds,
         };
 
         _view.ShowTriggerShape(PropertiesFor(draft.Property), draft.On, draft.Op);
@@ -340,8 +345,9 @@ public sealed class TriggerPickerPresenter : IDisposable
 
         // 既定 id を「こちらが最後に入れた値」として空にしておく。こうすると
         // ConfirmNodeAsync は KeyText を**ユーザーが書いた値**と見なすので、
-        // 編集中に要素を捕まえ直しても id が黙って提案 id へ置き換わらない
+        // 編集中に要素を捕まえ直しても id が黙って提案 id へ置き換わらない。表示名も同じ
         _suggestedId = string.Empty;
+        _suggestedDisplayName = string.Empty;
         _view.SetCommitEnabled(true);
     }
 
@@ -392,6 +398,7 @@ public sealed class TriggerPickerPresenter : IDisposable
             Range: TriggerDraftValidator.UsesRange(op),
             // 許容差は数値比較のときだけ意味がある (docs/DESIGN.md A12)
             Tolerance: TriggerDraftValidator.UsesTolerance(op),
+            PollInterval: TriggerDraftValidator.UsesPollInterval(lifecycle),
             PropertyChoiceEnabled: !lifecycleOnly || op != ComparisonOp.Always);
     }
 
@@ -960,6 +967,16 @@ public sealed class TriggerPickerPresenter : IDisposable
                 _view.KeyText = suggestedId;
             }
             _suggestedId = suggestedId;
+
+            // 提案表示名も id と同じ規則で扱う: 空か前回の提案のままなら新しい提案で置き換え、
+            // ユーザーが書いた値は残す
+            string suggestedDisplayName = def.DisplayName ?? string.Empty;
+            if (_view.DisplayNameText.Length == 0 ||
+                string.Equals(_view.DisplayNameText, _suggestedDisplayName, StringComparison.Ordinal))
+            {
+                _view.DisplayNameText = suggestedDisplayName;
+            }
+            _suggestedDisplayName = suggestedDisplayName;
             _view.SetCommitEnabled(true);
         }
         catch (Exception ex)

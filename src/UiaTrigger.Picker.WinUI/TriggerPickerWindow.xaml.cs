@@ -185,13 +185,13 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// WPF は同じ形の不具合を同じ形で持っており、あちらは T1 が見ている。
     /// </para>
     /// <para>
-    /// 引く 2 つ (プロパティ一覧の最小高さ・区切りの実寸) はどちらも XAML 側が正である。
+    /// 引く 2 つ (上段の最小高さ・区切りの実寸) はどちらも XAML 側が正である。
     /// </para>
     /// </remarks>
-    private void OnRightPaneSizeChanged(object sender, SizeChangedEventArgs e)
+    private void OnMainPaneSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        double reserved = RightPane.RowDefinitions[0].MinHeight + ConditionSplitter.ActualHeight;
-        double available = Math.Max(RightPane.RowDefinitions[2].MinHeight, e.NewSize.Height - reserved);
+        double reserved = MainPane.RowDefinitions[0].MinHeight + ConditionSplitter.ActualHeight;
+        double available = Math.Max(MainPane.RowDefinitions[2].MinHeight, e.NewSize.Height - reserved);
 
         // 変わっていないときに代入しない (レイアウトを無用に回さないため)
         if (Math.Abs(ConditionScroll.MaxHeight - available) > 0.5)
@@ -321,6 +321,12 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         set => KeyBox.Text = value;
     }
 
+    string IPickerView.DisplayNameText
+    {
+        get => DisplayNameBox.Text ?? string.Empty;
+        set => DisplayNameBox.Text = value;
+    }
+
     PickerTreeNode? IPickerView.SelectedNode => ElementTree.SelectedItem as PickerTreeNode;
 
     // ItemsSource へは **必ず配列にしてから**渡すこと。
@@ -364,6 +370,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         LowOperand.Visibility = ToVisibility(visibility.Range);
         HighOperand.Visibility = ToVisibility(visibility.Range);
         ToleranceOperand.Visibility = ToVisibility(visibility.Tolerance);
+        PollIntervalOperand.Visibility = ToVisibility(visibility.PollInterval);
     }
 
     void IPickerView.SetCommitEnabled(bool enabled) => CommitButton.IsEnabled = enabled;
@@ -381,6 +388,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         return new TriggerDraft
         {
             Id = KeyBox.Text,
+            DisplayName = DisplayNameBox.Text,
             On = on,
             Property = property,
             Op = op,
@@ -392,6 +400,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
             // 発火レート制限 (docs/DESIGN.md C11)。BoundingRectangle のようにドラッグ中は
             // 毎フレーム変わるプロパティを監視するときに要る
             MinIntervalSeconds = D(MinIntervalOperand),
+            PollIntervalSeconds = D(PollIntervalOperand),
         };
     }
 
@@ -402,6 +411,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         try
         {
             KeyBox.Text = draft.Id ?? string.Empty;
+            DisplayNameBox.Text = draft.DisplayName ?? string.Empty;
             OnCombo.SelectedItem = draft.On;
             PropCombo.SelectedItem = draft.Property;
             CondCombo.SelectedItem = draft.Op;
@@ -418,6 +428,7 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         W(HighOperand, draft.High);
         W(ToleranceOperand, draft.Tolerance);
         W(MinIntervalOperand, draft.MinIntervalSeconds);
+        W(PollIntervalOperand, draft.PollIntervalSeconds);
     }
 
     void IPickerView.DiscardDeferredWork() => _treeGeneration++;

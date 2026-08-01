@@ -84,6 +84,9 @@ public static class PickerStringKeys
     /// <summary>Label of the trigger id box.</summary>
     public const string KeyBoxHeader = "KeyBox.Header";
 
+    /// <summary>Label of the trigger display name box.</summary>
+    public const string DisplayNameBoxHeader = "DisplayNameBox.Header";
+
     /// <summary>Label of the lifecycle event picker.</summary>
     public const string OnComboHeader = "OnCombo.Header";
 
@@ -110,6 +113,9 @@ public static class PickerStringKeys
 
     /// <summary>Label of the minimum firing interval, in seconds.</summary>
     public const string MinIntervalOperandHeader = "MinIntervalOperand.Header";
+
+    /// <summary>Label of the poll interval, in seconds.</summary>
+    public const string PollIntervalOperandHeader = "PollIntervalOperand.Header";
 
     /// <summary>Caption of the button that commits the trigger.</summary>
     public const string CommitButtonContent = "CommitButton.Content";
@@ -169,9 +175,10 @@ public static class PickerStringKeys
         AutoSelectToggleHeader, AutoSelectToggleOffContent, AutoSelectToggleOnContent,
         ViewComboHeader, SearchBoxHeader, SearchNextButtonContent, HintTextText,
         ConfirmNodeButtonToolTip, TreeSplitterAutomationName, ConditionSplitterAutomationName,
-        ConditionHeadingText, ConfirmedTextText, KeyBoxHeader, OnComboHeader, PropComboHeader,
-        CondComboHeader, TextOperandHeader, ValueOperandHeader, LowOperandHeader, HighOperandHeader,
-        ToleranceOperandHeader, MinIntervalOperandHeader, CommitButtonContent,
+        ConditionHeadingText, ConfirmedTextText, KeyBoxHeader, DisplayNameBoxHeader, OnComboHeader,
+        PropComboHeader, CondComboHeader, TextOperandHeader, ValueOperandHeader, LowOperandHeader,
+        HighOperandHeader, ToleranceOperandHeader, MinIntervalOperandHeader,
+        PollIntervalOperandHeader, CommitButtonContent,
         CaptureFailed, ViewSwitchFailed, SearchNoMatch, SearchPosition, OverlapPosition,
         OverlapFailed, ConfirmFailedElementGone, Confirmed, ConfirmFailed, SelectTriggerShape,
         TriggerAdded,

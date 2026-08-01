@@ -21,18 +21,19 @@ public sealed class ConditionPaneTests
     /// <remarks>
     /// <para>
     /// 条件欄の行は <c>Orientation="Horizontal"</c> の <c>StackPanel</c> で**折り返さない**。
-    /// いちばん広い行は 724px あり、窓が狭ければ必ずはみ出す。
+    /// いちばん広い行は約 912px あり、窓が狭ければ必ずはみ出す。
     /// <c>HorizontalScrollMode</c> が <c>Disabled</c> だと**右が黙って切れる** —
     /// 例外も、切れたという表示も出ない (実測)。
     /// </para>
     /// <para>
-    /// **窓の幅は <see cref="DesktopLayout.NarrowHost"/> で固定する。**ハーネスはホストの窓を
-    /// 割り付けの矩形へ退かす際に**寸法も合わせる**ので、既定の <see cref="DesktopLayout.Host"/>
-    /// だと窓幅が画面の広さに比例してしまう (ピッカー自身の既定サイズは、退かされた時点で
-    /// 上書きされるので効かない)。3840x2160 / 175% では条件欄が 1550px 取れて
-    /// 最広行が収まり、「はみ出しが起きない」という理由付きの失敗になっていた。
-    /// 1100px 固定なら条件欄は約 490px で、**表示スケールが上がるほど内容だけが大きくなる**
-    /// (窓は物理ピクセル固定) ので、はみ出しはどの機械でも成立する。
+    /// **窓の幅は <see cref="DesktopLayout.NarrowConditionHost"/> で固定する。**ハーネスは
+    /// ホストの窓を割り付けの矩形へ退かす際に**寸法も合わせる**ので、既定の
+    /// <see cref="DesktopLayout.Host"/> だと窓幅が画面の広さに比例してしまう (ピッカー自身の
+    /// 既定サイズは、退かされた時点で上書きされるので効かない)。条件欄は**窓の全幅**を
+    /// 使うので、1100px (<see cref="DesktopLayout.NarrowHost"/>) でも 96 DPI では最広行が
+    /// 収まってしまう。900px 固定なら条件欄は 96 DPI で約 870px となり、
+    /// **表示スケールが上がるほど内容だけが大きくなる** (窓は物理ピクセル固定) ので、
+    /// はみ出しはどの機械でも成立する。
     /// </para>
     /// <para>
     /// **負の対照は置けない。**「広ければ横バーは出ない」を見るには条件欄を 724px より
@@ -58,7 +59,7 @@ public sealed class ConditionPaneTests
     {
         PickerHostProfile profile = PickerHostProfile.WinUI;
         using PickerHostProcess host = PickerHostProcess.StartWithoutATarget(
-            profile, "en-US", DesktopLayout.NarrowHost);
+            profile, "en-US", DesktopLayout.NarrowConditionHost);
         host.OpenPicker();
 
         AutomationElement picker = host.PickerWindow();

@@ -170,6 +170,8 @@ internal sealed class FakePickerView : IPickerView
 
     public string KeyText { get; set; } = string.Empty;
 
+    public string DisplayNameText { get; set; } = string.Empty;
+
     public PickerTreeNode? SelectedNode { get; set; }
 
     public IReadOnlyList<string> PropertyRows { get; private set; } = [];
@@ -255,6 +257,7 @@ internal sealed class FakePickerView : IPickerView
         ShownDrafts.Add(draft);
         Draft = draft;
         KeyText = draft.Id ?? string.Empty;
+        DisplayNameText = draft.DisplayName ?? string.Empty;
         Calls.Add(nameof(ShowDraft));
     }
 

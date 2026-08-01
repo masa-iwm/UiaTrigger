@@ -245,6 +245,7 @@ public sealed class TriggerPickerWpfWindowTests
             var original = new TriggerDraft
             {
                 Id = "edited",
+                DisplayName = "Save button",
                 On = TriggerOn.WhileMatching,
                 Property = TriggerProperty.Value,
                 Op = ComparisonOp.Between,
@@ -254,6 +255,7 @@ public sealed class TriggerPickerWpfWindowTests
                 High = 10,
                 Tolerance = 0.125,
                 MinIntervalSeconds = 3,
+                PollIntervalSeconds = 7.5,
             };
 
             view.ShowDraft(original);
@@ -261,6 +263,7 @@ public sealed class TriggerPickerWpfWindowTests
 
             Assert.NotNull(read);
             Assert.Equal(original.Id, read.Id);
+            Assert.Equal(original.DisplayName, read.DisplayName);
             Assert.Equal(original.On, read.On);
             Assert.Equal(original.Property, read.Property);
             Assert.Equal(original.Op, read.Op);
@@ -270,6 +273,7 @@ public sealed class TriggerPickerWpfWindowTests
             Assert.Equal(original.High, read.High);
             Assert.Equal(original.Tolerance, read.Tolerance);
             Assert.Equal(original.MinIntervalSeconds, read.MinIntervalSeconds);
+            Assert.Equal(original.PollIntervalSeconds, read.PollIntervalSeconds);
         });
     }
 
@@ -376,18 +380,22 @@ public sealed class TriggerPickerWpfWindowTests
             var view = (IPickerView)window;
 
             view.ShowOperands(new OperandVisibility(
-                Text: true, Value: false, Range: false, Tolerance: false, PropertyChoiceEnabled: true));
+                Text: true, Value: false, Range: false, Tolerance: false, PollInterval: true,
+                PropertyChoiceEnabled: true));
             Assert.Equal(Visibility.Visible, window.TextOperandPanel.Visibility);
             Assert.Equal(Visibility.Collapsed, window.ValueOperandPanel.Visibility);
             Assert.Equal(Visibility.Collapsed, window.LowOperandPanel.Visibility);
+            Assert.Equal(Visibility.Visible, window.PollIntervalOperandPanel.Visibility);
             Assert.True(window.PropCombo.IsEnabled);
 
             view.ShowOperands(new OperandVisibility(
-                Text: false, Value: false, Range: true, Tolerance: true, PropertyChoiceEnabled: false));
+                Text: false, Value: false, Range: true, Tolerance: true, PollInterval: false,
+                PropertyChoiceEnabled: false));
             Assert.Equal(Visibility.Collapsed, window.TextOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.LowOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.HighOperandPanel.Visibility);
             Assert.Equal(Visibility.Visible, window.ToleranceOperandPanel.Visibility);
+            Assert.Equal(Visibility.Collapsed, window.PollIntervalOperandPanel.Visibility);
             Assert.False(window.PropCombo.IsEnabled);
         });
     }
@@ -580,11 +588,11 @@ public sealed class TriggerPickerWpfWindowTests
             using TriggerPickerWindow window = CreateWindow(new FakeStrings());
             Layout((FrameworkElement)window.Content, 1100, 700);
 
-            Grid pane = window.RightPane;
+            Grid pane = window.MainPane;
             ScrollViewer scroll = window.ConditionScroll;
             string measured =
                 $"区画 {pane.ActualHeight}px / 区切り {window.ConditionSplitter.ActualHeight}px / " +
-                $"プロパティ一覧の最小 {pane.RowDefinitions[0].MinHeight}px / 上限 {scroll.MaxHeight}";
+                $"上段の最小 {pane.RowDefinitions[0].MinHeight}px / 上限 {scroll.MaxHeight}";
 
             Assert.False(
                 double.IsPositiveInfinity(scroll.MaxHeight),

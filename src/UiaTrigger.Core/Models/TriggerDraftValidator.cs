@@ -24,6 +24,14 @@ public sealed class TriggerDraft
     /// <summary>Identifier for the trigger. Required; trimmed before use.</summary>
     public string? Id { get; set; }
 
+    /// <summary>Human-readable label for the trigger; trimmed before use.</summary>
+    /// <remarks>
+    /// Null or blank keeps the definition's current <see cref="TriggerDefinition.DisplayName"/>,
+    /// so a draft that does not carry this field cannot erase a recorded name. This is deliberately
+    /// the opposite of <see cref="PollIntervalSeconds"/>, where an empty field means "none".
+    /// </remarks>
+    public string? DisplayName { get; set; }
+
     /// <summary>The lifecycle moment the trigger fires at.</summary>
     public TriggerOn On { get; set; } = TriggerOn.PropertyChanged;
 
@@ -50,6 +58,13 @@ public sealed class TriggerDraft
 
     /// <summary>Minimum interval between firings, in seconds. Null or non-positive means none.</summary>
     public double? MinIntervalSeconds { get; set; }
+
+    /// <summary>
+    /// How often to re-read the trigger's resolved elements, in seconds. Null or non-positive
+    /// means event-driven monitoring only (see <see cref="TriggerDefinition.PollInterval"/>).
+    /// Dropped when <see cref="TriggerDraftValidator.UsesPollInterval"/> is false for <see cref="On"/>.
+    /// </summary>
+    public double? PollIntervalSeconds { get; set; }
 }
 
 /// <summary>The outcome of validating a <see cref="TriggerDraft"/>.</summary>
@@ -59,7 +74,8 @@ public sealed class TriggerDraft
 /// valid for a trigger that only watches for the element appearing or disappearing.
 /// </param>
 /// <param name="MinInterval">The rate limit to apply, or null for none.</param>
-public readonly record struct TriggerDraftResult(string? Error, PropertyClause? Clause, TimeSpan? MinInterval)
+/// <param name="PollInterval">The polling cadence to apply, or null for event-driven only.</param>
+public readonly record struct TriggerDraftResult(string? Error, PropertyClause? Clause, TimeSpan? MinInterval, TimeSpan? PollInterval)
 {
     /// <summary>Whether the draft can be turned into a definition.</summary>
     public bool IsValid => Error is null;
@@ -123,6 +139,15 @@ public static class TriggerDraftValidator
     public static bool UsesTolerance(ComparisonOp op) =>
         UsesRange(op) || UsesValue(op) || op is ComparisonOp.Equals or ComparisonOp.NotEquals;
 
+    /// <summary>Whether <see cref="TriggerDraft.PollIntervalSeconds"/> applies to a lifecycle.</summary>
+    /// <remarks>
+    /// Polling re-reads elements that are already resolved, so it cannot affect a trigger that only
+    /// watches for its element appearing or disappearing — the monitor rejects that combination
+    /// when the trigger is added (see <see cref="TriggerDefinition.PollInterval"/>).
+    /// </remarks>
+    public static bool UsesPollInterval(TriggerOn on) =>
+        on is TriggerOn.PropertyChanged or TriggerOn.WhileMatching;
+
     /// <summary>Validates a draft.</summary>
     /// <param name="draft">The values collected from the user.</param>
     /// <param name="regexTimeout">
@@ -139,38 +164,38 @@ public static class TriggerDraftValidator
 
         if (string.IsNullOrWhiteSpace(draft.Id))
         {
-            return new TriggerDraftResult(Strings.Draft_IdRequired, null, null);
+            return new TriggerDraftResult(Strings.Draft_IdRequired, null, null, null);
         }
         if (IsOrderingOp(draft.Op) && !IsNumericProperty(draft.Property))
         {
-            return new TriggerDraftResult(Strings.Draft_OrderingNeedsNumericProperty, null, null);
+            return new TriggerDraftResult(Strings.Draft_OrderingNeedsNumericProperty, null, null, null);
         }
 
         if (UsesRange(draft.Op))
         {
             if (draft.Low is not { } low || draft.High is not { } high)
             {
-                return new TriggerDraftResult(Strings.Draft_RangeRequired, null, null);
+                return new TriggerDraftResult(Strings.Draft_RangeRequired, null, null, null);
             }
             if (low > high)
             {
-                return new TriggerDraftResult(Strings.Draft_RangeReversed, null, null);
+                return new TriggerDraftResult(Strings.Draft_RangeReversed, null, null, null);
             }
         }
         else if (UsesValue(draft.Op) && draft.Value is null)
         {
-            return new TriggerDraftResult(Strings.Draft_ValueRequired, null, null);
+            return new TriggerDraftResult(Strings.Draft_ValueRequired, null, null, null);
         }
 
         if (UsesText(draft.Op) && draft.Text is null)
         {
-            return new TriggerDraftResult(Strings.Draft_TextRequired, null, null);
+            return new TriggerDraftResult(Strings.Draft_TextRequired, null, null, null);
         }
         if (draft.Op is ComparisonOp.RegexMatch or ComparisonOp.RegexNotMatch)
         {
             if (string.IsNullOrEmpty(draft.Text))
             {
-                return new TriggerDraftResult(Strings.Draft_RegexRequired, null, null);
+                return new TriggerDraftResult(Strings.Draft_RegexRequired, null, null, null);
             }
             try
             {
@@ -186,12 +211,12 @@ public static class TriggerDraftValidator
             // 片方しか捕まえないと、確定できたのに監視開始で落ちる定義が作れてしまう
             catch (Exception ex) when (ex is ArgumentException or NotSupportedException)
             {
-                return new TriggerDraftResult(Message.Format(Strings.Draft_RegexInvalid, ex.Message), null, null);
+                return new TriggerDraftResult(Message.Format(Strings.Draft_RegexInvalid, ex.Message), null, null, null);
             }
         }
         if (draft.Tolerance is < 0)
         {
-            return new TriggerDraftResult(Strings.Draft_ToleranceNegative, null, null);
+            return new TriggerDraftResult(Strings.Draft_ToleranceNegative, null, null, null);
         }
 
         // 使わない欄の値は句に載せない。表示の都合 (欄が見えているか) ではなく
@@ -214,7 +239,13 @@ public static class TriggerDraftValidator
             ? TimeSpan.FromSeconds(seconds)
             : null;
 
-        return new TriggerDraftResult(null, clause, minInterval);
+        // 隠れているポーリング欄の残り値を載せない。演算子で決めるオペランドと同じ理由で、
+        // 欄の可視性ではなく lifecycle で決める
+        TimeSpan? pollInterval = UsesPollInterval(draft.On) && draft.PollIntervalSeconds is { } poll and > 0
+            ? TimeSpan.FromSeconds(poll)
+            : null;
+
+        return new TriggerDraftResult(null, clause, minInterval, pollInterval);
     }
 
     /// <summary>Whether a string can be used as a <see cref="PropertyClause.Name"/>.</summary>
@@ -290,6 +321,14 @@ public static class TriggerDraftValidator
         }
 
         definition.Id = draft.Id!.Trim();
+        // 空欄は既存の表示名を残す。表示名を運ばない下書き (この欄より古いサードパーティの
+        // ピッカー) が、確定のたびに記録済みの名前を消してしまわないため。
+        // PollInterval (空欄 = 解除) とは逆向きに倒してある — あちらは欄が常に lifecycle と
+        // 対で見えるが、表示名の空欄は「消した」ではなく「触っていない」が普通の操作である
+        if (!string.IsNullOrWhiteSpace(draft.DisplayName))
+        {
+            definition.DisplayName = draft.DisplayName.Trim();
+        }
         definition.On = draft.On;
         definition.Combine = ClauseCombinator.All;
         definition.Clauses.Clear();
@@ -301,20 +340,9 @@ public static class TriggerDraftValidator
             definition.Clauses.Add(clause);
         }
         definition.MinInterval = result.MinInterval;
-
-        // 新しい On で意味を失うポーリングは落とす。式を落とすのと同じ理由である。
-        //
-        // 下書きは PollInterval を持たないので、録り直しても既存の値はそのまま残る
-        // (Window / Locator と同じ扱いで、これ自体は望ましい — 利用者が入れた設定を
-        // 録り直しで黙って捨てない)。だが On だけは上書きされるので、
-        // 「PollInterval > 0 のまま On が ElementAppeared になった定義」が作れてしまう。
-        // **それは CreateRuntime が弾く組み合わせである** = 確定できたのに監視開始で落ちる。
-        // しかもホストの録り直しは RemoveAsync → AddAsync の投げっぱなしなので、
-        // 画面には何も出ないままトリガーが消える (監視中の録り直しが壊れやすい理由は
-        // docs/TESTING.md §2 の assert 規律に書いてある)
-        if (definition.On is TriggerOn.ElementAppeared or TriggerOn.ElementRemoved)
-        {
-            definition.PollInterval = null;
-        }
+        // Validate が UsesPollInterval で落としているので、ここでの代入は「新しい On で意味を
+        // 失うポーリングを落とす」も兼ねる。CreateRuntime が弾く組み合わせ (ElementAppeared +
+        // PollInterval > 0) はこの代入を通る限り作れない
+        definition.PollInterval = result.PollInterval;
     }
 }

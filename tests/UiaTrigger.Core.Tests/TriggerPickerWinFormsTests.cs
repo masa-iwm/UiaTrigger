@@ -201,6 +201,7 @@ public sealed class TriggerPickerWinFormsTests
             var original = new TriggerDraft
             {
                 Id = "edited",
+                DisplayName = "Save button",
                 On = TriggerOn.WhileMatching,
                 Property = TriggerProperty.Value,
                 Op = ComparisonOp.Between,
@@ -210,6 +211,7 @@ public sealed class TriggerPickerWinFormsTests
                 High = 10,
                 Tolerance = 0.125,
                 MinIntervalSeconds = 3,
+                PollIntervalSeconds = 7.5,
             };
 
             view.ShowDraft(original);
@@ -217,6 +219,7 @@ public sealed class TriggerPickerWinFormsTests
 
             Assert.NotNull(read);
             Assert.Equal(original.Id, read.Id);
+            Assert.Equal(original.DisplayName, read.DisplayName);
             Assert.Equal(original.On, read.On);
             Assert.Equal(original.Property, read.Property);
             Assert.Equal(original.Op, read.Op);
@@ -226,6 +229,53 @@ public sealed class TriggerPickerWinFormsTests
             Assert.Equal(original.High, read.High);
             Assert.Equal(original.Tolerance, read.Tolerance);
             Assert.Equal(original.MinIntervalSeconds, read.MinIntervalSeconds);
+            Assert.Equal(original.PollIntervalSeconds, read.PollIntervalSeconds);
+        });
+    }
+
+    /// <summary>
+    /// 出す欄と出さない欄が <see cref="OperandVisibility"/> のとおりであること。
+    ///
+    /// ここがずれると**ユーザーに見えない欄の値が条件に入る**。出し分けの規則そのものは
+    /// プレゼンター側 (T1 で別途固定) の担当で、ここで見るのは「言われたとおりに
+    /// 出し入れしているか」である (WPF 版と同じ検査)。
+    /// </summary>
+    /// <remarks>
+    /// Windows Forms の <c>Control.Visible</c> は**実効値**で、親のフォームが表示されて
+    /// いないと常に false を返す (WPF の <c>Visibility</c> が設定値をそのまま返すのと違う)。
+    /// なのでここだけはフォームを**画面外に**出す — 出さないと、隠す側の assert が
+    /// 全部素通りして検出力が無くなる。
+    /// </remarks>
+    [Fact]
+    public void ShowOperands_ShowsExactlyTheFieldsItIsToldTo()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerForm form = CreateForm(new FakeStrings());
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = new System.Drawing.Point(-32000, -32000);
+            form.Show();
+            var view = (IPickerView)form;
+            Control text = form.Controls.Find("TextOperand", searchAllChildren: true).Single();
+            Control value = form.Controls.Find("ValueOperand", searchAllChildren: true).Single();
+            Control poll = form.Controls.Find("PollIntervalOperand", searchAllChildren: true).Single();
+            Control pollLabel = form.Controls.Find("PollIntervalOperandLabel", searchAllChildren: true).Single();
+
+            view.ShowOperands(new OperandVisibility(
+                Text: true, Value: false, Range: false, Tolerance: false, PollInterval: true,
+                PropertyChoiceEnabled: true));
+            Assert.True(text.Visible);
+            Assert.False(value.Visible);
+            Assert.True(poll.Visible);
+            Assert.True(pollLabel.Visible);
+
+            view.ShowOperands(new OperandVisibility(
+                Text: false, Value: true, Range: false, Tolerance: false, PollInterval: false,
+                PropertyChoiceEnabled: true));
+            Assert.False(text.Visible);
+            Assert.True(value.Visible);
+            Assert.False(poll.Visible);
+            Assert.False(pollLabel.Visible);
         });
     }
 

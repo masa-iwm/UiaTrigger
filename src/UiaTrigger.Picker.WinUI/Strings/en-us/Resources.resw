@@ -101,6 +101,9 @@
   <data name="KeyBox.Header" xml:space="preserve">
     <value>Id</value>
   </data>
+  <data name="DisplayNameBox.Header" xml:space="preserve">
+    <value>Display name</value>
+  </data>
   <data name="OnCombo.Header" xml:space="preserve">
     <value>Fires on</value>
   </data>
@@ -127,6 +130,9 @@
   </data>
   <data name="MinIntervalOperand.Header" xml:space="preserve">
     <value>Min interval (s)</value>
+  </data>
+  <data name="PollIntervalOperand.Header" xml:space="preserve">
+    <value>Poll interval (s)</value>
   </data>
   <data name="CommitButton.Content" xml:space="preserve">
     <value>Add trigger</value>

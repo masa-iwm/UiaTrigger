@@ -288,6 +288,41 @@ public sealed class TriggerDraftValidatorTests
         Assert.Equal(expected is null ? null : TimeSpan.FromSeconds(expected.Value), interval);
     }
 
+    // ---- ポーリング間隔 ----
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(0.0, null)]
+    [InlineData(-1.0, null)]
+    [InlineData(1.5, 1.5)]
+    public void Validate_TurnsANonPositivePollIntervalIntoNone(double? seconds, double? expected)
+    {
+        TriggerDraft draft = Draft();
+        draft.PollIntervalSeconds = seconds;
+
+        TimeSpan? interval = Validate(draft).PollInterval;
+
+        Assert.Equal(expected is null ? null : TimeSpan.FromSeconds(expected.Value), interval);
+    }
+
+    /// <summary>
+    /// ポーリングできないライフサイクルでは、欄に値が残っていても結果に載せないこと。
+    /// 欄は隠れている (<c>UsesPollInterval</c> が偽 = View が欄を出さない) ので、
+    /// 残り値が載ると「ユーザーに見えない値が保存される」— 演算子のオペランドと同じ規律である。
+    /// </summary>
+    [Theory]
+    [InlineData(TriggerOn.ElementAppeared)]
+    [InlineData(TriggerOn.ElementRemoved)]
+    public void Validate_DropsThePollIntervalForALifecycleThatCannotPoll(TriggerOn on)
+    {
+        TriggerDraft draft = Draft();
+        draft.On = on;
+        draft.Op = ComparisonOp.Always;
+        draft.PollIntervalSeconds = 0.5;
+
+        Assert.Null(Validate(draft).PollInterval);
+    }
+
     // ---- 定義への書き戻し ----
 
     [Fact]
@@ -336,10 +371,8 @@ public sealed class TriggerDraftValidatorTests
     /// **録り直しで <c>On</c> が変わったとき、意味を失うポーリングも落とすこと。**
     ///
     /// <para>
-    /// 下書きは <c>PollInterval</c> を持たないので、録り直しても既存の値は残る
-    /// (<c>Window</c> / <c>Locator</c> と同じで、それ自体は望ましい)。
-    /// だが <c>On</c> だけは上書きされるので、**「ポーリング付きのまま
-    /// <see cref="TriggerOn.ElementAppeared"/> になった定義」**が作れてしまう。
+    /// 下書きの欄に値が残っていても、**「ポーリング付きのまま
+    /// <see cref="TriggerOn.ElementAppeared"/> になった定義」**を作ってはならない。
     /// それは <c>TriggerMonitor.CreateRuntime</c> が弾く組み合わせである。
     /// </para>
     /// <para>
@@ -359,6 +392,7 @@ public sealed class TriggerDraftValidatorTests
         TriggerDraft draft = Draft();
         draft.On = on;
         draft.Op = ComparisonOp.Always;
+        draft.PollIntervalSeconds = 0.5;
 
         TriggerDraftValidator.Apply(definition, draft, Validate(draft));
 
@@ -366,20 +400,68 @@ public sealed class TriggerDraftValidatorTests
     }
 
     /// <summary>
-    /// 逆に、<c>On</c> がポーリングできる側なら**残す**こと。
-    /// 利用者が入れた設定を、句を録り直しただけで黙って捨てない。
+    /// ポーリング間隔は下書きの欄が運ぶ。編集で読み込んだ値は
+    /// <c>LoadDefinition</c> が欄に入れて往復するので、確定し直しても消えない。
     /// </summary>
     [Fact]
-    public void Apply_WhenTheNewOnCanPoll_KeepsThePollInterval()
+    public void Apply_CarriesThePollIntervalFromTheDraft()
     {
         var definition = new TriggerDefinition { Id = "old", PollInterval = TimeSpan.FromMilliseconds(500) };
         TriggerDraft draft = Draft(ComparisonOp.Equals);
         draft.On = TriggerOn.WhileMatching;
         draft.Text = "ready";
+        draft.PollIntervalSeconds = 2;
 
         TriggerDraftValidator.Apply(definition, draft, Validate(draft));
 
-        Assert.Equal(TimeSpan.FromMilliseconds(500), definition.PollInterval);
+        Assert.Equal(TimeSpan.FromSeconds(2), definition.PollInterval);
+    }
+
+    /// <summary>空欄は「解除」を意味する (MinInterval と同じ意味論)。</summary>
+    [Fact]
+    public void Apply_WithAnEmptyPollInterval_ClearsIt()
+    {
+        var definition = new TriggerDefinition { Id = "old", PollInterval = TimeSpan.FromMilliseconds(500) };
+        TriggerDraft draft = Draft(ComparisonOp.Equals);
+        draft.Text = "ready";
+
+        TriggerDraftValidator.Apply(definition, draft, Validate(draft));
+
+        Assert.Null(definition.PollInterval);
+    }
+
+    // ---- 表示名 ----
+
+    [Fact]
+    public void Apply_TrimsTheDisplayName()
+    {
+        var definition = new TriggerDefinition { Id = "old" };
+        TriggerDraft draft = Draft();
+        draft.DisplayName = "  Save button  ";
+
+        TriggerDraftValidator.Apply(definition, draft, Validate(draft));
+
+        Assert.Equal("Save button", definition.DisplayName);
+    }
+
+    /// <summary>
+    /// 空欄は「消した」ではなく「触っていない」。この欄を運ばない下書き
+    /// (この欄より古いサードパーティのピッカー) が、確定のたびに記録済みの
+    /// 表示名を消してしまわないこと。
+    /// </summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Apply_WithABlankDisplayName_KeepsTheRecordedOne(string? displayName)
+    {
+        var definition = new TriggerDefinition { Id = "old", DisplayName = "recorded" };
+        TriggerDraft draft = Draft();
+        draft.DisplayName = displayName;
+
+        TriggerDraftValidator.Apply(definition, draft, Validate(draft));
+
+        Assert.Equal("recorded", definition.DisplayName);
     }
 
     /// <summary>
@@ -410,6 +492,8 @@ public sealed class TriggerDraftValidatorTests
         TriggerDraft draft = Draft(ComparisonOp.Equals);
         draft.On = on;
         draft.Text = "ready";
+        // 欄に値が残ったまま On を変えた、いちばん危ない形で通す
+        draft.PollIntervalSeconds = 0.5;
 
         TriggerDraftValidator.Apply(definition, draft, Validate(draft));
 

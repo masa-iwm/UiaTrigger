@@ -30,7 +30,7 @@ public sealed class PickerConditionPaneTests
     ///
     /// <para>
     /// 行は <c>Orientation="Horizontal"</c> の <c>StackPanel</c> で折り返さず、いちばん広い行は
-    /// 724px ある。窓を狭めると**右が黙って切れる** — 例外も、切れたという表示も出ない。
+    /// 約 912px ある。窓を狭めると**右が黙って切れる** — 例外も、切れたという表示も出ない。
     /// </para>
     /// <para>
     /// **2 つは独立した設定ではない。**<c>HorizontalScrollBarVisibility="Auto"</c> が在れば

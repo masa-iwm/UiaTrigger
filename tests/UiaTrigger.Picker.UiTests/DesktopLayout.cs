@@ -82,6 +82,26 @@ internal static class DesktopLayout
     public static (int Left, int Top, int Width, int Height) NarrowHost =>
         (Host.Left, Host.Top, 1100, Host.Height);
 
+    /// <summary>
+    /// 条件欄の横スクロール検査用の、さらに狭いホスト窓。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 条件欄は**窓の全幅**を使う (上段のツリー / プロパティ一覧と違い、右区画に
+    /// 押し込められていない)。<see cref="NarrowHost"/> の 1100px では 96 DPI で
+    /// 最広行 (約 912px: 180×4 + 160 + 間隔 32) が**収まってしまい**、
+    /// 「はみ出しが起きない」という理由付きの失敗になる。
+    /// </para>
+    /// <para>
+    /// 900px なら条件欄は 96 DPI で約 870px となり最広行が溢れ、表示スケールが上がるほど
+    /// 内容だけが大きくなる (窓は物理ピクセル固定) ので、どの機械でも成立する。
+    /// 下限は上段の MinWidth 合計 (240+240+掴み代 ≈ 500px 論理) — 175% でも
+    /// 900/1.75 ≈ 514px でぎりぎり収まる。これより狭くすると上段が横に切れる。
+    /// </para>
+    /// </remarks>
+    public static (int Left, int Top, int Width, int Height) NarrowConditionHost =>
+        (Host.Left, Host.Top, 900, Host.Height);
+
     static DesktopLayout()
     {
         System.Windows.Rect desktop = AutomationElement.RootElement.Current.BoundingRectangle;

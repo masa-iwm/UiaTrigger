@@ -302,6 +302,12 @@
     <member name="P:UiaTrigger.Picker.IPickerView.KeyText">
       <summary>ユーザーが入力したトリガー Id。空のときはプレゼンターが既定値を入れる。</summary>
     </member>
+    <member name="P:UiaTrigger.Picker.IPickerView.DisplayNameText">
+      <summary>
+        ユーザーが入力したトリガーの表示名。空のときと前回の提案のままのときは
+        プレゼンターが提案を入れる。
+      </summary>
+    </member>
     <member name="P:UiaTrigger.Picker.IPickerView.SelectedNode">
       <summary>ツリーで現在選択されている行。無ければ <see langword="null" />。</summary>
     </member>
@@ -407,12 +413,16 @@
     </member>
 
     <!-- ================= OperandVisibility ================= -->
-    <member name="M:UiaTrigger.Picker.OperandVisibility.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)">
+    <member name="M:UiaTrigger.Picker.OperandVisibility.#ctor(System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean,System.Boolean)">
       <summary>条件がどの値の欄を必要とするかを表す。</summary>
       <param name="Text">文字列の値を使うかどうか。</param>
       <param name="Value">単一の数値を使うかどうか。</param>
       <param name="Range">下限と上限を使うかどうか。</param>
       <param name="Tolerance">許容差を使うかどうか (数値の比較のときだけ)。</param>
+      <param name="PollInterval">
+        ポーリング間隔の欄を使うかどうか。ポーリングは解決済みの要素を読み直すものなので、
+        要素の出現・消滅だけを見るトリガーには意味が無い。
+      </param>
       <param name="PropertyChoiceEnabled">
         監視するプロパティを選べるかどうか。要素の出現・削除だけを見るトリガーは条件を
         持たないことができ、その場合は選ぶべきプロパティが無い。
@@ -429,6 +439,9 @@
     </member>
     <member name="P:UiaTrigger.Picker.OperandVisibility.Tolerance">
       <summary>許容差を使うかどうか (数値の比較のときだけ)。</summary>
+    </member>
+    <member name="P:UiaTrigger.Picker.OperandVisibility.PollInterval">
+      <summary>ポーリング間隔の欄を使うかどうか。</summary>
     </member>
     <member name="P:UiaTrigger.Picker.OperandVisibility.PropertyChoiceEnabled">
       <summary>監視するプロパティを選べるかどうか。</summary>
@@ -499,6 +512,9 @@
     <member name="F:UiaTrigger.Picker.PickerStringKeys.KeyBoxHeader">
       <summary>トリガー Id の入力欄のラベル。</summary>
     </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.DisplayNameBoxHeader">
+      <summary>トリガーの表示名の入力欄のラベル。</summary>
+    </member>
     <member name="F:UiaTrigger.Picker.PickerStringKeys.OnComboHeader">
       <summary>発火の契機を選ぶ欄のラベル。</summary>
     </member>
@@ -525,6 +541,9 @@
     </member>
     <member name="F:UiaTrigger.Picker.PickerStringKeys.MinIntervalOperandHeader">
       <summary>最小の発火間隔 (秒) を入れる欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.PickerStringKeys.PollIntervalOperandHeader">
+      <summary>ポーリング間隔 (秒) を入れる欄のラベル。</summary>
     </member>
     <member name="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonContent">
       <summary>トリガーを確定するボタンの文字。</summary>

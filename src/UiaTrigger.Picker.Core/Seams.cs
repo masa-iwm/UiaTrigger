@@ -95,6 +95,10 @@ public interface IPickerStrings
 /// <param name="Value">Whether the single-value operand applies.</param>
 /// <param name="Range">Whether the low and high operands apply.</param>
 /// <param name="Tolerance">Whether the tolerance operand applies (numeric comparisons only).</param>
+/// <param name="PollInterval">
+/// Whether the poll interval operand applies. Polling re-reads elements that are already resolved,
+/// so it means nothing to a trigger that only watches for its element appearing or disappearing.
+/// </param>
 /// <param name="PropertyChoiceEnabled">
 /// Whether the property to watch can be chosen. Triggers that only watch for an element appearing
 /// or being removed may carry no condition at all, and then there is no property to pick.
@@ -104,6 +108,7 @@ public readonly record struct OperandVisibility(
     bool Value,
     bool Range,
     bool Tolerance,
+    bool PollInterval,
     bool PropertyChoiceEnabled);
 
 /// <summary>The picker's view, as its presenter sees it.</summary>
@@ -133,6 +138,12 @@ public interface IPickerView
 
     /// <summary>The trigger id the user typed. The presenter fills in a default when it is empty.</summary>
     string KeyText { get; set; }
+
+    /// <summary>
+    /// The trigger display name the user typed. The presenter fills in a suggestion when it is
+    /// empty or still carries the previous suggestion.
+    /// </summary>
+    string DisplayNameText { get; set; }
 
     /// <summary>The row currently selected in the tree, or null when there is none.</summary>
     PickerTreeNode? SelectedNode { get; }

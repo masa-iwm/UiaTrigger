@@ -93,6 +93,9 @@
   <data name="KeyBox.Header" xml:space="preserve">
     <value>Id</value>
   </data>
+  <data name="DisplayNameBox.Header" xml:space="preserve">
+    <value>表示名</value>
+  </data>
   <data name="OnCombo.Header" xml:space="preserve">
     <value>発火契機</value>
   </data>
@@ -119,6 +122,9 @@
   </data>
   <data name="MinIntervalOperand.Header" xml:space="preserve">
     <value>最小発火間隔 (秒)</value>
+  </data>
+  <data name="PollIntervalOperand.Header" xml:space="preserve">
+    <value>ポーリング間隔 (秒)</value>
   </data>
   <data name="CommitButton.Content" xml:space="preserve">
     <value>トリガーを追加</value>

@@ -888,6 +888,82 @@ public sealed class TriggerPickerPresenterTests
         Assert.Equal("my-own-key", h.View.KeyText);
     }
 
+    /// <summary>確定したら、記録された表示名を提案として欄に入れること。</summary>
+    [Fact]
+    public async Task Confirm_SuggestsTheRecordedDisplayName()
+    {
+        using var h = new Harness();
+        h.Services.NextCapture = Capture(new FakePickerElement("Button") { AutomationId = "SaveBtn" });
+        await h.CaptureOnceAsync();
+        h.Services.NextDefinition = Definition("notepad.exe");
+
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+
+        Assert.Equal("Button \"Save\"", h.View.DisplayNameText);
+    }
+
+    /// <summary>ユーザーが入れた表示名は上書きしないこと。</summary>
+    [Fact]
+    public async Task Confirm_DoesNotOverwriteADisplayNameTheUserTyped()
+    {
+        using var h = new Harness();
+        h.Services.NextCapture = Capture(new FakePickerElement("Button") { AutomationId = "SaveBtn" });
+        await h.CaptureOnceAsync();
+        h.Services.NextDefinition = Definition("notepad.exe");
+        h.View.DisplayNameText = "my own name";
+
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+
+        Assert.Equal("my own name", h.View.DisplayNameText);
+    }
+
+    /// <summary>
+    /// 続けて別の要素を確定したら、提案の表示名もその要素のものに作り直すこと (id と同じ規則)。
+    /// </summary>
+    [Fact]
+    public async Task Confirm_WhenAnotherElementIsConfirmed_TheSuggestedDisplayNameFollowsIt()
+    {
+        using var h = new Harness();
+        h.Services.NextCapture = Capture(new FakePickerElement("Button") { AutomationId = "SaveBtn" });
+        await h.CaptureOnceAsync();
+        h.Services.NextDefinition = Definition("notepad.exe");
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+        Assert.Equal("Button \"Save\"", h.View.DisplayNameText);
+
+        h.Services.NextCapture = Capture(new FakePickerElement("Button") { AutomationId = "CancelBtn" });
+        await h.CaptureOnceAtAsync(400, 400);
+        h.Services.NextDefinition = new TriggerDefinition
+        {
+            Id = "recorded",
+            DisplayName = "Button \"Cancel\"",
+            Window = new WindowIdentity { ProcessName = "notepad.exe" },
+        };
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+
+        Assert.Equal("Button \"Cancel\"", h.View.DisplayNameText);
+    }
+
+    /// <summary>
+    /// ユーザーが書いた表示名は、別の要素を確定しても書き換えないこと。
+    /// 上のテストが「常に上書きする」で通ってしまわないための対。
+    /// </summary>
+    [Fact]
+    public async Task Confirm_AfterTheUserTypedADisplayName_LaterConfirmationsLeaveItAlone()
+    {
+        using var h = new Harness();
+        h.Services.NextCapture = Capture(new FakePickerElement("Button") { AutomationId = "SaveBtn" });
+        await h.CaptureOnceAsync();
+        h.Services.NextDefinition = Definition("notepad.exe");
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+        h.View.DisplayNameText = "my own name"; // ユーザーが書き換えた
+
+        h.Services.NextCapture = Capture(new FakePickerElement("Button") { AutomationId = "CancelBtn" });
+        await h.CaptureOnceAtAsync(400, 400);
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+
+        Assert.Equal("my own name", h.View.DisplayNameText);
+    }
+
     /// <summary>要素が消えていたら理由を出し、コミットは有効にしないこと。</summary>
     [Fact]
     public async Task Confirm_WhenTheElementIsGone_SaysSoAndLeavesCommitDisabled()
@@ -967,9 +1043,28 @@ public sealed class TriggerPickerPresenterTests
         Assert.Equal(TriggerDraftValidator.UsesValue(op), visibility.Value);
         Assert.Equal(TriggerDraftValidator.UsesRange(op), visibility.Range);
         Assert.Equal(TriggerDraftValidator.UsesTolerance(op), visibility.Tolerance);
+        Assert.Equal(TriggerDraftValidator.UsesPollInterval(TriggerOn.PropertyChanged), visibility.PollInterval);
     }
 
     public static TheoryData<ComparisonOp> EveryComparison => [.. Enum.GetValues<ComparisonOp>()];
+
+    /// <summary>
+    /// ポーリング間隔の欄は、ポーリングできるライフサイクルでだけ出すこと。
+    /// 出現・削除では Core (CreateRuntime) が拒否するので、欄を出すと
+    /// 「入力できたのに確定でエラー」になる。
+    /// </summary>
+    [Theory]
+    [InlineData(TriggerOn.ElementAppeared, false)]
+    [InlineData(TriggerOn.ElementRemoved, false)]
+    [InlineData(TriggerOn.PropertyChanged, true)]
+    [InlineData(TriggerOn.WhileMatching, true)]
+    public void Operands_ThePollIntervalOnlyAppearsForLifecyclesThatCanPoll(TriggerOn lifecycle, bool expected)
+    {
+        OperandVisibility visibility = TriggerPickerPresenter.DescribeOperands(lifecycle, ComparisonOp.Always);
+
+        Assert.Equal(expected, visibility.PollInterval);
+        Assert.Equal(TriggerDraftValidator.UsesPollInterval(lifecycle), visibility.PollInterval);
+    }
 
     /// <summary>
     /// 出現・削除だけを見るトリガーで条件が無いときだけ、プロパティの選択を伏せること。
@@ -1115,6 +1210,7 @@ public sealed class TriggerPickerPresenterTests
         TriggerDefinition def = Recorded();
         def.On = TriggerOn.WhileMatching;
         def.MinInterval = TimeSpan.FromSeconds(2.5);
+        def.PollInterval = TimeSpan.FromSeconds(10);
         def.Clauses[0].Op = ComparisonOp.GreaterThan;
         def.Clauses[0].Property = TriggerProperty.Value;
         def.Clauses[0].Value = 42;
@@ -1124,12 +1220,14 @@ public sealed class TriggerPickerPresenterTests
 
         TriggerDraft draft = Assert.Single(h.View.ShownDrafts);
         Assert.Equal("recorded", draft.Id);
+        Assert.Equal("Button \"Save\"", draft.DisplayName);
         Assert.Equal(TriggerOn.WhileMatching, draft.On);
         Assert.Equal(TriggerProperty.Value, draft.Property);
         Assert.Equal(ComparisonOp.GreaterThan, draft.Op);
         Assert.Equal(42, draft.Value);
         Assert.Equal(0.5, draft.Tolerance);
         Assert.Equal(2.5, draft.MinIntervalSeconds);
+        Assert.Equal(10, draft.PollIntervalSeconds);
         // 形のほうにも同じ値が渡ること (コンボの初期選択)
         Assert.Equal(TriggerOn.WhileMatching, h.View.ShapeLifecycle);
         Assert.Equal(ComparisonOp.GreaterThan, h.View.ShapeComparison);
@@ -1218,6 +1316,29 @@ public sealed class TriggerPickerPresenterTests
         await h.ConfirmSomethingAsync();
 
         Assert.Equal("recorded", h.View.KeyText);
+    }
+
+    /// <summary>
+    /// 読み込んだあと要素を捕まえ直しても、表示名が黙って提案に置き換わらないこと (id と同じ規則)。
+    /// </summary>
+    [Fact]
+    public async Task LoadDefinition_ThenReconfirming_KeepsTheDisplayName()
+    {
+        using var h = new Harness();
+        h.Presenter.LoadDefinition(Recorded());
+        Assert.Equal("Button \"Save\"", h.View.DisplayNameText);
+
+        h.Services.NextCapture = Capture(new FakePickerElement("Button"));
+        await h.CaptureOnceAsync();
+        h.Services.NextDefinition = new TriggerDefinition
+        {
+            Id = "recorded",
+            DisplayName = "Button \"Other\"",
+            Window = new WindowIdentity { ProcessName = "notepad.exe" },
+        };
+        await h.Presenter.ConfirmNodeAsync(h.Presenter.Roots[0].Children[0]);
+
+        Assert.Equal("Button \"Save\"", h.View.DisplayNameText);
     }
 
     /// <summary>ピッカーで編集できないものは断ること。</summary>

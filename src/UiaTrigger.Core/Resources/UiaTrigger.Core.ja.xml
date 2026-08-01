@@ -367,7 +367,7 @@
       <param name="Error">まとめられない理由 (ローカライズ済み)。まとめられるときは null。</param>
       <param name="Definition">複合の定義。<paramref name="Error" /> があるときは null。</param>
     </member>
-    <member name="M:UiaTrigger.Models.TriggerDraftResult.#ctor(System.String,UiaTrigger.Models.PropertyClause,System.Nullable{System.TimeSpan})">
+    <member name="M:UiaTrigger.Models.TriggerDraftResult.#ctor(System.String,UiaTrigger.Models.PropertyClause,System.Nullable{System.TimeSpan},System.Nullable{System.TimeSpan})">
       <summary><see cref="T:UiaTrigger.Models.TriggerDraft" /> を検証した結果。</summary>
       <param name="Error">下書きが使えない理由 (ローカライズ済み)。使えるときは null。</param>
       <param name="Clause">
@@ -375,6 +375,7 @@
         要素の出現・消滅だけを見るトリガーではそれが正しい。
       </param>
       <param name="MinInterval">適用するレート制限。制限しないときは null。</param>
+      <param name="PollInterval">適用するポーリング周期。イベント購読のみのときは null。</param>
     </member>
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.Apply(UiaTrigger.Models.TriggerDefinition,UiaTrigger.Models.TriggerDraft,UiaTrigger.Models.TriggerDraftResult@)">
       <summary>検証済みの下書きを定義へ書き込む。既存の句は置き換えられる。</summary>
@@ -430,6 +431,14 @@
     </member>
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesValue(UiaTrigger.Models.ComparisonOp)">
       <summary>その演算子が <see cref="P:UiaTrigger.Models.TriggerDraft.Value" /> を取るか。</summary>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerDraftValidator.UsesPollInterval(UiaTrigger.Models.TriggerOn)">
+      <summary><see cref="P:UiaTrigger.Models.TriggerDraft.PollIntervalSeconds" /> がそのライフサイクルに適用されるか。</summary>
+      <remarks>
+        ポーリングは解決済みの要素を読み直すものなので、要素の出現・消滅だけを見るトリガーには
+        効きようがない — その組み合わせはトリガー追加時にモニターが拒否する
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> を参照)。
+      </remarks>
     </member>
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.Validate(UiaTrigger.Models.TriggerDraft,System.TimeSpan)">
       <summary>下書きを検証する。</summary>
@@ -1059,6 +1068,16 @@
         <see cref="P:UiaTrigger.Models.PropertyClause.Window" /> を持たない句が使う。
       </summary>
     </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.DisplayName">
+      <summary>トリガーの表示名。前後の空白は除去してから使う。</summary>
+      <remarks>
+        null または空白だけなら、定義の現在の
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.DisplayName" /> を保持する。
+        この欄を運ばない下書きが記録済みの名前を消せないようにするためである。
+        空欄が「無し」を意味する <see cref="P:UiaTrigger.Models.TriggerDraft.PollIntervalSeconds" />
+        とは意図的に逆向きである。
+      </remarks>
+    </member>
     <member name="P:UiaTrigger.Models.TriggerDraft.High">
       <summary>上限。範囲演算子で使う。</summary>
     </member>
@@ -1076,6 +1095,15 @@
     </member>
     <member name="P:UiaTrigger.Models.TriggerDraft.Op">
       <summary>行う比較。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraft.PollIntervalSeconds">
+      <summary>
+        解決済みの要素を読み直す周期 (秒)。null または 0 以下ならイベント購読のみ
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" /> を参照)。
+        <see cref="P:UiaTrigger.Models.TriggerDraft.On" /> に対して
+        <see cref="M:UiaTrigger.Models.TriggerDraftValidator.UsesPollInterval(UiaTrigger.Models.TriggerOn)" />
+        が偽のときは落とされる。
+      </summary>
     </member>
     <member name="P:UiaTrigger.Models.TriggerDraft.Property">
       <summary>条件の対象となるプロパティ。</summary>
@@ -1103,6 +1131,9 @@
     </member>
     <member name="P:UiaTrigger.Models.TriggerDraftResult.MinInterval">
       <summary>適用するレート制限。制限しないときは null。</summary>
+    </member>
+    <member name="P:UiaTrigger.Models.TriggerDraftResult.PollInterval">
+      <summary>適用するポーリング周期。イベント購読のみのときは null。</summary>
     </member>
     <member name="P:UiaTrigger.Models.WindowIdentity.ClassName">
       <summary>Win32 のウィンドウクラス名。</summary>

@@ -13,26 +13,18 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:local="using:UiaTrigger.Picker.WinUI">
     <!--
-        ColumnSpacing は置かない。列の間隔は GridSplitter そのものが持つので、
-        足すと「隙間 + 掴み代 + 隙間」になる。RowSpacing は上部バーとの間に要るので残す。
+        レイアウトは上下 2 段: 上段がツリーとプロパティ一覧の左右並び、下段が条件欄で、
+        条件欄は**窓の全幅**を使う (行が横に長いのは条件欄なので、幅は条件欄に渡す)。
+        RowSpacing は上部バーとの間に要るので残す。
     -->
     <Grid Padding="8" RowSpacing="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <!--
-            ツリーと右側の境界はユーザーが動かせる (下の GridSplitter)。
-            MinWidth が無いと片側を 0 まで引き切れてしまい、戻す掴み代も無くなる。
-        -->
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="6*" MinWidth="240" />
-            <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="5*" MinWidth="240" />
-        </Grid.ColumnDefinitions>
 
         <!-- 上部バー -->
-        <StackPanel Orientation="Horizontal" Grid.ColumnSpan="3" Spacing="12" VerticalAlignment="Center">
+        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
             <ToggleSwitch x:Name="AutoSelectToggle" x:Uid="AutoSelectToggle" Toggled="OnAutoSelectToggled" />
             <ComboBox x:Name="ViewCombo" x:Uid="ViewCombo" Width="120" SelectionChanged="OnViewChanged" />
             <TextBox x:Name="SearchBox" x:Uid="SearchBox" Width="200" KeyDown="OnSearchKeyDown" />
@@ -40,6 +32,31 @@
             <TextBlock x:Name="HintText" x:Uid="HintText" VerticalAlignment="Bottom" Opacity="0.7"
                        TextWrapping="Wrap" MaxWidth="520" />
         </StackPanel>
+
+        <!--
+            RowSpacing は置かない (段の間隔は GridSplitter が持つ)。
+            条件欄の行は Auto のままにして、掴まれるまでは内容ぶんの高さにする。
+        -->
+        <Grid x:Name="MainPane" Grid.Row="1" SizeChanged="OnMainPaneSizeChanged">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="80" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" MinHeight="80" />
+            </Grid.RowDefinitions>
+
+        <!--
+            上段: ツリーとプロパティ一覧の左右並び。
+
+            ColumnSpacing は置かない。列の間隔は GridSplitter そのものが持つので、
+            足すと「隙間 + 掴み代 + 隙間」になる。
+            MinWidth が無いと片側を 0 まで引き切れてしまい、戻す掴み代も無くなる。
+        -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="6*" MinWidth="240" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="5*" MinWidth="240" />
+            </Grid.ColumnDefinitions>
 
         <!--
             要素ツリー。
@@ -60,7 +77,7 @@
                 常にビューポート幅ちょうどに収まり、はみ出しが起きないので
                 スクロールバーも出ない。列を Auto にして行全体を左寄せにする。
         -->
-        <TreeView x:Name="ElementTree" Grid.Row="1" SelectionMode="Single"
+        <TreeView x:Name="ElementTree" SelectionMode="Single"
                   Loaded="OnElementTreeLoaded"
                   ItemInvoked="OnTreeItemInvoked"
                   SelectionChanged="OnTreeSelectionChanged">
@@ -94,8 +111,8 @@
         </TreeView>
 
         <!--
-            ツリーと右側の境界。窓を縮めるとどちらも狭くなるので、どちらを優先するかを
-            ユーザーが決められるようにする。
+            ツリーとプロパティ一覧の境界。窓を縮めるとどちらも狭くなるので、
+            どちらを優先するかをユーザーが決められるようにする。
 
             **WinUI3 には標準の GridSplitter が無い** — WPF (System.Windows.Controls) にも
             Windows Forms (SplitContainer) にもあるのに、ここだけが無い。自作すると
@@ -109,21 +126,9 @@
             そのまま読み上げるので、名前が無いのと大差ない。
         -->
         <controls:GridSplitter x:Name="TreeSplitter" x:Uid="TreeSplitter"
-                               Grid.Row="1" Grid.Column="1"
+                               Grid.Column="1"
                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                ResizeDirection="Columns" ResizeBehavior="PreviousAndNext" />
-
-        <!-- 右: プロパティ + 条件設定 -->
-        <!--
-            RowSpacing は置かない (外側の列と同じ理由 — 間隔は GridSplitter が持つ)。
-            条件欄の行は Auto のままにして、掴まれるまでは内容ぶんの高さにする。
-        -->
-        <Grid x:Name="RightPane" Grid.Row="1" Grid.Column="2" SizeChanged="OnRightPaneSizeChanged">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" MinHeight="80" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" MinHeight="80" />
-            </Grid.RowDefinitions>
 
             <!--
                 プロパティ一覧も水平スクロールできるようにする。長い値
@@ -138,7 +143,7 @@
                 ビューポート幅いっぱいに引き伸ばされ、はみ出しが起きないので
                 スクロールバーも出ない (TreeView 側と同じ理由)。
             -->
-            <ListView x:Name="PropsList" SelectionMode="None"
+            <ListView x:Name="PropsList" Grid.Column="2" SelectionMode="None"
                       ScrollViewer.HorizontalScrollMode="Enabled"
                       ScrollViewer.HorizontalScrollBarVisibility="Auto"
                       ScrollViewer.IsHorizontalRailEnabled="False">
@@ -148,6 +153,7 @@
                     </Style>
                 </ListView.ItemContainerStyle>
             </ListView>
+        </Grid>
 
             <!--
                 プロパティ一覧と条件欄の境界。条件欄を縮められるようにすると中身がはみ出し、
@@ -165,7 +171,7 @@
                 横スクロール (docs/DESIGN.md §12)。
 
                 条件欄の行は Orientation="Horizontal" の StackPanel で**折り返さない**。
-                いちばん広い行は 180+180+180+160 に間隔 24 で 724px あり、
+                いちばん広い行は 180+180+180+180+160 に間隔 32 で 912px あり、
                 横スクロールが無いと窓を狭めたときに右が黙って切れる。
 
                 **WPF / Windows Forms は同じ形の不具合を持たない。**あちらの行は
@@ -174,7 +180,7 @@
                 **ここだけが自分で有効にする必要がある。**
 
                 有効にすると測りの使える幅が無限になり、TextWrapping="Wrap" が効かなくなる。
-                ConfirmedText の折り返し幅は OnRightPaneSizeChanged が渡す。
+                ConfirmedText の折り返し幅は OnMainPaneSizeChanged が渡す。
             -->
             <ScrollViewer x:Name="ConditionScroll" Grid.Row="2" VerticalScrollBarVisibility="Auto"
                           HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto">
@@ -183,6 +189,7 @@
                 <TextBlock x:Name="ConfirmedText" x:Uid="ConfirmedText" Opacity="0.8" TextWrapping="Wrap" />
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBox x:Name="KeyBox" x:Uid="KeyBox" Width="180" />
+                    <TextBox x:Name="DisplayNameBox" x:Uid="DisplayNameBox" Width="180" />
                     <ComboBox x:Name="OnCombo" x:Uid="OnCombo" Width="180" SelectionChanged="OnCondUiChanged" />
                     <ComboBox x:Name="PropCombo" x:Uid="PropCombo" Width="180" SelectionChanged="OnCondUiChanged" />
                     <ComboBox x:Name="CondCombo" x:Uid="CondCombo" Width="160" SelectionChanged="OnCondUiChanged" />
@@ -194,6 +201,7 @@
                     <NumberBox x:Name="HighOperand" x:Uid="HighOperand" Width="140" Visibility="Collapsed" />
                     <NumberBox x:Name="ToleranceOperand" x:Uid="ToleranceOperand" Width="120" Visibility="Collapsed" />
                     <NumberBox x:Name="MinIntervalOperand" x:Uid="MinIntervalOperand" Width="160" />
+                    <NumberBox x:Name="PollIntervalOperand" x:Uid="PollIntervalOperand" Width="160" />
                 </StackPanel>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Button x:Name="CommitButton" x:Uid="CommitButton" IsEnabled="False" Click="OnCommit"

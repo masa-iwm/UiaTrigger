@@ -79,14 +79,14 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// <c>AutoScroll</c> が効く。**ここだけが上限を自分で渡す必要がある。**
     /// </para>
     /// <para>
-    /// 引く 2 つ (プロパティ一覧の最小高さ・区切りの実寸) はどちらも XAML 側が正である。
+    /// 引く 2 つ (上段の最小高さ・区切りの実寸) はどちらも XAML 側が正である。
     /// 定数で持つと、XAML を変えたときに黙ってずれる。
     /// </para>
     /// </remarks>
-    private void OnRightPaneSizeChanged(object sender, SizeChangedEventArgs e)
+    private void OnMainPaneSizeChanged(object sender, SizeChangedEventArgs e)
     {
-        double reserved = RightPane.RowDefinitions[0].MinHeight + ConditionSplitter.ActualHeight;
-        double available = Math.Max(RightPane.RowDefinitions[2].MinHeight, e.NewSize.Height - reserved);
+        double reserved = MainPane.RowDefinitions[0].MinHeight + ConditionSplitter.ActualHeight;
+        double available = Math.Max(MainPane.RowDefinitions[2].MinHeight, e.NewSize.Height - reserved);
 
         // 変わっていないときに代入しない (レイアウトを無用に回さないため)
         if (Math.Abs(ConditionScroll.MaxHeight - available) > 0.5)
@@ -176,6 +176,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         ConditionHeading.Text = _strings.GetString(PickerStringKeys.ConditionHeadingText);
         ConfirmedText.Text = _strings.GetString(PickerStringKeys.ConfirmedTextText);
         KeyBoxLabel.Text = _strings.GetString(PickerStringKeys.KeyBoxHeader);
+        DisplayNameBoxLabel.Text = _strings.GetString(PickerStringKeys.DisplayNameBoxHeader);
         OnComboLabel.Text = _strings.GetString(PickerStringKeys.OnComboHeader);
         PropComboLabel.Text = _strings.GetString(PickerStringKeys.PropComboHeader);
         CondComboLabel.Text = _strings.GetString(PickerStringKeys.CondComboHeader);
@@ -185,6 +186,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         HighOperandLabel.Text = _strings.GetString(PickerStringKeys.HighOperandHeader);
         ToleranceOperandLabel.Text = _strings.GetString(PickerStringKeys.ToleranceOperandHeader);
         MinIntervalOperandLabel.Text = _strings.GetString(PickerStringKeys.MinIntervalOperandHeader);
+        PollIntervalOperandLabel.Text = _strings.GetString(PickerStringKeys.PollIntervalOperandHeader);
         CommitButton.Content = _strings.GetString(PickerStringKeys.CommitButtonContent);
         // 初期状態 (未チェック) の文字。以後は OnAutoSelectToggled が入れ替える
         AutoSelectToggle.Content = _strings.GetString(PickerStringKeys.AutoSelectToggleOffContent);
@@ -337,6 +339,12 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         set => KeyBox.Text = value;
     }
 
+    string IPickerView.DisplayNameText
+    {
+        get => DisplayNameBox.Text ?? string.Empty;
+        set => DisplayNameBox.Text = value;
+    }
+
     PickerTreeNode? IPickerView.SelectedNode => ElementTree.SelectedItem as PickerTreeNode;
 
     // 継ぎ目が渡すリストは配列にしてから ItemsSource へ渡す。プレゼンター側のリストは
@@ -372,6 +380,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         LowOperandPanel.Visibility = ToVisibility(visibility.Range);
         HighOperandPanel.Visibility = ToVisibility(visibility.Range);
         ToleranceOperandPanel.Visibility = ToVisibility(visibility.Tolerance);
+        PollIntervalOperandPanel.Visibility = ToVisibility(visibility.PollInterval);
     }
 
     private static Visibility ToVisibility(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
@@ -389,6 +398,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         return new TriggerDraft
         {
             Id = KeyBox.Text,
+            DisplayName = DisplayNameBox.Text,
             On = on,
             Property = property,
             Op = op,
@@ -399,6 +409,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
             Tolerance = ReadNumber(ToleranceOperand),
             // 発火レート制限 (docs/DESIGN.md C11)
             MinIntervalSeconds = ReadNumber(MinIntervalOperand),
+            PollIntervalSeconds = ReadNumber(PollIntervalOperand),
         };
     }
 
@@ -410,6 +421,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         try
         {
             KeyBox.Text = draft.Id ?? string.Empty;
+            DisplayNameBox.Text = draft.DisplayName ?? string.Empty;
             OnCombo.SelectedItem = draft.On;
             PropCombo.SelectedItem = draft.Property;
             CondCombo.SelectedItem = draft.Op;
@@ -424,6 +436,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         WriteNumber(HighOperand, draft.High);
         WriteNumber(ToleranceOperand, draft.Tolerance);
         WriteNumber(MinIntervalOperand, draft.MinIntervalSeconds);
+        WriteNumber(PollIntervalOperand, draft.PollIntervalSeconds);
     }
 
     /// <summary>数値欄に書く。null は空欄 (= 値なし)。</summary>

@@ -44,6 +44,8 @@ public sealed class TriggerPickerForm : Form, IPickerView
     private readonly Label _confirmed = new() { Name = "ConfirmedText", AutoSize = true, MaximumSize = new Size(520, 0) };
     private readonly Label _keyLabel = new() { Name = "KeyBoxLabel", AutoSize = true };
     private readonly TextBox _keyBox = new() { Name = "KeyBox", Width = 150 };
+    private readonly Label _displayNameLabel = new() { Name = "DisplayNameBoxLabel", AutoSize = true };
+    private readonly TextBox _displayNameBox = new() { Name = "DisplayNameBox", Width = 150 };
     private readonly Label _onLabel = new() { Name = "OnComboLabel", AutoSize = true };
     private readonly ComboBox _onCombo = new() { Name = "OnCombo", DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
     private readonly Label _propLabel = new() { Name = "PropComboLabel", AutoSize = true };
@@ -62,16 +64,19 @@ public sealed class TriggerPickerForm : Form, IPickerView
     private readonly TextBox _toleranceOperand = new() { Name = "ToleranceOperand", Width = 90 };
     private readonly Label _minIntervalLabel = new() { Name = "MinIntervalOperandLabel", AutoSize = true };
     private readonly TextBox _minIntervalOperand = new() { Name = "MinIntervalOperand", Width = 90 };
+    private readonly Label _pollIntervalLabel = new() { Name = "PollIntervalOperandLabel", AutoSize = true };
+    private readonly TextBox _pollIntervalOperand = new() { Name = "PollIntervalOperand", Width = 90 };
     private readonly Button _commit = new() { Name = "CommitButton", AutoSize = true, Enabled = false };
     private readonly Label _commitStatus = new() { Name = "CommitStatus", AutoSize = true };
 
-    // ツリーと右側の境界。Windows Forms は SplitContainer を標準で持つので、
-    // 3 変種のうち**ここだけは元から動かせた** (WPF は GridSplitter、
+    // ツリーとプロパティ一覧の境界 (上段の左右)。Windows Forms は SplitContainer を
+    // 標準で持つので、3 変種のうち**ここだけは元から動かせた** (WPF は GridSplitter、
     // WinUI3 だけが標準で持たず CommunityToolkit を足してある)。
     // 名前は 3 変種で揃えてあり、T4 は変種ごとに別の探し方をしなくてよい。
     private readonly SplitContainer _split = new() { Name = "TreeSplitter", Dock = DockStyle.Fill };
 
-    // プロパティ一覧と条件欄の境界。こちらは縦の分割である。
+    // 上段 (ツリー + プロパティ一覧) と条件欄の境界。こちらは縦の分割で、
+    // 条件欄は**窓の全幅**を使う (行が横に長いのは条件欄なので、幅は条件欄に渡す)。
     private readonly SplitContainer _conditionSplit = new()
     {
         Name = "ConditionSplitter",
@@ -211,23 +216,27 @@ public sealed class TriggerPickerForm : Form, IPickerView
         _conditions.Controls.AddRange(
         [
             _conditionHeading, _confirmed,
-            _keyLabel, _keyBox, _onLabel, _onCombo, _propLabel, _propCombo, _condLabel, _condCombo,
+            _keyLabel, _keyBox, _displayNameLabel, _displayNameBox,
+            _onLabel, _onCombo, _propLabel, _propCombo, _condLabel, _condCombo,
             _textLabel, _textOperand, _valueLabel, _valueOperand,
             _lowLabel, _lowOperand, _highLabel, _highOperand,
             _toleranceLabel, _toleranceOperand, _minIntervalLabel, _minIntervalOperand,
+            _pollIntervalLabel, _pollIntervalOperand,
             _commit, _commitStatus,
         ]);
 
         // 条件欄を縮められるようにすると中身がはみ出す。AutoScroll が無いと黙って切れる
         // (WPF / WinUI 側で ScrollViewer を挟んでいるのと同じ理由)
         _conditionSplit.Panel2.AutoScroll = true;
-        _conditionSplit.Panel1.Controls.Add(_props);
+
+        // 入れ子の向きが要点である: 外側が上下 (_conditionSplit)、内側が左右 (_split)。
+        // 条件欄が上段の入れ子に入っていると幅が右区画ぶんしか無く、行の折り返しが早い
+        _split.Panel1.Controls.Add(_tree);
+        _split.Panel2.Controls.Add(_props);
+        _conditionSplit.Panel1.Controls.Add(_split);
         _conditionSplit.Panel2.Controls.Add(_conditions);
 
-        _split.Panel1.Controls.Add(_tree);
-        _split.Panel2.Controls.Add(_conditionSplit);
-
-        Controls.Add(_split);
+        Controls.Add(_conditionSplit);
         Controls.Add(topBar);
 
         // 寸法は**ドッキングが済んでから**入れる。ここまでの SplitContainer は
@@ -317,6 +326,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         _conditionHeading.Text = _strings.GetString(PickerStringKeys.ConditionHeadingText);
         _confirmed.Text = _strings.GetString(PickerStringKeys.ConfirmedTextText);
         _keyLabel.Text = _strings.GetString(PickerStringKeys.KeyBoxHeader);
+        _displayNameLabel.Text = _strings.GetString(PickerStringKeys.DisplayNameBoxHeader);
         _onLabel.Text = _strings.GetString(PickerStringKeys.OnComboHeader);
         _propLabel.Text = _strings.GetString(PickerStringKeys.PropComboHeader);
         _condLabel.Text = _strings.GetString(PickerStringKeys.CondComboHeader);
@@ -326,6 +336,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         _highLabel.Text = _strings.GetString(PickerStringKeys.HighOperandHeader);
         _toleranceLabel.Text = _strings.GetString(PickerStringKeys.ToleranceOperandHeader);
         _minIntervalLabel.Text = _strings.GetString(PickerStringKeys.MinIntervalOperandHeader);
+        _pollIntervalLabel.Text = _strings.GetString(PickerStringKeys.PollIntervalOperandHeader);
         _commit.Text = _strings.GetString(PickerStringKeys.CommitButtonContent);
         // 初期状態 (未チェック) の文字。以後は切り替えるたびに入れ替える
         _autoSelect.Text = _strings.GetString(PickerStringKeys.AutoSelectToggleHeader) +
@@ -418,6 +429,12 @@ public sealed class TriggerPickerForm : Form, IPickerView
         set => _keyBox.Text = value;
     }
 
+    string IPickerView.DisplayNameText
+    {
+        get => _displayNameBox.Text ?? string.Empty;
+        set => _displayNameBox.Text = value;
+    }
+
     PickerTreeNode? IPickerView.SelectedNode => _tree.SelectedNode?.Tag as PickerTreeNode;
 
     void IPickerView.ShowProperties(IReadOnlyList<string> rows)
@@ -465,6 +482,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         SetOperandVisible(_lowLabel, _lowOperand, visibility.Range);
         SetOperandVisible(_highLabel, _highOperand, visibility.Range);
         SetOperandVisible(_toleranceLabel, _toleranceOperand, visibility.Tolerance);
+        SetOperandVisible(_pollIntervalLabel, _pollIntervalOperand, visibility.PollInterval);
     }
 
     private static void SetOperandVisible(Label label, TextBox box, bool visible)
@@ -486,6 +504,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         return new TriggerDraft
         {
             Id = _keyBox.Text,
+            DisplayName = _displayNameBox.Text,
             On = on,
             Property = property,
             Op = op,
@@ -496,6 +515,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
             Tolerance = ReadNumber(_toleranceOperand),
             // 発火レート制限 (docs/DESIGN.md C11)
             MinIntervalSeconds = ReadNumber(_minIntervalOperand),
+            PollIntervalSeconds = ReadNumber(_pollIntervalOperand),
         };
     }
 
@@ -506,6 +526,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         try
         {
             _keyBox.Text = draft.Id ?? string.Empty;
+            _displayNameBox.Text = draft.DisplayName ?? string.Empty;
             _onCombo.SelectedItem = draft.On;
             _propCombo.SelectedItem = draft.Property;
             _condCombo.SelectedItem = draft.Op;
@@ -520,6 +541,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
         WriteNumber(_highOperand, draft.High);
         WriteNumber(_toleranceOperand, draft.Tolerance);
         WriteNumber(_minIntervalOperand, draft.MinIntervalSeconds);
+        WriteNumber(_pollIntervalOperand, draft.PollIntervalSeconds);
     }
 
     /// <summary>数値欄に書く。null は空欄 (= 値なし)。</summary>
