@@ -9,6 +9,12 @@
 // T1 から組み立てられず (docs/DESIGN.md §12)、T4 はホストの窓を割り付けの矩形へ
 // 退かすときに**寸法も合わせる**ので、既定サイズは T4 からも観測できない。
 // つまり塞げるのは「腐る側」= 3 つが黙ってばらけることだけである。
+// **実際にその大きさで開くこと自体は人が見る** (docs/MANUAL-CHECKS.md §4.3.1)。
+//
+// 3 つの数字は厳密には同じものを指していない: WPF の Width は**窓の外側**で、
+// WinForms の ClientSize と WinUI の ResizeClient は**表示領域**である。差は縁の
+// 十数 px であり、揃える対象としてはこれで足りる (**縁のぶんを「不一致」として
+// 直しに来ないこと**)。ここが縛るのは「3 つが同じ数字を書いていること」である。
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Xunit;
