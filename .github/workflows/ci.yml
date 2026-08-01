@@ -320,6 +320,9 @@ jobs:
       # continue-on-error は付けない。ランナーでの全件緑を確認済みで、上記のとおり
       # picker-ui の非決定性を継承しないので、ブロッキングにしても
       # 手元で再現できない赤に潰される形にはならない。
+      #
+      # フィルタは部分一致なので、ホストの MainWindow を見る HostPublishedResourceTests も
+      # ここに乗る (クラス名がそのために PublishedResourceTests を含んでいる)。
       - name: Verify picker resources resolve in the published layout (S4)
         shell: pwsh
         run: >

@@ -21,13 +21,43 @@ internal static class PickerResources
     /// </remarks>
     public static Dictionary<string, string> For(PickerHostProfile profile, string culture)
     {
-        bool japanese = culture.StartsWith("ja", StringComparison.OrdinalIgnoreCase);
+        bool japanese = IsJapanese(culture);
         string path = profile == PickerHostProfile.WinUI
             ? RepoPaths.Combine(
                 "src", "UiaTrigger.Picker.WinUI", "Strings", japanese ? "ja-jp" : "en-us", "Resources.resw")
             : RepoPaths.Combine(
                 "src", "UiaTrigger.Picker.Core", "Resources", japanese ? "Strings.ja.resx" : "Strings.resx");
+        return Read(path);
+    }
 
+    /// <summary>
+    /// そのカルチャで期待される**ホスト (MainWindow) 側**の文字列。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="For"/> と 1 つに畳まない — あちらの「キーの集合は同じ」はホストでは
+    /// 成り立たない。**ホストのリソースは 3 プロジェクトが各自持ち**、キー集合も
+    /// ショーケース (D9) のぶんだけ WinUI が広い。3 ホストの一致 (例外表つき) は
+    /// T1 の <c>HostStringTests</c> が縛っている。
+    /// </remarks>
+    public static Dictionary<string, string> ForHost(PickerHostProfile profile, string culture)
+    {
+        bool japanese = IsJapanese(culture);
+        string path = profile == PickerHostProfile.WinUI
+            ? RepoPaths.Combine(
+                "src", "UiaTrigger.App.WinUI", "Strings", japanese ? "ja-jp" : "en-us", "Resources.resw")
+            : profile == PickerHostProfile.Wpf
+                ? RepoPaths.Combine(
+                    "src", "UiaTrigger.App.Wpf", "Resources", japanese ? "Strings.ja.resx" : "Strings.resx")
+                : RepoPaths.Combine(
+                    "src", "UiaTrigger.App.WinForms", "Resources", japanese ? "Strings.ja.resx" : "Strings.resx");
+        return Read(path);
+    }
+
+    private static bool IsJapanese(string culture)
+        => culture.StartsWith("ja", StringComparison.OrdinalIgnoreCase);
+
+    private static Dictionary<string, string> Read(string path)
+    {
         Assert.True(File.Exists(path), $"リソースファイルが見つかりません: {path}");
 
         // .resw と .resx は同じ XML 構造なので読み手は 1 つで足りる
