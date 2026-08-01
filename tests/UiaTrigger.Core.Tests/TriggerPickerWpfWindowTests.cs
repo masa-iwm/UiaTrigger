@@ -84,8 +84,9 @@ public sealed class TriggerPickerWpfWindowTests
     /// <para>
     /// コントロールを 1 つ足してラベルの代入を忘れる、というのがこの層で最も起きやすい壊れ方で、
     /// しかも例外にならない — その欄が空のまま表示されるだけである
-    /// (docs/MANUAL-CHECKS.md §4.1 が WinUI 向けに人手で見ている項目そのもの)。
-    /// WPF View は T1 から組み立てられるので、こちらは自動で固定できる。
+    /// (WinUI 側は T4 の <c>PublishedResourceTests</c> が発行レイアウトで見ている項目そのもの —
+    /// docs/MANUAL-CHECKS.md §4.1)。
+    /// WPF View は T1 から組み立てられるので、こちらはウィンドウを出さずに固定できる。
     /// </para>
     /// </summary>
     [Fact]

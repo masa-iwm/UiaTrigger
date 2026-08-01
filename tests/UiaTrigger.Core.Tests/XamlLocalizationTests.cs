@@ -16,7 +16,9 @@ namespace UiaTrigger.Tests;
 /// <para>
 /// ここで塞げるのは**腐る側** — 新しい文字列をリソースに通し忘れる / 片方の言語だけ足す /
 /// XAML やソースに直書きする — であり、実際に起きるのはそちらである。
-/// 「実行すると日本語で出るか」は実物でしか確かめられないので MANUAL-CHECKS に置いた。
+/// 「実行すると日本語で出るか」は実物でしか確かめられない — そちらは発行レイアウトの T4
+/// (<c>PublishedResourceTests</c> / <c>HostPublishedResourceTests</c>) が見ており、
+/// 訳文長のレイアウト破綻だけが docs/MANUAL-CHECKS.md §4 に残る。
 /// </para>
 /// </summary>
 public sealed class XamlLocalizationTests

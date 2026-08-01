@@ -108,7 +108,7 @@ PE 種別を見る。件数と `.xml` の中身は release.yml が機械で検�
   invariant の使い分け・`ILogger` 経由の診断ログを出力で検査する。ファイルの有無では
   判定しない — AOT はサテライトをネイティブイメージへ取り込み、`ja/` フォルダが
   出力されないことがある。
-- S4 (`PublishedResourceTests`) をここで回す。**このジョブだけが `publish/` を作る**ので、
+- S4 (`PublishedResourceTests` / `HostPublishedResourceTests`) をここで回す。**このジョブだけが `publish/` を作る**ので、
   発行物そのものが検査対象になる。picker-ui に置かないのは、あちらが観測扱いで構造的に
   シグナルが弱いため。S4 は座標も対象アプリも使わないので、picker-ui の非決定性を継承しない。
 - 注意: GitHub Actions の pwsh シェルは、最後に走ったネイティブコマンドの `$LASTEXITCODE` を
@@ -183,7 +183,7 @@ API キーへ交換する) を使う。あちらのポリシーは**ワークフ
 
 ## §4 罠の台帳
 
-- **S4 (`PublishedResourceTests` 14 件) の緑は、発行物の新しさについて何も言わない。**
+- **S4 (発行レイアウトの 20 件 — `PublishedResourceTests` 14 + `HostPublishedResourceTests` 6) の緑は、発行物の新しさについて何も言わない。**
   S4 は `publish/` を起動するが、見るのはローカライズと発行レイアウトであり、枠も
   アイコンも押さない。**古い発行物のままでも緑になる。**一方、オーバーレイの検査 54 件は
   `bin/` 起動 = **AOT ではない**。つまり「T4 全緑」の内訳のうち、発行物 (AOT) の

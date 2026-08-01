@@ -81,7 +81,8 @@ WinUI3 アプリ (`UiaTrigger.App`) の発行出力はさらに形が違う:
 見ておらず、**`.pri` が発行から落ちても `ResourceMap` 名が違っても全件緑のまま**である。
 WPF の `ja/` サテライトが発行から落ちる形も同じで、どちらも**発行してからでないと現れない**。
 だから発行レイアウトそのものを起動して、キーごとにリソースファイルの値と一致することを見る
-検査 (`PublishedResourceTests`) が別に在る (docs/TESTING.md §1)。
+検査が別に在る (`PublishedResourceTests` — ホストの MainWindow は
+`HostPublishedResourceTests`。docs/TESTING.md §1)。
 
 AOT 発行済みバイナリを ja-JP で実行して日本語メッセージが出ることは、
 CI の AOT + サテライト検査が固定している (docs/TESTING.md §1 の T2)。

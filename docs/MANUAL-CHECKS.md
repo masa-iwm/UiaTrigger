@@ -130,31 +130,46 @@ docs/TESTING.md §4)。真因が DPI 宣言である以上 **100% で緑でも 1
       (条件種別の説明文など、英語のほうが長くなる箇所に注意)
 - [ ] 未対応言語 (例: 中国語) の OS で英語にフォールバックする
 
-### §4.1 `x:Uid` の解決
+### §4.1 `x:Uid` の解決 — 一次の網は自動である
 
-`.resw` が resources.pri に入っていることは発行出力の検査で確かめられるが、
-**MRT Core が実行時にその文字列を実際に画面へ流し込むか**は WinUI3 のプロセスを
-立ち上げないと分からない。`x:Uid` の解決失敗は例外にならず**そのコントロールの文字列が
-空になる**ので、症状は「ラベルが消える」形で出る。
+`.resw` が resources.pri に入ることは発行出力の検査が、**MRT Core が実行時にその文字列を
+実際に画面へ流し込むこと**は発行レイアウトを起動する T4 が固定している —
+ピッカーの窓 (ラベル・ウィンドウタイトル・リソースマップ名・`GetString` 経路) は
+`PublishedResourceTests`、ホストの MainWindow (タイトル・全ボタン・ラベル・起動直後の状態欄) は
+`HostPublishedResourceTests`。どちらも en-US / ja-JP の両方を**リポジトリのリソースファイルの
+値との一致**で照合し (解決失敗の症状は経路で違う — `x:Uid` は空・`GetString` はキー名 —
+ので、値と比べないと両方は捕まらない)、キーの被覆そのもの (「見る」か「理由付きで見ない」か)
+も両方向で固定している。CI では `aot` ジョブがブロッキングで回す (docs/TESTING.md §1)。
 
-- [ ] ピッカーのラベルが**空欄になっていない** (`x:Uid` が resources.pri から解決できている)
-- [ ] MainWindow の 3 つのボタンにも文字が出ている
-- [ ] ピッカーのウィンドウタイトルが表示されている
-      (`Window` は `FrameworkElement` ではないので `x:Uid` が効かず、
-      ここだけ `MrtPickerStrings.GetString(PickerStringKeys.WindowTitle)` でコードから設定している)
-- [ ] クラスライブラリ (Picker) の文字列も出ている
-      — App 側だけが出ていて Picker 側が空なら、リソースマップ名
-      (`UiaTrigger.Picker.WinUI/Resources`) の指定が効いていない。名前がアセンブリ名と
-      揃っていることはソース側で固定してあるが、**実際に解決できるかは実行しないと分からない**
+残る手動項目: **なし**。ただし次は網に**入っていない** (「できない」ではなく「やっていない」):
+
+- 操作しないと出ないホストの文字列 (保存後の件数・監視の開始/停止・まとめの結果) は
+  値を照合していない。理由と回収の道は `HostPublishedResourceTests` の除外リストにある
+- `App.WinForms` の MainWindow は実行時照合していない
+  (resx 経路の代表を WPF に置く判断 — `PickerHostProfile.AllNames`)
 
 ### §4.2 コントロール型の表示名と安定名
 
+一次の網は自動である: プロパティ一覧の `ControlType` 行が表示名と安定名の対で出ることは
+T1 (`Properties_ShowBothNamesForTheControlType`) と T4
+(`CommitTests.TheTreeAndThePropertyList_NameTheControlTypeTheWayTheTargetDoes` —
+対象要素の `LocalizedControlType` をテスト側 UIA で**独立に**読み、行を書式ごと厳密比較する)
+が、ツリーの行が対象アプリのプロバイダーの言う表示名で出ることも同じ T4 が、
+確定した `DisplayName` が安定名から作られることは T1 (`ControlTypeNameTests`) と
+T3 (`Record_PutsTheStableNameInTheDisplayName`) が固定している。
+
 - [ ] ピッカーの要素ツリーに出るコントロール型が**対象アプリの言語**になっている
-      (日本語の対象アプリなら「ボタン」等)
-- [ ] プロパティ一覧の `ControlType` 行には**表示名と安定名の両方**が出ている。
-      条件に書けるのは安定名 (`Button`) のほうである
-- [ ] 確定したトリガーの `DisplayName` は**安定名**で作られている
-      (対象アプリを別の言語で起動し直しても保存済みの定義が変わらないこと)
+      (日本語の対象アプリなら「ボタン」等)。対象アプリを別の言語で起動し直しても
+      保存済みの定義 (`DisplayName`) が変わらないことも一緒に見る
+      ← **実言語での確認だけが残る。自動化を調べて、検出力のある形が無いと分かった項目である**
+      (「やっていない」のではない)。表示名を出すのは対象アプリ側のプロバイダーで
+      (docs/DESIGN.md L6)、対象アプリ (TestTarget) に言語を切り替える口が無く、
+      CI ランナーの OS 表示言語も切り替えられない。口を足してアプリに期待値まで出させると
+      「アプリが言った値をアプリに確かめる」円環になり検出力が無い
+      (`TestTarget.Wpf/Peers.cs` の既存判断と同じ形)。自動の網は代わりに
+      **言語非依存の対の一貫性** (表示名 ≠ 安定名の序数比較・独立読みとの一致 —
+      `ControlTypeNameScenarioTests` と上記 T4) を固定しており、人が見るのは
+      「別言語の環境で実際にその言葉になる」ことだけである
 
 ### §4.3 View に残した経路
 

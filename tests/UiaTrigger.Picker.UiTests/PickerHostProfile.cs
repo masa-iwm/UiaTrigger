@@ -80,8 +80,9 @@ internal sealed record PickerHostProfile(
         TreeAutomationId: "ElementTree",
         RequiredSiblingFile: "",
         LogFileName: "uiatrigger-app-winforms.log",
-        // 発行していない。S4 (発行レイアウト) は WinForms を対象にしていない —
-        // resx 経路は WPF が代表して見ており、同じことを 2 回見ることになる
+        // 発行はされる (ci.yml の aot ジョブが publish/AppWinForms を作る) が、
+        // S4 (発行レイアウト) は WinForms を起動しない — resx 経路の実行時解決は
+        // WPF が代表して見ており、同じことを 2 回見ることになる
         PublishDirectory: "AppWinForms");
 
     /// <summary>

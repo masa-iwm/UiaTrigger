@@ -18,7 +18,7 @@ GUI 領域の大半は自動化できる。前提は 2 つだけである:
 | T1 | UIA 非依存の純ロジック | `tests/UiaTrigger.Core.Tests` | `build-and-test` | 必須 |
 | T2 | 構成・環境の不変条件 | 同上 | `build-and-test` | 必須 |
 | T3 | 専用対象アプリへの実 UIA | `tests/UiaTrigger.RealUia.Tests` | `real-uia` | 観測 (`continue-on-error`) |
-| T4 | ピッカーの UI 自体を UIA で駆動 | `tests/UiaTrigger.Picker.UiTests` | `picker-ui` | 観測 (`continue-on-error`)。ただし `PublishedResourceTests` だけは `aot` ジョブでも回り、そちらは必須 |
+| T4 | ピッカーの UI 自体を UIA で駆動 | `tests/UiaTrigger.Picker.UiTests` | `picker-ui` | 観測 (`continue-on-error`)。ただし `PublishedResourceTests` / `HostPublishedResourceTests` だけは `aot` ジョブでも回り、そちらは必須 (フィルタは部分一致で両クラスを含む) |
 | T5 | 合成入力で最下層から駆動 | `tests/UiaTrigger.Input.Tests` | `input` | 必須 |
 | T6 | 手動チェックリスト | docs/MANUAL-CHECKS.md | — | 人 |
 
@@ -119,7 +119,7 @@ T1 で見られるものは置かない:
 | 検査 | ここでしか見られないもの |
 |---|---|
 | `TreeRealisationTests` | 行のコントロールが生成されるのを待つ経路 (仮想化) |
-| `PublishedResourceTests` | 発行レイアウトでのリソース解決。`.pri` / サテライトは**発行してからでないと落ちない**。`aot` ジョブが `publish/` を作り、発行物そのものが検査対象になる |
+| `PublishedResourceTests` / `HostPublishedResourceTests` | 発行レイアウトでのリソース解決 (前者はピッカーの窓、後者はホストの MainWindow)。`.pri` / サテライトは**発行してからでないと落ちない**。`aot` ジョブが `publish/` を作り、発行物そのものが検査対象になる |
 | `OverlayTests` / `OverlayShadowTests` | 実ウィンドウの数・矩形・前後関係 |
 | `TreePresentationTests` / `CommitTests` / `SplitterTests` / `ConditionPaneTests` / `WinFormsPickerTests` | 画面に出さないと成立しない表示と、**トリガーファイルに入るところまで** |
 | `PickerStaysResponsiveTests` | 応答しない対象アプリの前で UI が凍らないこと。**UI の経路が UIA の経路を待たない**という性質は、T1 の fake View には 2 つを分ける実体が無いので見られない |
