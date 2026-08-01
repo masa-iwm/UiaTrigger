@@ -7,6 +7,8 @@
 //   ・ラベルをコードで代入すること (WPF に x:Uid は無い)
 using System.Windows;
 using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Input;
 using UiaTrigger.Models;
 
 namespace UiaTrigger.Picker.Wpf;
@@ -118,6 +120,21 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
     private void OnAdd(object sender, RoutedEventArgs e) => _presenter.NotifyAddRequested();
 
     private void OnEdit(object sender, RoutedEventArgs e) => _presenter.NotifyEditRequested();
+
+    /// <summary>
+    /// 行のダブルクリック = [条件を編集]。編集できない選択 (複合・複数選択) は presenter が
+    /// ボタンと同じ理由をステータスへ出す。
+    /// </summary>
+    private void OnRowDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        // 行の上だけを編集にする。一覧の空白部分ではコンテナが引けない —
+        // 無視しないと、選択済みの行が空白のダブルクリックで編集され始める
+        if (e.OriginalSource is DependencyObject source &&
+            ItemsControl.ContainerFromElement(EditorTriggerList, source) is ListBoxItem)
+        {
+            _presenter.NotifyEditRequested();
+        }
+    }
 
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();
 

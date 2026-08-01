@@ -33,7 +33,8 @@
         -->
         <ListBox x:Name="EditorTriggerList" Grid.Row="1" SelectionMode="Extended"
                  HorizontalContentAlignment="Left"
-                 ScrollViewer.HorizontalScrollBarVisibility="Auto" />
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 MouseDoubleClick="OnRowDoubleClick" />
 
         <!-- まとめる / ほどく -->
         <StackPanel Grid.Row="2" Margin="0,8,0,0">

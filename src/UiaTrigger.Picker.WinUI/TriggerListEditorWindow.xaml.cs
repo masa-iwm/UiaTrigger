@@ -7,6 +7,7 @@
 //   ・ListView の SelectedRanges から選択行を組み立てること
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using UiaTrigger.Models;
 
 namespace UiaTrigger.Picker.WinUI;
@@ -97,11 +98,49 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
         _ = _completion.TrySetResult(_result);
     }
 
+    /// <summary>
+    /// 下段 (まとめる / 状態 / 確定) に「使える高さ」を上限として渡す。
+    /// </summary>
+    /// <remarks>
+    /// ピッカーの <c>OnMainPaneSizeChanged</c> と同じ理由である (docs/DESIGN.md §12):
+    /// <c>Auto</c> の行は子に「欲しいだけ」与えるので、上限を渡さない限り
+    /// <c>LowerPane</c> のビューポートは中身と同じ高さになり、**スクロールが一生起きない**。
+    /// 窓を縮めると Grid が下段を黙って潰すだけになる (実測 175%: OK/キャンセルが 8px)。
+    /// 引くもの (上段の実寸・一覧の最小高さ・余白) は XAML 側が正である。
+    /// </remarks>
+    private void OnRootSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double reserved = TopBar.ActualHeight + Root.RowDefinitions[1].MinHeight
+            + Root.Padding.Top + Root.Padding.Bottom + (2 * Root.RowSpacing);
+        double available = Math.Max(80, e.NewSize.Height - reserved);
+
+        // 変わっていないときに代入しない (レイアウトを無用に回さないため)
+        if (Math.Abs(LowerPane.MaxHeight - available) > 0.5)
+        {
+            LowerPane.MaxHeight = available;
+        }
+    }
+
     // ---------- ユーザー操作 → プレゼンター ----------
 
     private void OnAdd(object sender, RoutedEventArgs e) => _presenter.NotifyAddRequested();
 
     private void OnEdit(object sender, RoutedEventArgs e) => _presenter.NotifyEditRequested();
+
+    /// <summary>
+    /// 行のダブルタップ = [条件を編集]。編集できない選択 (複合・複数選択) は presenter が
+    /// ボタンと同じ理由をステータスへ出す。
+    /// </summary>
+    [WinRT.DynamicWindowsRuntimeCast(typeof(FrameworkElement))]
+    private void OnRowDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        // 行の上だけを編集にする。一覧の空白部分では DataContext が行の文字列にならない —
+        // 無視しないと、選択済みの行が空白のダブルクリックで編集され始める
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is string)
+        {
+            _presenter.NotifyEditRequested();
+        }
+    }
 
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();
 

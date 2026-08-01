@@ -12,17 +12,15 @@
     x:Class="UiaTrigger.Picker.WinUI.TriggerListEditorWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid Padding="8" RowSpacing="8">
+    <Grid x:Name="Root" Padding="8" RowSpacing="8" SizeChanged="OnRootSizeChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="120" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- 一覧に対する操作 -->
-        <StackPanel Orientation="Horizontal" Spacing="8">
+        <StackPanel x:Name="TopBar" Orientation="Horizontal" Spacing="8">
             <Button x:Name="AddTriggerButton" x:Uid="AddTriggerButton" Click="OnAdd" />
             <Button x:Name="EditTriggerButton" x:Uid="EditTriggerButton" Click="OnEdit" />
             <Button x:Name="DeleteTriggerButton" x:Uid="DeleteTriggerButton" Click="OnDelete" />
@@ -32,29 +30,57 @@
             トリガー一覧。複数選択にするのは「まとめる」と「まとめて削除」のためである。
             見出しを持たないので、読み上げに出るのは x:Uid で入る
             AutomationProperties.Name だけになる。
+
+            横スクロールは自分で有効にする (実測 175%: 既定では H-scrollable=False で、
+            複合の長い行が右で黙って切れる)。WPF (ScrollViewer.HorizontalScrollBarVisibility) /
+            Windows Forms (HorizontalScrollbar) は元から出る — 出ないのはこの変種だけである。
+            ListView は TreeView と違い、自分に付いた添付プロパティをテンプレート内の
+            ScrollViewer へ中継する (ピッカーの OnElementTreeLoaded の注記を参照)。
         -->
         <ListView x:Name="EditorTriggerList" x:Uid="EditorTriggerList" Grid.Row="1"
-                  SelectionMode="Extended" />
+                  SelectionMode="Extended" DoubleTapped="OnRowDoubleTapped"
+                  ScrollViewer.HorizontalScrollMode="Enabled"
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  ScrollViewer.IsHorizontalRailEnabled="False" />
 
-        <!-- まとめる / ほどく -->
-        <StackPanel Grid.Row="2" Spacing="4">
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox x:Name="ExpressionBox" x:Uid="ExpressionBox" Width="300" />
-                <TextBox x:Name="UnwatchedBox" x:Uid="UnwatchedBox" Width="240" />
-                <NumberBox x:Name="CombinePollIntervalBox" x:Uid="CombinePollIntervalBox" Width="140" />
+        <!--
+            下段 (まとめる / 状態 / 確定)。1 枚の ScrollViewer で縦横両方を持つ
+            (ピッカーの ConditionScroll と同じ形)。上限は OnRootSizeChanged が渡す —
+            Auto の行は子に「欲しいだけ」与えるので、上限を渡さない限りビューポートが中身と
+            同じ高さになりスクロールが一生起きない (実測 175%: 窓 760x640 で OK/キャンセルが
+            高さ 8px に潰れ、操作できなかった)。
+            横は「まとめる」の入力行のため (WPF は WrapPanel、Windows Forms は FlowLayoutPanel で
+            折り返すが、WinUI に標準の WrapPanel は無く、CommunityToolkit をこの窓のために
+            足さない — 冒頭の注記。実測 175%: 窓 760px で CombinePollIntervalBox が右に切れて
+            消えていた)。ScrollViewer を入れ子にしないこと — 実測では内側を挟むと外側の
+            縦スクロールが成立しなくなった (extent がビューポートに一致し、可動域が消える)。
+        -->
+        <ScrollViewer x:Name="LowerPane" Grid.Row="2"
+                      VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollMode="Enabled" HorizontalScrollBarVisibility="Auto"
+                      IsHorizontalRailEnabled="False">
+            <StackPanel Spacing="8">
+                <!-- まとめる / ほどく -->
+                <StackPanel Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox x:Name="ExpressionBox" x:Uid="ExpressionBox" Width="300" />
+                        <TextBox x:Name="UnwatchedBox" x:Uid="UnwatchedBox" Width="240" />
+                        <NumberBox x:Name="CombinePollIntervalBox" x:Uid="CombinePollIntervalBox" Width="140" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button x:Name="CombineTriggersButton" x:Uid="CombineTriggersButton" Click="OnCombine" />
+                        <Button x:Name="DecomposeTriggerButton" x:Uid="DecomposeTriggerButton" Click="OnDecompose" />
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock x:Name="EditorStatus" Opacity="0.8" TextWrapping="Wrap" />
+
+                <!-- 確定 / 取り消し -->
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button x:Name="AcceptButton" x:Uid="AcceptButton" MinWidth="88" Click="OnAccept" />
+                    <Button x:Name="CancelButton" x:Uid="CancelButton" MinWidth="88" Click="OnCancel" />
+                </StackPanel>
             </StackPanel>
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button x:Name="CombineTriggersButton" x:Uid="CombineTriggersButton" Click="OnCombine" />
-                <Button x:Name="DecomposeTriggerButton" x:Uid="DecomposeTriggerButton" Click="OnDecompose" />
-            </StackPanel>
-        </StackPanel>
-
-        <TextBlock x:Name="EditorStatus" Grid.Row="3" Opacity="0.8" TextWrapping="Wrap" />
-
-        <!-- 確定 / 取り消し -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
-            <Button x:Name="AcceptButton" x:Uid="AcceptButton" MinWidth="88" Click="OnAccept" />
-            <Button x:Name="CancelButton" x:Uid="CancelButton" MinWidth="88" Click="OnCancel" />
-        </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

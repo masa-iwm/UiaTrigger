@@ -33,8 +33,17 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   editor's "Edit condition" shows **Update trigger** on the commit button instead of
   "Add trigger", and closes as soon as the commit succeeds. Recording new triggers is unchanged:
   that picker stays open so you can commit as many as you like.
+- **Double-clicking a row in the trigger-list editor edits it**, in all three editors — the same
+  as pressing "Edit condition", including the same refusal message for a composite.
 
 ### Fixed
+
+- **The WinUI trigger-list editor is usable when its content overflows.** The list now scrolls
+  horizontally, so a long composite row can be read to the end (the WPF and Windows Forms lists
+  already did); and the band below the list — the combine fields, the status line and OK/Cancel —
+  scrolls in both directions when the window is small. It used to clip silently: at 175% scale a
+  760px-wide window cut the composite poll-interval field off entirely, and a short window
+  squashed OK/Cancel to a sliver.
 
 - **`ElementRemoved` conditions now compare against the value just before removal.** They used to
   be evaluated against the values captured when the element was first resolved, so
