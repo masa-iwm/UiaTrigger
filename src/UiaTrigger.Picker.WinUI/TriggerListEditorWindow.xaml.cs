@@ -19,6 +19,13 @@ namespace UiaTrigger.Picker.WinUI;
 /// </remarks>
 public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditorView
 {
+    /// <summary>
+    /// 表示領域の既定サイズ (96 DPI 基準)。**WPF / Windows Forms のエディタと同じ値である**
+    /// (<c>PickerWindowDefaultSizeTests</c>)。
+    /// </summary>
+    private const int DefaultWidth = 900;
+    private const int DefaultHeight = 560;
+
     private readonly TriggerListEditorPresenter _presenter;
     private readonly ICursorSource _cursor;
 
@@ -64,6 +71,8 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     private TriggerListEditorWindow(IReadOnlyList<TriggerDefinition> triggers, ICursorSource cursor)
     {
         InitializeComponent();
+        // ピッカーの窓と同じ扱い (WindowDefaults の冒頭)
+        WindowDefaults.ApplyClientSize(this, DefaultWidth, DefaultHeight);
 
         _cursor = cursor;
         var strings = new MrtPickerStrings();

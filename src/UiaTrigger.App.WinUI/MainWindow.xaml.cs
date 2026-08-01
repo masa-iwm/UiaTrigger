@@ -16,6 +16,13 @@ public sealed partial class MainWindow : Window, IDisposable
     /// </summary>
     private const int MonitorLogLimit = 200;
 
+    /// <summary>
+    /// 表示領域の既定サイズ (96 DPI 基準)。**WPF / Windows Forms のサンプルホストと
+    /// 同じ値である** (<c>PickerWindowDefaultSizeTests</c>)。
+    /// </summary>
+    private const int DefaultWidth = 900;
+    private const int DefaultHeight = 600;
+
     // --triggers があればそちら (docs/DESIGN.md §12)。無指定なら実ファイル。
     // 読み書きの両方がこの 1 つのフィールドを通る
     private readonly string _filePath = HostOptions.TriggerFile ?? TriggerFilePath.Default;
@@ -43,6 +50,9 @@ public sealed partial class MainWindow : Window, IDisposable
     public MainWindow()
     {
         InitializeComponent();
+        // 他の 2 つのサンプルホストと同じ既定サイズ。WinUI3 の Window だけは
+        // XAML で宣言できない (WindowDefaults の冒頭)
+        WindowDefaults.ApplyClientSize(this, DefaultWidth, DefaultHeight);
         // Window は FrameworkElement ではないので x:Uid が効かない
         Title = AppStrings.Get("WindowTitle");
         FilePathText.Text = _filePath;

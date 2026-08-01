@@ -23,6 +23,13 @@ namespace UiaTrigger.Picker.WinUI;
 /// </remarks>
 public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposable
 {
+    /// <summary>
+    /// 表示領域の既定サイズ (96 DPI 基準)。**WPF の <c>Width</c>/<c>Height</c>、
+    /// Windows Forms の <c>ClientSize</c> と同じ値である** (<c>PickerWindowDefaultSizeTests</c>)。
+    /// </summary>
+    private const int DefaultWidth = 1100;
+    private const int DefaultHeight = 700;
+
     private readonly TriggerPickerPresenter _presenter;
 
     /// <summary>ツリー再構築の世代。差し替え後に古い展開/選択の遅延処理を破棄するために使う。</summary>
@@ -51,6 +58,9 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     public TriggerPickerWindow(ICursorSource cursor)
     {
         InitializeComponent();
+        // 他の 2 変種と同じ既定サイズ。WinUI3 の Window だけは XAML で宣言できない
+        // (WindowDefaults の冒頭)。Activate される前なので、出したあとの縮みにはならない
+        WindowDefaults.ApplyClientSize(this, DefaultWidth, DefaultHeight);
 
         var strings = new MrtPickerStrings();
         _presenter = new TriggerPickerPresenter(
