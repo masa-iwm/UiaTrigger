@@ -142,8 +142,14 @@ ja-JP で `1234.5` が同じ表記のままでも、区切りやマイナス記�
 - `Window` は `FrameworkElement` ではないので `x:Uid` が効かない。ウィンドウタイトルなどは
   コードから `ResourceLoader` で引く
 - 失敗形は経路で症状が違う: **`GetString` が解決できないとキー名がそのまま返り、
-  `x:Uid` が解決できないとラベルが空になる**。どちらも例外は出ない。だから検査は
+  `x:Uid` が解決できないとラベルが空になる**。どちらも画面には出るので、検査は
   「空でない」ではなく**リソースファイルから読んだ値と一致すること**を見る
+- **「キー名がそのまま返る」は、供給側が受け止めた*あと*の姿である。**素の API は投げうる:
+  MRT Core の `ResourceLoader.GetString` は**キーが 1 つ無いだけで**投げる (空文字を返した
+  同名の UWP API とは違う)。`ResourceManager` のほうはキー欠落なら `null` を返すが、
+  リソース集合ごと見つからなければ `MissingManifestResourceException` を投げる。
+  だから 3 つの供給元 (`MrtPickerStrings` / `AppStrings` / `ResxPickerStrings`) が
+  そろって受け止めている — **外すと翻訳の 1 つの抜けが窓ごと落とす**
 - 「どの `x:Uid` からも参照されていないキー」は `XamlLocalizationTests` が許さない。
   キーを足すなら使う場所と同じコミットに入れる。この帰結として、resw に触る変更では
   WinUI の View を後回しにできない (キーだけ先に入れると赤になる)

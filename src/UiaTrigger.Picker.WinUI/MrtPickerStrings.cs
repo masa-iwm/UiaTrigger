@@ -38,10 +38,24 @@ public sealed class MrtPickerStrings : IPickerStrings
     });
 
     /// <summary>The string for <paramref name="key"/>, or the key itself when it cannot be found.</summary>
-    /// <remarks>Returning the key is deliberate: a blank label is far harder to notice.</remarks>
+    /// <remarks>
+    /// Returning the key is deliberate: a blank label is far harder to notice. MRT Core throws for a
+    /// key that is not there — unlike the UWP API of the same name, which returned an empty string —
+    /// so a missing translation would otherwise take the whole picker down.
+    /// </remarks>
     public string GetString(string key)
     {
-        string? value = Loader.Value?.GetString(key);
+        string? value;
+        try
+        {
+            value = Loader.Value?.GetString(key);
+        }
+        catch (Exception)
+        {
+            // MRT Core はキーが無いと投げる (docs/LOCALIZATION.md §4)。
+            // 翻訳を 1 つ足し忘れただけでピッカーごと落とすのは割に合わない
+            return key;
+        }
         return string.IsNullOrEmpty(value) ? key : value;
     }
 }

@@ -23,9 +23,22 @@ internal static class AppStrings
     });
 
     /// <summary>リソース文字列。引けなければキー名をそのまま返す (無言で空にはしない)。</summary>
+    /// <remarks>
+    /// **MRT Core の <c>GetString</c> はキーが無いと例外を投げる** (docs/LOCALIZATION.md §4)。
+    /// 空文字を返す UWP の同名 API とは違うので、キー名を返すという約束はここで受け止めないと
+    /// 守れない — 翻訳を 1 つ足し忘れただけでホストが落ちることになる。
+    /// </remarks>
     public static string Get(string key)
     {
-        string? value = Loader.Value?.GetString(key);
+        string? value;
+        try
+        {
+            value = Loader.Value?.GetString(key);
+        }
+        catch (Exception)
+        {
+            return key;
+        }
         return string.IsNullOrEmpty(value) ? key : value;
     }
 
