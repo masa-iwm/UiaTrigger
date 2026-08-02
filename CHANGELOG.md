@@ -36,7 +36,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
 - **Esc closes the picker**, in all three variants. Triggers already committed stay committed;
   only the draft you were filling in is discarded. Esc while a combo box has its list open closes
   the list and leaves the window alone, and Esc while a picker opened from the trigger-list editor
-  is up never takes the editor with it.
+  is up closes that picker only — never the editor with it.
+
+### Fixed
+
+- **Keys did nothing in a picker opened from the WinUI trigger-list editor.** The picker came up in
+  front but the editor took keyboard focus back a moment later, so Enter and Esc reached neither
+  window — most visibly when the picker was opened by double-clicking a row. The editor now hands
+  activation back to its child picker, and forwards Esc to it. Only the WinUI editor was affected:
+  WPF's `Owner` and Windows Forms' `Show(owner)` already cover activation, while WinUI 3's window
+  ownership fixes the z-order alone.
 - **Enter commits in a picker opened to edit a recorded trigger**, and closes it — the same as
   pressing "Update trigger". A picker opened to record does not do this: it stays open for the
   next trigger, so Enter there would commit something half-filled.

@@ -85,6 +85,17 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
         _presenter = new TriggerListEditorPresenter(this, strings, triggers);
         Closed += OnClosed;
+        // **子ピッカーが開いている間は、活性化をあちらへ返す。**
+        //
+        // 所有関係 (WindowOwnership) が固定するのは**重なり**だけである。子ピッカーは
+        // 前面に出るが、開いた直後の入力処理がエディタを活性化し直すと**フォーカスだけが
+        // こちらへ戻る** (実測: 要素選択の窓が active で出た後、表示が済んだあたりで
+        // フォーカスがエディタへ移る)。そうなるとキーはどちらの窓でも効かなくなる —
+        // 見えている前面の窓に打っているのに反応しない、という形になる。
+        //
+        // WPF の Owner / Windows Forms の Show(owner) は活性化まで面倒を見るので、
+        // これが要るのはこの変種だけである
+        Activated += OnActivated;
         // Enter = [OK] / Esc = [キャンセル]。**この変種にだけ配線が要る** — WPF は
         // IsDefault / IsCancel、Windows Forms は AcceptButton / CancelButton を持つが、
         // WinUI3 には相当するものが無い。**バブリングの KeyDown で受けること**:
@@ -92,6 +103,19 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
         if (Content is UIElement root)
         {
             root.KeyDown += OnKeyDown;
+        }
+    }
+
+    /// <summary>子ピッカーが開いている間にこちらが活性化されたら、あちらへ返す。</summary>
+    /// <remarks>
+    /// ピンポンにはならない — これで子が活性化されるとこちらは非活性になり、
+    /// <c>Deactivated</c> ではここへ来ないためである。
+    /// </remarks>
+    private void OnActivated(object sender, WindowActivatedEventArgs args)
+    {
+        if (args.WindowActivationState != WindowActivationState.Deactivated && _picker is { } picker)
+        {
+            picker.Activate();
         }
     }
 
@@ -193,15 +217,27 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
     /// <summary>Enter = 確定、Esc = 取り消し (他の 2 変種の既定ボタンに合わせる)。</summary>
     /// <remarks>
-    /// **子ピッカーが開いている間は何もしない。**あの窓が出ているあいだ Enter / Esc は
-    /// あちらのものであり、ここで拾うと子を閉じたつもりでエディタごと閉じる。
-    /// WPF / Windows Forms は既定ボタンが所有関係で自然にそうなるので、
-    /// 明示的に見る必要があるのはこの変種だけである。
+    /// <para>
+    /// **子ピッカーが開いている間、キーはあちらのものである。**ここでそのまま拾うと、
+    /// 子を閉じたつもりでエディタごと閉じる (閉じたエディタは <c>OnClosed</c> で子も閉じる)。
+    /// かといって**握り潰すと今度はどちらも動かない** — 行のダブルクリックで開いたときは
+    /// フォーカスが一覧に残るので、キーは子ピッカーへ届かず、ここで捨てられて終わる。
+    /// </para>
+    /// <para>
+    /// そこで**子ピッカーへ回す**: Esc はあれを閉じ、Enter はあれに任せる (編集セッションなら
+    /// 確定して閉じる)。WPF / Windows Forms は既定ボタンと所有関係で自然にそうなるので、
+    /// 明示的に書く必要があるのはこの変種だけである。
+    /// </para>
     /// </remarks>
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (_picker is not null)
+        if (_picker is { } picker)
         {
+            if (e.Key is Windows.System.VirtualKey.Escape)
+            {
+                e.Handled = true;
+                picker.Close();
+            }
             return;
         }
         switch (e.Key)

@@ -78,6 +78,23 @@ internal sealed class EditorScenario : IDisposable
     /// <summary>エディタの窓へフォーカスを移す (キーがどちらの窓へ行くかを決めるため)。</summary>
     public void FocusEditor() => Editor().SetFocus();
 
+    /// <summary>先頭行の中心の画面座標 (合成マウスで押すため)。</summary>
+    /// <remarks>
+    /// 呼び出し側が <c>CursorGuard.MoveTo</c> で置いてから押す。座標と押下を 1 つに
+    /// 混ぜないのは <c>SyntheticInput.TapLeftButton</c> の注記と同じ理由である。
+    /// </remarks>
+    public (int X, int Y) FirstRowCenter()
+    {
+        AutomationElement row = Ui.Until(
+            () => Rows() is { Count: > 0 } rows ? rows[0] : null,
+            Settle,
+            "エディタの一覧に行が在ること",
+            Diagnostics);
+        System.Windows.Rect r = row.Current.BoundingRectangle;
+        Assert.True(r.Width > 0 && r.Height > 0, $"行の矩形が潰れています ({r})。");
+        return ((int)(r.Left + (r.Width / 2)), (int)(r.Top + (r.Height / 2)));
+    }
+
 
     private AutomationElement Editor() => _host.EditorWindow();
 

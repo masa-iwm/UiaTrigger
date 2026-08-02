@@ -39,6 +39,9 @@ internal static partial class SyntheticInput
     /// <summary>Esc。ピッカーの窓を閉じる。</summary>
     public const ushort VkEscape = 0x1B;
 
+    /// <summary>Enter。編集セッションのピッカーでは確定になる。</summary>
+    public const ushort VkEnter = 0x0D;
+
     public const ushort VkLeft = 0x25;
 
     /// <summary>→ キー。</summary>
