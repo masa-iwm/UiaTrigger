@@ -85,6 +85,14 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
         _presenter = new TriggerListEditorPresenter(this, strings, triggers);
         Closed += OnClosed;
+        // Enter = [OK] / Esc = [キャンセル]。**この変種にだけ配線が要る** — WPF は
+        // IsDefault / IsCancel、Windows Forms は AcceptButton / CancelButton を持つが、
+        // WinUI3 には相当するものが無い。**バブリングの KeyDown で受けること**:
+        // 先取りすると、コンボの一覧が開いている最中の Esc まで奪って窓ごと閉じてしまう
+        if (Content is UIElement root)
+        {
+            root.KeyDown += OnKeyDown;
+        }
     }
 
     private void OnClosed(object sender, WindowEventArgs args)
@@ -182,6 +190,24 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    /// <summary>Enter = 確定、Esc = 取り消し (他の 2 変種の既定ボタンに合わせる)。</summary>
+    private void OnKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case Windows.System.VirtualKey.Enter:
+                e.Handled = true;
+                OnAccept(this, new RoutedEventArgs());
+                break;
+            case Windows.System.VirtualKey.Escape:
+                e.Handled = true;
+                Close();
+                break;
+            default:
+                break;
+        }
+    }
 
     // ---------- ITriggerListEditorView ----------
 

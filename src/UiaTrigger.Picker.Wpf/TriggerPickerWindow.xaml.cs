@@ -144,6 +144,10 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         ElementTree.IsKeyboardFocusWithinChanged += (_, e) =>
             _presenter.SetTreeHasFocus(e.NewValue is true);
         Closed += (_, _) => Dispose();
+        // Esc で閉じる。**PreviewKeyDown ではなく KeyDown (バブリング) で受けること** —
+        // 先取りすると、コンボの一覧が開いている最中の Esc まで奪って窓ごと閉じてしまう。
+        // バブリングなら一覧を閉じた側が Handled にするので、ここへは来ない
+        KeyDown += OnKeyDown;
 
         // マウス自動選択は既定で ON (Checked が OnAutoSelectToggled を呼ぶ)
         AutoSelectToggle.IsChecked = true;
@@ -342,6 +346,16 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     }
 
     private void OnCommit(object sender, RoutedEventArgs e) => _presenter.Commit();
+
+    /// <summary>Esc = 取り消して閉じる。閉じれば <c>Closed</c> がフックとセッションを畳む。</summary>
+    private void OnKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            Close();
+        }
+    }
 
     // ---------- IPickerView ----------
 

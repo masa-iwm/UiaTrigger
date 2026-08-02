@@ -33,6 +33,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   read both when combining and when updating. It is the composite's own setting: combining does
   not carry the flag over from the triggers being combined.
 
+- **Esc closes the picker**, in all three variants. Triggers already committed stay committed;
+  only the draft you were filling in is discarded. Esc while a combo box has its list open closes
+  the list and leaves the window alone.
+- **Enter and Esc work in the WinUI trigger-list editor**, matching the other two: Enter accepts
+  the edited list, Esc discards it. WPF and Windows Forms already had this through their default
+  and cancel buttons; WinUI 3 has no equivalent, so it needed wiring.
+
 ### Breaking (for `ITriggerListEditorView` implementers)
 
 - `ITriggerListEditorView`: `ExpressionText`, `UnwatchedText` and `CombinePollIntervalSeconds`

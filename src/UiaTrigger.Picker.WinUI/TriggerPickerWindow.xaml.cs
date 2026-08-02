@@ -89,6 +89,13 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         ElementTree.GotFocus += (_, _) => _presenter.SetTreeHasFocus(true);
         ElementTree.LostFocus += (_, _) => _presenter.SetTreeHasFocus(false);
         Closed += OnClosed;
+        // Esc で閉じる。**バブリングの KeyDown で受けること** — 先取りすると、コンボの一覧が
+        // 開いている最中の Esc まで奪って窓ごと閉じてしまう。一覧を閉じた側が Handled にするので
+        // ここへは来ない。Window 自体は KeyDown を持たないので中身 (ルートの Grid) に付ける
+        if (Content is UIElement root)
+        {
+            root.KeyDown += OnKeyDown;
+        }
 
         // マウス自動選択は既定で ON
         AutoSelectToggle.IsOn = true;
@@ -140,6 +147,16 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     public void StopAutoSelect() => AutoSelectToggle.IsOn = false;
 
     private void OnClosed(object sender, WindowEventArgs args) => Dispose();
+
+    /// <summary>Esc = 取り消して閉じる。閉じれば <c>Closed</c> がフックとセッションを畳む。</summary>
+    private void OnKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Escape)
+        {
+            e.Handled = true;
+            Close();
+        }
+    }
 
     /// <summary>Releases the presenter: its timer, the overlay and the UI Automation session.</summary>
     /// <remarks>

@@ -421,6 +421,26 @@ public sealed class TriggerPickerForm : Form, IPickerView
     }
 
     /// <summary>プレゼンター (タイマー・オーバーレイ・UIA セッション) を解放する。</summary>
+    /// <summary>Closes the window on Esc.</summary>
+    /// <param name="keyData">The key that was pressed.</param>
+    /// <returns>True when Esc was handled here.</returns>
+    /// <remarks>
+    /// <c>ProcessDialogKey</c> rather than <c>KeyPreview</c>: the focused control gets its chance
+    /// first, so Esc while a combo box has its list open only closes the list. This is the same
+    /// route <c>CancelButton</c> uses, and the picker has no cancel button of its own to carry it.
+    /// Closing releases the low-level keyboard hook and the UI Automation session, because Windows
+    /// Forms disposes a non-modal form when it closes.
+    /// </remarks>
+    protected override bool ProcessDialogKey(Keys keyData)
+    {
+        if (keyData == Keys.Escape)
+        {
+            Close();
+            return true;
+        }
+        return base.ProcessDialogKey(keyData);
+    }
+
     /// <param name="disposing">True when called from <see cref="IDisposable.Dispose"/>.</param>
     protected override void Dispose(bool disposing)
     {

@@ -36,6 +36,9 @@ namespace UiaTrigger.Input.Tests;
 internal static partial class SyntheticInput
 {
     /// <summary>← キー。</summary>
+    /// <summary>Esc。ピッカーの窓を閉じる。</summary>
+    public const ushort VkEscape = 0x1B;
+
     public const ushort VkLeft = 0x25;
 
     /// <summary>→ キー。</summary>
