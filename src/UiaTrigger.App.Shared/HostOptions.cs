@@ -1,9 +1,10 @@
 // サンプルホスト 3 つが共有する、コマンドラインの読み取り (docs/DESIGN.md §12)。
 //
-// 読むのは 3 つ:
-//   --pick-at x,y      ピッカーに「カーソルはここに在る」と思わせる。繰り返せる
-//   --culture <name>   表示カルチャを上書きする
-//   --triggers <path>  トリガーの保存先を差し替える
+// 読むのは 4 つ:
+//   --pick-at x,y            ピッカーに「カーソルはここに在る」と思わせる。繰り返せる
+//   --culture <name>         表示カルチャを上書きする
+//   --triggers <path>        トリガーの保存先を差し替える
+//   --place-windows L,T,W,H  自分が出す窓をこの矩形へ置き続ける (HostWindowPlacer)
 //
 // なぜ --pick-at がホスト側に要るのか — ピッカーの主要な操作はホバー滞留であり、捕捉が
 // 起きなければツリーには何も出ない。T4 (tests/UiaTrigger.Picker.UiTests) が実体化待ちの
@@ -67,6 +68,14 @@ internal static class HostOptions
         ArgumentNullException.ThrowIfNull(log);
         _log = log;
         _parsed = HostCommandLine.Parse(Environment.GetCommandLineArgs(), log);
+
+        // --place-windows は**ウィンドウを 1 つも作る前**に効かせる必要がある。
+        // フックは「これから起きること」しか教えないので、あとから張ると
+        // 既に出ている窓を取りこぼす (HostWindowPlacer.Start の remarks)
+        if (_parsed.Placement is { } placement)
+        {
+            HostWindowPlacer.Start(placement, log);
+        }
     }
 
     private static HostCommandLine Current => _parsed ?? throw NotInitialized();

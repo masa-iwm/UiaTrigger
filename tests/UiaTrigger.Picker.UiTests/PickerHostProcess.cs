@@ -24,9 +24,6 @@ internal sealed class PickerHostProcess : IDisposable
 {
     private static readonly TimeSpan WindowTimeout = TimeSpan.FromSeconds(30);
 
-    /// <summary>ホストの窓が出るのを見張る間隔。滞留 1000ms に対して十分に細かくとる。</summary>
-    private static readonly TimeSpan PlacePollInterval = TimeSpan.FromMilliseconds(5);
-
     private readonly Process _process;
     private readonly string _logPath;
     private readonly IReadOnlyList<System.Windows.Point> _pickPoints;
@@ -83,8 +80,14 @@ internal sealed class PickerHostProcess : IDisposable
 
     /// <summary>ホストの窓を置く矩形。既定は <see cref="DesktopLayout.Host"/>。</summary>
     /// <remarks>
+    /// <para>
     /// 差し替えられるようにしてあるのは、**表示域の広さそのものが検査対象**になる
     /// テストがあるためである (<see cref="DesktopLayout.NarrowHost"/>)。
+    /// </para>
+    /// <para>
+    /// **置くのはホスト自身である。**この矩形は <c>--place-windows</c> で起動時に渡してあり、
+    /// ここに残っているのは「置き終えたか」を外から見るため (<see cref="IsPlaced"/>) だけである。
+    /// </para>
     /// </remarks>
     private readonly (int Left, int Top, int Width, int Height) _hostRect;
 
@@ -168,7 +171,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// </remarks>
     public void OpenAnotherPicker()
     {
-        OpenAndPlace("OpenAnotherPickerButton");
+        OpenAndAwaitPlacement("OpenAnotherPickerButton");
         // 2 枚目こそ確かめる。カスケードは 1 枚目の**あと**なので、より右下へ出る
         RequireThePickPointsAreNotCoveredByTheHost();
     }
@@ -258,6 +261,23 @@ internal sealed class PickerHostProcess : IDisposable
             info.ArgumentList.Add(argument);
         }
 
+        // **窓を退かすのはホスト自身である。**ここから渡す矩形へ、ホストが自分の窓を
+        // 置き続ける (src/UiaTrigger.App.Shared/HostWindowPlacer.cs)。
+        //
+        // ハーネス側で 5ms ごとに退かす見張りスレッドを立てていたのをやめた形である。
+        // あれには**寿命**があり (ボタンを押す前後だけ立てて finally で止める)、
+        // 止まったあとに現れた窓やフレームワークが当て直した窓は誰も退かさなかった。
+        // T4 が実際にそれで落ちている (pick 点との余裕 4px)。
+        //
+        // **どの起動口からも無条件で渡す。**hostRect が指定されたときだけ渡す形にすると、
+        // aot ジョブが回す S4 (StartForLabels → hostRect: null) がこの経路を一度も通らず、
+        // 「AOT 発行するとフックが黙って効かない」を CI が一度も見ないことになる
+        // (docs/DESIGN.md D2 が塞いでいるのと同じ形)
+        (int Left, int Top, int Width, int Height) rect = hostRect ?? DesktopLayout.Host;
+        info.ArgumentList.Add("--place-windows");
+        info.ArgumentList.Add(string.Create(
+            CultureInfo.InvariantCulture, $"{rect.Left},{rect.Top},{rect.Width},{rect.Height}"));
+
         // トリガーの保存先は必ず差し替える (TriggerFile の remarks を参照)
         string triggerFile = Path.Combine(
             Path.GetTempPath(), $"uiatrigger-t4-{Guid.NewGuid():N}.json");
@@ -290,16 +310,13 @@ internal sealed class PickerHostProcess : IDisposable
             () => $"実行ファイル: {exe}");
 
         var host = new PickerHostProcess(
-            process, profile, mainWindow, logPath, triggerFile, pickPoints, hostRect ?? DesktopLayout.Host);
-        // メインウィンドウはここで退かす。ピッカーはまだ無いので競争が無い
+            process, profile, mainWindow, logPath, triggerFile, pickPoints, rect);
+        // 置くのはホストだが、**置き終えたことはこちらで確かめる。**
+        // 「渡したから置かれたはず」にすると、フックが張れていない形が素通りする
         _ = Ui.Until(
-            () =>
-            {
-                host.PlaceHostWindows();
-                return host.PlacedHostWindowCount() > 0 ? "ok" : null;
-            },
+            () => host.PlacedHostWindowCount() > 0 ? "ok" : null,
             WindowTimeout,
-            $"{profile.Name} ホストのメインウィンドウを pick 点から退かす",
+            $"{profile.Name} ホストがメインウィンドウを {Describe(rect)} へ置く",
             host.Diagnostics);
         return host;
     }
@@ -313,7 +330,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// </remarks>
     public void OpenPicker()
     {
-        OpenAndPlace(
+        OpenAndAwaitPlacement(
             "OpenPickerButton",
             thenWaitFor: () => Ui.Until(
                 FindTree,
@@ -333,7 +350,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// **ダイアログが閉じるまで返らない**おそれがある。あちらの確認は MANUAL-CHECKS に置く。
     /// </remarks>
     public void OpenEditor()
-        => OpenAndPlace(
+        => OpenAndAwaitPlacement(
             "EditListButton",
             thenWaitFor: () => Ui.Until(
                 FindEditor,
@@ -369,11 +386,11 @@ internal sealed class PickerHostProcess : IDisposable
     /// <remarks>
     /// 退かすところまでを 1 つにしてあるのは、素の <c>Invoke()</c> で済ませると
     /// カスケードが pick 点を覆う非決定性がそのまま戻るからである
-    /// (<see cref="OpenAndPlace(Func{AutomationElement}, string, Action)"/> の remarks を参照)。
+    /// (<see cref="OpenAndAwaitPlacement(Func{AutomationElement}, string, Action)"/> の remarks を参照)。
     /// </remarks>
     public AutomationElement OpenPickerFromEditor(string buttonId)
     {
-        OpenAndPlace(
+        OpenAndAwaitPlacement(
             EditorWindow,
             buttonId,
             thenWaitFor: () => Ui.Until(
@@ -386,135 +403,69 @@ internal sealed class PickerHostProcess : IDisposable
     }
 
     /// <summary>
-    /// ボタンを押し、そこで出てくるホストの窓を**出た瞬間に**退かす。
+    /// ボタンを押し、そこで出てくるホストの窓が**退き終わるまで待つ**。
     /// </summary>
     /// <remarks>
     /// <para>
-    /// **これが T4 の非決定性への対処である** (docs/TESTING.md §1)。
+    /// **退かすのはホスト自身である** (<c>--place-windows</c> — docs/TESTING.md §1)。
     /// ピッカーの窓はカスケードして開くので、pick 点を覆うかどうかが実行ごとに変わる。
     /// 覆ったまま滞留 1 秒が明けると、ピッカーは自プロセスを掴んで捕捉を飛ばし、
     /// <c>TickAsync</c> の「同じ点は再捕捉しない」により**二度と捕捉しない**。
     /// </para>
     /// <para>
-    /// **見張りを別スレッドに置くのは意図である。**<c>Invoke()</c> はホストの UI スレッドが
-    /// 窓を組み立てるあいだ返らない (実測で WinUI は 652ms)。呼び出しスレッドで待ってから
-    /// 探しはじめると、その 652ms がまるごと猶予から引かれる。
+    /// **ここが 5ms ごとの見張りスレッドだった。**やめたのは、あれには**寿命**があったからである —
+    /// このメソッドの <c>finally</c> で止まるので、そのあとに現れた窓や、フレームワークが
+    /// あとから配置を当て直した窓は誰も退かさなかった。ホスト側のフックには寿命が無い。
     /// </para>
     /// <para>
-    /// **数えるのは「窓が出たか」ではなく「退かし終えたか」である。**
-    /// 最初はウィンドウの数で待っていたが、それだと**現れた瞬間に見張りを止めて**
-    /// しまい、退かす前のものが残った。実際にそれで落ちている
+    /// **数えるのは「窓が出たか」ではなく「退き終えたか」である。**窓の数で待つと
+    /// **現れた瞬間に待つのをやめて**しまい、退く前のものが残る。実際にそれで落ちている
     /// ((182,182)-(1382,800) がそのまま残り、pick 点を覆っていた)。
-    /// 見張りが止まってよいのは、退かした結果がこちらから見えたときである。
-    /// </para>
-    /// <para>
-    /// 見張りを <paramref name="thenWaitFor"/> のあいだも走らせ続けるのは、
-    /// フレームワークが自前の配置を**あとから**当てることがあるためである。
-    /// ツリーが出るころには窓の組み立てが終わっているので、そこまで持たせれば足りる。
-    /// </para>
-    /// <para>
-    /// **正直に書く: これは競争であって、構造的な保証ではない。**実測の余裕は
-    /// 「窓が現れてから退かし終えるまで」が WinUI 21ms / WPF 139ms で、滞留の 1000ms に対して
-    /// 桁がひとつ違う。それでも保証ではないので、もし将来ここが揺れたら、
-    /// ホスト側に窓の位置を渡す口を足して競争ごと消すこと
-    /// (<c>HostOptions</c> の 4 つ目のオプションになるので、そのときは共有プロジェクトへ移す)。
     /// </para>
     /// </remarks>
-    private void OpenAndPlace(string buttonId, Action? thenWaitFor = null)
-        => OpenAndPlace(() => MainWindow, buttonId, thenWaitFor);
+    private void OpenAndAwaitPlacement(string buttonId, Action? thenWaitFor = null)
+        => OpenAndAwaitPlacement(() => MainWindow, buttonId, thenWaitFor);
 
     /// <summary>
     /// 同じことを、**メインウィンドウ以外**の窓のボタンに対して行う。
     /// </summary>
     /// <remarks>
     /// エディタの [追加] / [条件を編集] から子ピッカーを開く経路がこれである。
-    /// **ここを素の <c>Invoke()</c> にするとカスケードの非決定性がそのまま戻る** —
-    /// 実測で 1 度踏んだ (子ピッカーがカスケードして pick 点を覆い、
-    /// 滞留が明けた瞬間にピッカーが自分の
-    /// <c>DesktopChildSiteBridge</c> を掴んで、以後 <c>TickAsync</c> の
-    /// 「同じ点は再捕捉しない」で二度と捕捉しなかった)。
-    /// 根 (<paramref name="root"/>) を遅延で受けるのは、退かした直後の WinUI では
+    /// **この経路の窓はホストではなく出荷するライブラリが作る** —
+    /// <c>TriggerListEditorWindow.EditAsync</c> は窓を返さないので、ホストは参照を持てない。
+    /// 生成箇所ごとに置く形では覆えず、ホスト側が自プロセスの窓イベントで拾うのはそのためである。
+    /// 根 (<paramref name="root"/>) を遅延で受けるのは、退いた直後の WinUI では
     /// **既に在る窓の要素が一時的に UIA から消える**ため、掴み直せるようにするためである。
     /// </remarks>
-    private void OpenAndPlace(Func<AutomationElement> root, string buttonId, Action? thenWaitFor = null)
+    private void OpenAndAwaitPlacement(Func<AutomationElement> root, string buttonId, Action? thenWaitFor = null)
     {
         int before = PlacedHostWindowCount();
-        // 停止の合図は素の bool にしてある。CancellationTokenSource だと、見張りが
-        // SetWindowPos の中で相手のスレッドを待っているあいだに Dispose が走りうる
-        var stop = new StopFlag();
-        var watcher = new Thread(() =>
-        {
-            while (!stop.Requested)
-            {
-                PlaceHostWindows();
-                Thread.Sleep(PlacePollInterval);
-            }
-        })
-        {
-            IsBackground = true,
-            Name = "picker window placer",
-        };
-        watcher.Start();
-        try
-        {
-            // **待つこと。**素の RequireById (一発の FindFirst) にすると、フル実行のとき
-            // だけ「AutomationId 'OpenPickerButton' の要素が見つかりません」という顔で
-            // 間欠に落ちる。**WinUI では、レイアウトが動いた直後に既に在る要素が
-            // 一時的に UIA から消える**ためで、実際には**まだ出ていないだけ**である。
-            // 待っても出てこなければ結局落ちるので、本当に無い場合を見逃すことはない。
-            root().RequireByIdEventually(buttonId, Diagnostics).Invoke();
-            // Invoke が返っても窓はまだ無いことがある (実測で WPF は 47ms で返り、窓は 381ms)
-            _ = Ui.Until(
-                () => PlacedHostWindowCount() > before ? "ok" : null,
-                WindowTimeout,
-                $"{Profile.Name} ホストの新しいウィンドウを pick 点から退かす",
-                Diagnostics);
-            thenWaitFor?.Invoke();
-        }
-        finally
-        {
-            stop.Requested = true;
-            _ = watcher.Join(TimeSpan.FromSeconds(5));
-        }
+
+        // **待つこと。**素の RequireById (一発の FindFirst) にすると、フル実行のとき
+        // だけ「AutomationId 'OpenPickerButton' の要素が見つかりません」という顔で
+        // 間欠に落ちる。**WinUI では、レイアウトが動いた直後に既に在る要素が
+        // 一時的に UIA から消える**ためで、実際には**まだ出ていないだけ**である。
+        // 待っても出てこなければ結局落ちるので、本当に無い場合を見逃すことはない。
+        root().RequireByIdEventually(buttonId, Diagnostics).Invoke();
+        // Invoke が返っても窓はまだ無いことがある (実測で WPF は 47ms で返り、窓は 381ms)
+        _ = Ui.Until(
+            () => PlacedHostWindowCount() > before ? "ok" : null,
+            WindowTimeout,
+            $"{Profile.Name} ホストが新しいウィンドウを {Describe(_hostRect)} へ置く",
+            Diagnostics);
+        thenWaitFor?.Invoke();
     }
 
-    /// <summary>
-    /// ホストのトップレベルウィンドウを、割り付けで決めた場所へ退かす。
-    /// </summary>
+    /// <summary>割り付けの場所へ退き終えた、ホストのトップレベルウィンドウの数。</summary>
     /// <remarks>
-    /// **オーバーレイは動かさない。**あれは選択された要素の上に出るのが仕事であり、
-    /// 退かしたら検査対象そのものを壊す。
-    /// 既にその場所に在る窓は触らない — 5ms ごとに呼ばれるので、
-    /// 毎回動かすとホストの UI スレッドに <c>WM_WINDOWPOSCHANGING</c> を撒き続けることになる。
+    /// **観測だけである。**ここから窓を動かすことはもう無い (動かすのはホスト)。
+    /// オーバーレイは数えない — あれは対象要素の上に出るのが仕事で、退かない。
     /// </remarks>
-    private void PlaceHostWindows()
-    {
-        (int left, int top, int width, int height) = _hostRect;
-        foreach (nint hwnd in NativeWindows.TopLevelWindowsOf(_process.Id))
-        {
-            if (IsOverlay(hwnd) || IsPlaced(hwnd))
-            {
-                continue;
-            }
-            _ = NativeWindows.MoveTo(hwnd, left, top, width, height);
-        }
-    }
-
-    /// <summary>割り付けの場所へ退かし終えた、ホストのトップレベルウィンドウの数。</summary>
     private int PlacedHostWindowCount()
         => NativeWindows.TopLevelWindowsOf(_process.Id).Count(h => !IsOverlay(h) && IsPlaced(h));
 
-    /// <summary>見張りを止める合図。</summary>
-    private sealed class StopFlag
-    {
-        private volatile bool _requested;
-
-        public bool Requested
-        {
-            get => _requested;
-            set => _requested = value;
-        }
-    }
+    private static string Describe((int Left, int Top, int Width, int Height) r) => string.Create(
+        CultureInfo.InvariantCulture, $"({r.Left},{r.Top})-({r.Left + r.Width},{r.Top + r.Height})");
 
     private bool IsPlaced(nint hwnd)
     {

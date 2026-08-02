@@ -102,6 +102,58 @@ public sealed class HostOptionsTests
         Assert.Empty(parsed.Cursors);
         Assert.Null(parsed.TriggerFile);
         Assert.Null(parsed.Culture);
+        Assert.Null(parsed.Placement);
+    }
+
+    /// <summary><c>--place-windows</c> は 4 つの整数を**物理ピクセル**として読む。</summary>
+    [Fact]
+    public void ItReadsThePlacementRectangle()
+    {
+        HostCommandLine parsed = HostCommandLine.Parse(
+            ["host.exe", "--place-windows", "0,0,1516,980"],
+            Ignore);
+
+        Assert.Equal(new WindowPlacement(0, 0, 1516, 980), parsed.Placement);
+    }
+
+    /// <summary>
+    /// 壊れた <c>--place-windows</c> は**理由をログに残して**無指定に落ちること。
+    /// </summary>
+    /// <remarks>
+    /// 黙って落ちると症状は「窓が退かない」だけになり、T4 からは pick 点の被覆として
+    /// 見えることになる。原因が 2 段離れるので、ここで名指ししておく。
+    /// 幅と高さが 0 以下のものも弾く — <c>SetWindowPos</c> に渡すと窓が潰れ、
+    /// 「窓が消えた」という読めない症状になる。
+    /// </remarks>
+    [Theory]
+    [InlineData("0,0,1516")]
+    [InlineData("0,0,1516,980,7")]
+    [InlineData("0,0,x,980")]
+    [InlineData("0,0,0,980")]
+    [InlineData("0,0,1516,-1")]
+    public void ItLogsWhyItSkippedABrokenPlacement(string value)
+    {
+        var logged = new List<string>();
+
+        HostCommandLine parsed = HostCommandLine.Parse(["host.exe", "--place-windows", value], logged.Add);
+
+        Assert.Null(parsed.Placement);
+        Assert.Contains(logged, line => line.Contains("--place-windows", StringComparison.Ordinal));
+    }
+
+    /// <summary>矩形も**必ず invariant で解釈する**。</summary>
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("de-DE")]
+    public void ItReadsThePlacementTheSameWayInEveryCulture(string culture)
+    {
+        using var _ = new CultureScope(culture);
+
+        HostCommandLine parsed = HostCommandLine.Parse(
+            ["host.exe", "--place-windows", "1,2,1516,980"],
+            Ignore);
+
+        Assert.Equal(new WindowPlacement(1, 2, 1516, 980), parsed.Placement);
     }
 
     /// <summary>値の無い <c>--triggers</c> は指定されなかったものとして扱う。</summary>

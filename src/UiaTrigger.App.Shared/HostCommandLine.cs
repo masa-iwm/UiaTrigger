@@ -11,11 +11,16 @@ namespace UiaTrigger.App.Shared;
 /// <summary>ホストが受け取るオプションの解析結果。</summary>
 internal sealed class HostCommandLine
 {
-    private HostCommandLine(IReadOnlyList<ICursorSource> cursors, string? triggerFile, string? culture)
+    private HostCommandLine(
+        IReadOnlyList<ICursorSource> cursors,
+        string? triggerFile,
+        string? culture,
+        WindowPlacement? placement)
     {
         Cursors = cursors;
         TriggerFile = triggerFile;
         Culture = culture;
+        Placement = placement;
     }
 
     /// <summary>
@@ -37,6 +42,19 @@ internal sealed class HostCommandLine
     public string? Culture { get; }
 
     /// <summary>
+    /// <c>--place-windows L,T,W,H</c> で指定された、窓を置く矩形 (**物理ピクセル**)。
+    /// 無指定なら null (= 通常どおりフレームワークに任せる)。
+    /// </summary>
+    /// <remarks>
+    /// **物理ピクセルで受け渡す。**WPF の <c>Left</c>/<c>Top</c> や WinForms の
+    /// <c>Bounds</c> は DPI 認識に依存する論理座標なので、そこを経由すると
+    /// 「渡した数と置かれた場所が機械によって違う」形の不具合を持ち込む
+    /// (docs/DESIGN.md A19 と同じ類型)。渡す側が物理で計算し、
+    /// <c>SetWindowPos</c> にそのまま渡す。
+    /// </remarks>
+    public WindowPlacement? Placement { get; }
+
+    /// <summary>
     /// 引数を解析する。**解釈できない値は飛ばし、理由を <paramref name="log"/> に残す。**
     /// </summary>
     /// <remarks>
@@ -52,7 +70,33 @@ internal sealed class HostCommandLine
         return new HostCommandLine(
             ReadCursors(args, log),
             ReadOption(args, "--triggers"),
-            ReadOption(args, "--culture"));
+            ReadOption(args, "--culture"),
+            ReadPlacement(args, log));
+    }
+
+    /// <summary><c>--place-windows</c> を読む。</summary>
+    private static WindowPlacement? ReadPlacement(string[] args, Action<string> log)
+    {
+        if (ReadOption(args, "--place-windows") is not { } value)
+        {
+            return null;
+        }
+
+        if (ReadIntegers(value, 4) is not { } parts)
+        {
+            log($"--place-windows の値を解釈できませんでした: '{value}' (期待する形式: left,top,width,height)");
+            return null;
+        }
+
+        // 幅と高さが 0 以下の矩形を SetWindowPos に渡すと窓が潰れる。
+        // 「窓が消えた」は原因が読めない症状なので、渡す前に落とす
+        if (parts[2] <= 0 || parts[3] <= 0)
+        {
+            log($"--place-windows の幅と高さは正の数である必要があります: '{value}'");
+            return null;
+        }
+
+        return new WindowPlacement(parts[0], parts[1], parts[2], parts[3]);
     }
 
     /// <summary><c>--pick-at</c> を**すべて**読む。</summary>
@@ -111,6 +155,9 @@ internal sealed class HostCommandLine
         return i >= 0 && i + 1 < args.Length && args[i + 1].Length > 0 ? args[i + 1] : null;
     }
 }
+
+/// <summary>窓を置く矩形 (**物理ピクセル**)。</summary>
+internal readonly record struct WindowPlacement(int Left, int Top, int Width, int Height);
 
 /// <summary>常に同じスクリーン座標を返すカーソル。<c>--pick-at</c> のためだけに在る。</summary>
 internal sealed class FixedCursorSource(int x, int y) : ICursorSource
