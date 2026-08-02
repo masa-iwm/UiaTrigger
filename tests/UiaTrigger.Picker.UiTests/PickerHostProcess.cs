@@ -580,7 +580,7 @@ internal sealed class PickerHostProcess : IDisposable
     /// 検査対象にしているので、探す条件に使うと循環する。
     /// </remarks>
     public AutomationElement PickerWindow() => Ui.Until(
-        () => TopLevelWindows().FirstOrDefault(w => w.ById(Profile.TreeAutomationId) is not null),
+        () => PickerWindows() is { Count: > 0 } windows ? windows[0] : null,
         WindowTimeout,
         $"{Profile.Name} ホストのピッカーウィンドウ",
         Diagnostics);
@@ -601,7 +601,42 @@ internal sealed class PickerHostProcess : IDisposable
     /// </para>
     /// </remarks>
     public IReadOnlyList<AutomationElement> PickerWindows()
-        => [.. TopLevelWindows().Where(w => w.ById(Profile.TreeAutomationId) is not null)];
+    {
+        // 「要素ツリーを子孫に持つ窓」では数えない。所有された子ピッカー
+        // (WinUI エディタ経由 — GWLP_HWNDPARENT) は UIA では**所有者の子**に出るので、
+        // その形だとエディタの窓まで「ツリーを持つ窓」に一致して二重に数える (実測)。
+        // ツリーから**最寄りの Window 要素**へ上がったものだけを、重複を除いて数える
+        var found = new List<AutomationElement>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (AutomationElement candidate in TopLevelWindows())
+        {
+            if (candidate.ById(Profile.TreeAutomationId) is not { } tree ||
+                NearestWindowOf(tree) is not { } window)
+            {
+                continue;
+            }
+            if (seen.Add(string.Join(",", window.GetRuntimeId())))
+            {
+                found.Add(window);
+            }
+        }
+        return found;
+    }
+
+    /// <summary>要素を実際に載せている、最寄りの Window 要素。</summary>
+    private static AutomationElement? NearestWindowOf(AutomationElement element)
+    {
+        for (AutomationElement? current = element;
+             current is not null && current != AutomationElement.RootElement;
+             current = TreeWalker.ControlViewWalker.GetParent(current))
+        {
+            if (current.Current.ControlType == ControlType.Window)
+            {
+                return current;
+            }
+        }
+        return null;
+    }
 
     /// <summary>
     /// このホストが出している**枠**のウィンドウ (docs/DESIGN.md §10)。
@@ -695,6 +730,18 @@ internal sealed class PickerHostProcess : IDisposable
         for (int i = 0; i < children.Count; i++)
         {
             list.Add(children[i]);
+
+            // 所有された窓 (WinUI エディタの子ピッカー — GWLP_HWNDPARENT) は、Win32 では
+            // トップレベルのまま (退かしの NativeWindows 側はそのまま掴む) だが、
+            // **UIA の木ではデスクトップ直下ではなく所有者の子に出る** (実測)。
+            // ここで拾わないと、エディタ経由で開いたピッカーの窓が見つからない
+            AutomationElementCollection owned = children[i].FindAll(
+                TreeScope.Children,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Window));
+            for (int j = 0; j < owned.Count; j++)
+            {
+                list.Add(owned[j]);
+            }
         }
         return list;
     }

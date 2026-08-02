@@ -46,7 +46,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   entirely, and a short window squashed OK/Cancel to a sliver.
 - **Double-clicking a row opens the picker in front, with focus.** Opening it directly inside the
   double-click handler let the tail of the click sequence re-activate the editor — in WinUI the
-  picker ended up behind the editor window outright.
+  picker ended up behind the editor window outright. The WinUI child picker is now also
+  Win32-owned by the editor (the same relationship the WPF and Windows Forms editors already
+  had), so it stays above the editor structurally, whichever window activation lands on. As with
+  any owned window, it no longer gets its own taskbar button and minimizes with the editor.
 
 - **`ElementRemoved` conditions now compare against the value just before removal.** They used to
   be evaluated against the values captured when the element was first resolved, so

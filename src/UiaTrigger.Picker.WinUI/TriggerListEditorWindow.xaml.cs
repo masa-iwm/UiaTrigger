@@ -211,6 +211,10 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
             _picker = null;
             _presenter.NotifyPickerClosed();
         };
+        // エディタのほうが親である (WPF の Owner / Windows Forms の Show(this) と同じ意味)。
+        // 所有関係が無いと重なりが活性化の順序で決まり、ダブルクリックの入力残りが
+        // エディタを前面へ戻した瞬間に子ピッカーが後ろへ隠れる (WindowOwnership の冒頭)
+        WindowOwnership.SetOwner(picker, this);
         picker.Activate();
         if (definitionToEdit is not null)
         {
