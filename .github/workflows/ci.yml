@@ -40,13 +40,18 @@ jobs:
   # 実 UIA テスト (docs/TESTING.md §1 T3)
   #
   # 対象アプリ (tests/UiaTrigger.TestTarget) を子プロセスで起動し、ウィンドウを画面に出して
-  # 座標から要素を記録する。対話セッションに依存するため必須ジョブにはせず、まずは観測する。
-  # 安定したら continue-on-error を外して必須化すること。
+  # 座標から要素を記録する。
+  #
+  # **ブロッキングにしてある。**
+  #
+  # ただし docs/TESTING.md §5 の 3 番 (UnresponsiveTargetTests の未修正不具合) は
+  # **製品側が直っていない** — 必須化はそれを見えるようにしただけである。
+  # 再発すると無関係な変更まで止まるので、揺れ始めたら continue-on-error: true を
+  # 戻してよい (1 行である)。そのときは §5 に落ち方を記録すること。
   # ---------------------------------------------------------------
   real-uia:
-    name: real UIA tests (observing)
+    name: real UIA tests
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -67,15 +72,17 @@ jobs:
   # サンプルホスト (src/UiaTrigger.App.WinUI / .Wpf) を子プロセスで起動し、ピッカーの窓を
   # 画面に出して UIA のコントロールパターンで駆動する。見ているのは「行のコントロールが
   # 生成されるのを待つ経路」で、これはウィンドウを表示しないと再現しない (docs/DESIGN.md §12)。
-  # real-uia と同じく対話セッションに依存するため必須ジョブにはせず、まずは観測する。
+  #
+  # **ブロッキングにしてある。**唯一の揺れだった「ホストの窓が pick 点を覆う」は、
+  # 窓を置く側をホストへ移して塞いである (--place-windows / HostWindowPlacer)。
+  # 揺れ始めたら continue-on-error: true を戻してよい (1 行である)。
   #
   # real-uia とは**別ジョブ = 別ランナー**である必要がある。どちらも画面にウィンドウを出して
   # 座標から要素を掴むので、同じデスクトップで同時に走らせると互いの窓を掴む。
   # ---------------------------------------------------------------
   picker-ui:
-    name: picker UI tests (observing)
+    name: picker UI tests
     runs-on: windows-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
 
@@ -309,17 +316,15 @@ jobs:
 
       # S4: ピッカーのラベルが「発行レイアウトで」解決されること (docs/TESTING.md §1)。
       #
-      # picker-ui ジョブに置かないのは、あちらが continue-on-error: true で
-      # 構造的にシグナルが弱いためである。S4 は座標も対象アプリも使わないので、
-      # あの非決定性 (ElementFromPoint が重なった WinUI3 の窓を返す) を継承しない。
+      # **このジョブだけが publish/ を作る。**PickerHostProcess は publish/ が在れば
+      # 必ずそちらを起動するので、発行物そのものが検査対象になる。
       #
-      # ここへ置く理由はもう 1 つある: このジョブだけが publish/ を作る。
-      # PickerHostProcess は publish/ が在れば必ずそちらを起動するので、
-      # 発行物そのものが検査対象になる。
-      #
-      # continue-on-error は付けない。ランナーでの全件緑を確認済みで、上記のとおり
-      # picker-ui の非決定性を継承しないので、ブロッキングにしても
-      # 手元で再現できない赤に潰される形にはならない。
+      # ここでしか見られないものがもう 1 つある: **AOT 発行したホストで
+      # --place-windows のフックが効くこと**である。SetWinEventHook へ渡すコールバックを
+      # デリゲートにすると、根に留めていない限り AOT では回収され、**落ちるのではなく
+      # 黙って効かなくなる** (だから [UnmanagedCallersOnly] の関数ポインタにしてある)。
+      # StartCore は --place-windows をどの起動口からも無条件で渡すので、
+      # 効かなければ S4 が「窓を … へ置く が 30 秒以内に成立しませんでした」で落ちる。
       #
       # フィルタは部分一致なので、ホストの MainWindow を見る HostPublishedResourceTests も
       # ここに乗る (クラス名がそのために PublishedResourceTests を含んでいる)。
