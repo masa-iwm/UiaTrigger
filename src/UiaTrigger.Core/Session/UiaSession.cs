@@ -423,8 +423,45 @@ public sealed class UiaSession : IAsyncDisposable
 
     private static UiaElement Wrap(IUIAutomationElement element) => UiaElement.FromCached(element, releasable: true);
 
+    /// <summary>
+    /// 点の下のウィンドウが自プロセスのものか。**UIA へ問い合わせる前に**判定する。
+    /// </summary>
+    /// <remarks>
+    /// 見るのはプロセス ID だけである。<see cref="NativeMethods.WindowFromPoint"/> が返すのは
+    /// 子ウィンドウ (WinUI3 なら島のブリッジ窓) なので、トップレベルのハンドルとは一致しない。
+    /// 点の下に何も無い (別デスクトップなど) なら false を返し、従来どおり UIA に訊きに行く。
+    /// </remarks>
+    private bool IsOwnProcessWindowAt(int x, int y)
+    {
+        nint hwnd = NativeMethods.WindowFromPoint(new System.Drawing.Point(x, y));
+        if (hwnd == 0)
+        {
+            return false;
+        }
+        NativeMethods.GetWindowThreadProcessId(hwnd, out uint processId);
+        return processId == (uint)_ownProcessId;
+    }
+
     private UiaElement? ElementFromPointCore(int x, int y)
     {
+        // **自プロセスの点は UIA に訊く前に打ち切る。**
+        //
+        // 呼び出しのあとで ProcessId を見て捨てるだけでは足りない。ElementFromPointBuildCache は
+        // 呼んだ時点で**自分自身のプロバイダへ**ヒットテストとプロパティ取得を届かせており、
+        // 捨てるのは返ってきた結果だけである。
+        //
+        // 実測 (WinUI3 のホストに組み込んだ状態): ピッカーの自動選択が 1 秒静止で捕捉を試みると、
+        // その約 1 秒後にホストの MainWindow が**活性化**され、ピッカーの窓が後ろへ回る
+        // (SetWinEventHook で EVENT_SYSTEM_FOREGROUND を確認)。枠は動かないので
+        // 「捕捉していない」ようにしか見えず、原因が見えない。呼び出しの前で打ち切ると消える。
+        // 同一プロセスなので前面化の制限を受けず、必ず通ってしまう。
+        //
+        // **呼び出し後の判定は残してある** — ElementFromPoint は点の下のウィンドウとは
+        // 別プロセスの要素を返しうる (ホストされたコンテンツ)。ここは前後の二重チェックである。
+        if (_options.SkipOwnProcessElements && IsOwnProcessWindowAt(x, y))
+        {
+            return null;
+        }
         try
         {
             Context.Automation.ElementFromPointBuildCache(
@@ -664,7 +701,10 @@ public sealed class UiaSession : IAsyncDisposable
         var nodes = new List<UiaElement>();
         for (int i = windows.Count - 1; i >= 0; i--)
         {
-            if (i == 0)
+            // 自プロセスが最前面にある点では ElementFromPoint を呼ばない。窓の一覧からは
+            // 自プロセスを外してあるが、**この呼び出しは点をそのまま渡す**ので、外したはずの
+            // 自分の窓へ届いてしまう (ElementFromPointCore と同じ漏れである)
+            if (i == 0 && !(_options.SkipOwnProcessElements && IsOwnProcessWindowAt(x, y)))
             {
                 // 最前面ウィンドウは UIA 本来のヒットテストで一意に決まる最深要素を起点にする。
                 // 下の簡易ヒットテスト (子の BoundingRectangle を比較するだけの近似) は

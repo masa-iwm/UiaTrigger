@@ -447,6 +447,20 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 
 なお `ElementFromPointCore` は**自プロセスの要素に null を返す** (ピッカーが自分を捕捉しないための仕様)。呼び出し側から見ると「例外も診断も出さずに何もしない」形になることを忘れないこと。
 
+### A24 — 自プロセスの点は UIA へ訊く**前**に打ち切る
+
+自プロセス除外 (`SkipOwnProcessElements`) を `ElementFromPointBuildCache` の**後**で行うと、捨てられるのは戻り値だけで、**ヒットテストとプロパティ取得は自分自身のプロバイダーへ既に届いている**。
+
+実測 (WinUI3 のホストに組み込み、ホスト側は `ListView` の `DataTemplate` に `Expander` を置いた構成): 自動選択の 1 秒静止で捕捉を試みるたびに、その約 1 秒後にホストの `MainWindow` が**活性化**され、ピッカーの窓が背面へ回る (`EVENT_SYSTEM_FOREGROUND` を `SetWinEventHook` で確認)。**同一プロセスなので前面化の制限を受けず必ず通る。**枠は動かないので「何も捕捉していない」ようにしか見えず、原因が見えない。呼び出しの前で打ち切ると消える (同一バイナリでの A/B で確認)。1 回の `ElementFromPointAsync` で自分の窓へ届く `WM_GETOBJECT` は 8 通だった。
+
+したがって `ElementFromPointCore` は `WindowFromPoint` の**プロセス ID** で先に打ち切る。3 つ規律がある:
+
+- **判定はプロセス ID である。**`WindowFromPoint` が返すのは点の下の**子ウィンドウ**で、WinUI3 では島のブリッジ窓 (`Microsoft.UI.Content.DesktopChildSiteBridge`) になる。トップレベルの HWND とは一致しないので、ハンドル比較に「単純化」してはいけない
+- **呼び出し後の判定も残す。**`ElementFromPoint` は点の下の窓とは別プロセスの要素を返しうる (ホストされたコンテンツ)。前後の二重チェックである
+- **同じ漏れが `BuildOverlapStack` にもある。**窓の一覧からは自プロセスを外しているのに、最前面用の `ElementFromPointBuildCache(x, y)` は点をそのまま渡すので、外したはずの自分の窓へ届く
+
+**「除外できている」は戻り値では確かめられない** — 後で捨てる形でも `null` は返る。違いは問い合わせが届くかどうかだけなので、T3 (`OwnProcessHitTestTests`) はテストプロセス自身の窓を 1 つ作り `WM_GETOBJECT` の到着を数える。除外を切ったときに届くこと (ポジティブコントロール) を対で置き、数え方が壊れて空振りで緑になる形を塞ぐ。
+
 ---
 
 ## §10 オーバーレイの構造
@@ -592,6 +606,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | A21 | ネイティブ UIA プロバイダーの切り離された要素はゾンビとして応答し続ける。生存判定は下向きの到達性 (`IsStillOnThePath`) と、ウィンドウ自身には `IsWindow` を使う | §8 |
 | A22 | (欠番 — この ID の所見は定義されていない) | — |
 | A23 | 自アセンブリ外の WinRT 値型は AOT で vtable が生成されず、例外なく動かなくなる。`GeneratedWinRTExposedExternalType` はライブラリ (`Picker.WinUI`) 側に置く | §12 |
+| A24 | 自プロセスの点は UIA へ訊く**前**に `WindowFromPoint` のプロセス ID で打ち切る。後で戻り値を捨てる形では問い合わせが自分のプロバイダーへ届き、ホストの窓が活性化されてピッカーが背面へ回る | §9 |
 | B1 | プロパティ読取は `CacheRequest` でまとめる。段あたり 1 往復・スナップショット 1 往復 | §3 |
 | B2 | `WindowOpened` は `Children`。`WindowClosed` は `Subtree` でなければ 1 件も届かない | §6 |
 | B3 | 解決済みの構造購読は経路上の各段を `Element \| Children` で張る。ウィンドウ全体の `Subtree` にしない | §6 |

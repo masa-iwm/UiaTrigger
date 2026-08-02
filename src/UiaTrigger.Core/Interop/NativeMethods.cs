@@ -32,6 +32,19 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     internal static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
 
+    /// <summary>
+    /// 点の下のウィンドウ。自プロセスの点を UIA へ問い合わせる**前**に弾くために使う。
+    /// </summary>
+    /// <remarks>
+    /// 返るのはトップレベルとは限らない**子ウィンドウ**である (WinUI3 なら
+    /// <c>Microsoft.UI.Content.DesktopChildSiteBridge</c>)。呼び出し側が見るのは
+    /// プロセス ID だけであり、**ハンドルの比較に変えてはいけない**。
+    /// <c>WS_EX_TRANSPARENT</c> のウィンドウは飛ばされる — オーバーレイの枠がまさにそれで、
+    /// 枠越しの点では下のアプリが返るのが正しい。
+    /// </remarks>
+    [LibraryImport("user32.dll")]
+    internal static partial nint WindowFromPoint(Point point);
+
     [LibraryImport("user32.dll", EntryPoint = "GetClassNameW", StringMarshalling = StringMarshalling.Utf16)]
     private static partial int GetClassNameNative(nint hWnd, Span<char> lpClassName, int nMaxCount);
 

@@ -44,6 +44,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   fields, the status line and OK/Cancel — scrolls when the window is small. It used to clip
   silently: at 175% scale a 760px-wide WinUI window cut the composite poll-interval field off
   entirely, and a short window squashed OK/Cancel to a sliver.
+- **Hovering over your own window no longer disturbs it.** With hover auto-select on, every dwell
+  used to run a UI Automation hit test against the calling process's own provider and then throw
+  the result away — the elements were skipped only after the call. In a WinUI 3 host that query
+  activated the host's main window about a second after the pointer came to rest, pushing the
+  picker behind it; the highlight did not move, so it looked like nothing had happened. Points
+  over the calling process are now rejected before UI Automation is asked (which also covers the
+  overlap stack the arrow keys build). Nothing changes for other processes.
 - **Double-clicking a row opens the picker in front, with focus.** Opening it directly inside the
   double-click handler let the tail of the click sequence re-activate the editor — in WinUI the
   picker ended up behind the editor window outright. The WinUI child picker is now also
