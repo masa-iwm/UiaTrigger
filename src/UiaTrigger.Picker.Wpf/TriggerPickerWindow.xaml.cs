@@ -226,6 +226,11 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
         // 静止しているだけで**編集対象が別の要素に差し替わる**
         AutoSelectToggle.IsChecked = false;
+        // **編集セッションのときだけ Enter を確定にする。**録る経路のピッカーは確定しても
+        // 開いたままなので、あそこで Enter を確定にすると書きかけを確定してしまう。
+        // 既定ボタンにするのは自前でキーを見るより素直で、Enter を欲しがるコントロール
+        // (開いているコンボなど) の扱いもフレームワークの規則に任せられる
+        CommitButton.IsDefault = editSession;
         _presenter.LoadDefinition(definition, editSession);
     }
 
@@ -347,7 +352,10 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
 
     private void OnCommit(object sender, RoutedEventArgs e) => _presenter.Commit();
 
-    /// <summary>Esc = 取り消して閉じる。閉じれば <c>Closed</c> がフックとセッションを畳む。</summary>
+    /// <summary>
+    /// Esc = 取り消して閉じる (閉じれば <c>Closed</c> がフックとセッションを畳む)、
+    /// Enter = 確定。**Enter が効くのは編集セッションだけ**で、その判断は presenter が持つ。
+    /// </summary>
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)

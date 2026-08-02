@@ -197,6 +197,10 @@ T3 (`Record_PutsTheStableNameInTheDisplayName`) が固定している。
       **例外も警告も出ず、ただ小さい。**T1 が見られるのはソースの形だけ
       (`PickerWindowDefaultSizeTests`)、T4 はホストの窓を割り付けの矩形へ**寸法ごと**
       退かすので既定サイズを上書きしてしまう (docs/TESTING.md §1 の 9)
+- [ ] **[条件を編集] で開いたピッカーは Enter で確定して閉じる**。**録るために開いた
+      ピッカーは Enter で確定しない** (開いたまま何件でも録る経路なので、書きかけを
+      確定させない)。← 既定ボタンの配線は T1 が縛る (`OnlyAnEditSession_MakesCommitThe…`)
+      が、実際に Enter が届くかはここでしか見られない
 - [ ] **Esc でピッカーの窓が閉じる** (取り消し扱い。コミット済みのトリガーは残る)。
       **コンボの一覧を開いた状態の Esc では窓が閉じず、一覧だけが閉じること**も見る —
       キーを先取りする形 (WPF の `PreviewKeyDown` / Windows Forms の `KeyPreview`) に

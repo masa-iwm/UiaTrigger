@@ -36,6 +36,9 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     private int _treeGeneration;
     private bool _suppressSelectionChanged;
     private bool _suppressCondChanged;
+    /// <summary>編集セッションで開いているか (Enter を確定にしてよいか)。</summary>
+    private bool _editSession;
+
     private bool _disposed;
 
     /// <summary>Raised when the user commits a trigger. Persisting it is up to the host.</summary>
@@ -128,6 +131,9 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
         // 静止しているだけで**編集対象が別の要素に差し替わる**
         AutoSelectToggle.IsOn = false;
+        // **この変種にだけ覚えておく必要がある。**WPF の IsDefault / Windows Forms の
+        // AcceptButton に相当するものが WinUI3 に無いので、Enter は自分で見る (OnKeyDown)
+        _editSession = editSession;
         _presenter.LoadDefinition(definition, editSession);
     }
 
@@ -151,10 +157,18 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
     /// <summary>Esc = 取り消して閉じる。閉じれば <c>Closed</c> がフックとセッションを畳む。</summary>
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == Windows.System.VirtualKey.Escape)
+        switch (e.Key)
         {
-            e.Handled = true;
-            Close();
+            case Windows.System.VirtualKey.Escape:
+                e.Handled = true;
+                Close();
+                break;
+            case Windows.System.VirtualKey.Enter when _editSession:
+                // **確定はこの窓を閉じる**ので、Esc と同じ理由で入力が掃けてから走らせる
+                _ = DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, _presenter.Commit);
+                break;
+            default:
+                break;
         }
     }
 

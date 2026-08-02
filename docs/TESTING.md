@@ -307,6 +307,7 @@ CI の `lint` ジョブはこの 2 本に対応する 2 ステップである。
 | K2 | ピッカーがフックを張っている間も、**他のアプリに ←/→ が届く** (`CallNextHookEx` で流す)。崩れるとシステム全体で ←/→ が効かなくなる — 症状がピッカーの外に出るので、ピッカーのテストでは絶対に捕まらない。狙いは合成クリックで立てる — アプリの自己申告 (`Focused == true`) は前面化を保証せず、フォアグラウンド規則は実入力しか尊重しない | `TargetInputTests` (T5) |
 | K3 | フックの寿命: (a) 1 枚閉じても**残った 1 枚は ←/→ に反応し続ける** (b) **閉じたピッカーは二度と枠を出さない**。(b) が固定しているのは「フックが解除されたこと」ではない — 解除はいちばん外側に在り、先にハンドラーとオーバーレイが壊れるので外から見える差を作らない。フックのハンドル漏れは外から観測できず、人の項目に残る | `HookLifetimeTests` (T5) |
 | K6 | **Esc でピッカーの窓が閉じる。**←/→ と違ってフックではなく通常のフォーカス経路を通るので、撃つ前に UIA の `SetFocus` で狙いを定める (合成入力ではない)。ネガティブコントロールは ← — 閉じないことを先に見せないと、「Esc で閉じた」と「何であれキーを撃つと閉じる」が区別できない。窓の数で見るのは、3 変種とも `Closed` で `Dispose` する契約なので**フックとセッションの後始末まで**含めて言えるためである | `EscapeKeyTests` (T5) |
+| K7 | **子ピッカーが開いている間の Esc でエディタが閉じない** (WinUI)。**狙いはフォーカスがエディタ側に在るときである** — あちらが Esc を拾うとエディタが閉じ、閉じたエディタは契約どおり子ピッカーも閉じるので **1 回の Esc で両方消える**。子ピッカーへフォーカスを与えてから撃つと**この壊れ方は再現せず**、緑が何も意味しなくなる (実際に一度その形のテストを書いて、退行を入れても緑のままだった) | `EscapeKeyTests` (T5) |
 | K5 | ←/→ が**フックを有効にしているピッカーだけ**に届く。2 段構え — 先に両方 ON で 2 つとも動くことを見せ、**計数に検出力があること**を証明してから片方を OFF にする。数え終えたら、短い窓のあいだ増えないことまで見る (2 つ目がまだ動いている途中なら通ってはいけない) | `HookLifetimeTests` (T5) |
 | M1 | 枠がクリックをヒットテストごと透過すること。前提の検算に `WindowFromPoint` は使えない — それは**このテストが確かめたい性質そのもの**であり、前提と結論が同じになる。Z 順 (`ZOrderIndexOf`) と矩形で検算する | `OverlayClickTests` (T5) |
 | M2 | アイコンだけがクリックを受けること。**T5 には入っていない。**原因のほう (アイコンの窓に透過スタイルが付かないこと) は T4 (`OnlyTheFrame_IsTransparentToHitTesting`) が固定し、実クリックの結末は人の項目に残る | 目視 (docs/MANUAL-CHECKS.md §3) + T4 |
@@ -376,7 +377,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 2 | T1 | `TriggerMonitorPollingTests.Polling_DoesNotDriveResolution` | ビルド直後の 1 回目だけ落ちることがある。見立てはあるが未確認 |
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
 | 4 | T4 | ホストの窓が pick 点を覆う | **塞いである** — 窓を置くのはホスト自身 (`--place-windows`)。戻してはいけない形を下に記す |
-| 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回 |
+| 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` / `TriggerComposerTests.Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts` / `Update_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回。**`monitor.StartAsync` を呼ぶ T1 はどれも同じ形で落ちうる** — 名前で覚えず「実 UIA を触る T1」で括ること |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —

@@ -66,4 +66,68 @@ public sealed class EscapeKeyTests
             "Esc でピッカーの窓が閉じること",
             scenario.Host.Diagnostics);
     }
+
+    /// <summary>
+    /// エディタから開いた子ピッカーの Esc が、**子ピッカーだけ**を閉じること。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// **WinUI ホストで見る。**あの変種にだけ Enter/Esc の配線が要る (WPF の
+    /// <c>IsCancel</c> / Windows Forms の <c>CancelButton</c> に相当するものが無い) ため、
+    /// エディタと子ピッカーの両方が Esc を見にいく形になる。
+    /// </para>
+    /// <para>
+    /// **狙いはフォーカスがエディタ側に在るときである。**あちらが Esc を拾うと
+    /// エディタが閉じ、閉じたエディタは契約どおり子ピッカーも閉じる (<c>OnClosed</c>) ので、
+    /// **1 回の Esc で両方消える**。子ピッカーへフォーカスを与えてから撃つと、
+    /// エディタは端からキーを見ないので**この壊れ方は再現しない** — テストの狙いを
+    /// そこへ置くと、緑が何も意味しなくなる。
+    /// </para>
+    /// <para>
+    /// 退行: <c>TriggerListEditorWindow.OnKeyDown</c> の「子ピッカーが開いている間は
+    /// 何もしない」を外す → エディタが閉じて落ちる。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EscapeInTheChildPicker_ClosesOnlyThePicker()
+    {
+        using var cursor = SyntheticInput.CursorGuard.Save();
+        using var scenario = EditorScenario.Open();
+
+        // 1 件録って確定し、**エディタを開き直してから** [条件を編集] で新しい子ピッカーを出す。
+        // 録った直後の子ピッカーは開いたままで、そのまま [条件を編集] を押すと presenter が
+        // 同じ窓を使い回すため「新しい窓が出る」を待つ組み立てが成立しない
+        // (EditingThroughTheEditor_ShowsUpdateAndClosesThePickerOnCommit と同じ順)
+        scenario.OpenEditor();
+        scenario.RecordOneThroughTheChildPicker(out _);
+        scenario.Accept();
+
+        scenario.OpenEditor();
+        scenario.SelectTheFirstRow();
+        AutomationElement picker = scenario.EditTheSelectedRow();
+        Assert.True(scenario.EditorIsShowing(), "撃つ前はエディタも開いていること");
+
+        // **本題。**エディタ側にフォーカスがある状態で撃つ。ここで拾われるとエディタが閉じ、
+        // 閉じたエディタは子ピッカーも閉じるので、1 回の Esc で両方消える
+        scenario.FocusEditor();
+        SyntheticInput.TapKey(SyntheticInput.VkEscape);
+
+        Ui.Never(
+            () => !scenario.EditorIsShowing(),
+            NothingHappens,
+            "子ピッカーが開いている間の Esc でエディタまで閉じてしまう",
+            scenario.Diagnostics);
+        Assert.Equal(1, scenario.PickerWindowCount());
+
+        // 対照: 子ピッカーにフォーカスを与えて撃つと、**子だけ**が閉じること
+        picker.SetFocus();
+        SyntheticInput.TapKey(SyntheticInput.VkEscape);
+
+        _ = Ui.Until(
+            () => scenario.PickerWindowCount() == 0 ? "ok" : null,
+            EditorScenario.Settle,
+            "子ピッカーにフォーカスがあれば Esc で閉じること",
+            scenario.Diagnostics);
+        Assert.True(scenario.EditorIsShowing(), "子だけが閉じ、エディタは残ること");
+    }
 }

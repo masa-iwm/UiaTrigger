@@ -192,8 +192,18 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
 
     /// <summary>Enter = 確定、Esc = 取り消し (他の 2 変種の既定ボタンに合わせる)。</summary>
+    /// <remarks>
+    /// **子ピッカーが開いている間は何もしない。**あの窓が出ているあいだ Enter / Esc は
+    /// あちらのものであり、ここで拾うと子を閉じたつもりでエディタごと閉じる。
+    /// WPF / Windows Forms は既定ボタンが所有関係で自然にそうなるので、
+    /// 明示的に見る必要があるのはこの変種だけである。
+    /// </remarks>
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        if (_picker is not null)
+        {
+            return;
+        }
         switch (e.Key)
         {
             case Windows.System.VirtualKey.Enter:

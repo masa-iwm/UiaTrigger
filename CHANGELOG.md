@@ -35,7 +35,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
 
 - **Esc closes the picker**, in all three variants. Triggers already committed stay committed;
   only the draft you were filling in is discarded. Esc while a combo box has its list open closes
-  the list and leaves the window alone.
+  the list and leaves the window alone, and Esc while a picker opened from the trigger-list editor
+  is up never takes the editor with it.
+- **Enter commits in a picker opened to edit a recorded trigger**, and closes it — the same as
+  pressing "Update trigger". A picker opened to record does not do this: it stays open for the
+  next trigger, so Enter there would commit something half-filled.
 - **Enter and Esc work in the WinUI trigger-list editor**, matching the other two: Enter accepts
   the edited list, Esc discards it. WPF and Windows Forms already had this through their default
   and cancel buttons; WinUI 3 has no equivalent, so it needed wiring.

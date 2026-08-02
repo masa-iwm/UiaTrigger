@@ -291,6 +291,30 @@ public sealed class TriggerPickerWinFormsTests
     /// ならない)。順序の網は presenter 側の
     /// <c>Commit_ForAnEditSession_ClosesTheViewLast</c> (Calls の並び) が持つ。
     /// </summary>
+    /// <summary>
+    /// **Enter が確定になるのは編集セッションのときだけ**であること (WPF 側の
+    /// <c>OnlyAnEditSession_MakesCommitTheDefaultButton</c> の Windows Forms 対)。
+    /// </summary>
+    /// <remarks>
+    /// 退行: <c>LoadDefinition</c> から <c>AcceptButton</c> の代入を外す。
+    /// </remarks>
+    [Fact]
+    public void OnlyAnEditSession_MakesCommitTheAcceptButton()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerForm form = CreateForm(new FakeStrings());
+            var commit = (Button)form.Controls.Find("CommitButton", searchAllChildren: true).Single();
+            Assert.Null(form.AcceptButton);
+
+            form.LoadDefinition(Editable());
+            Assert.Null(form.AcceptButton);
+
+            form.LoadDefinition(Editable(), editSession: true);
+            Assert.Same(commit, form.AcceptButton);
+        });
+    }
+
     [Fact]
     public void AnEditSessionCommit_ClosesTheFormWithoutTouchingItAfterwards()
     {

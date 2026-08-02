@@ -403,6 +403,31 @@ public sealed class TriggerPickerWpfWindowTests
     }
 
     /// <summary>
+    /// **Enter が確定になるのは編集セッションのときだけ**であること。
+    /// </summary>
+    /// <remarks>
+    /// 録るために開いたピッカーは確定しても開いたままなので、あそこで Enter を確定にすると
+    /// 書きかけを確定してしまう。既定ボタンにするのは自前でキーを見るより素直で、
+    /// Enter を欲しがるコントロールの扱いをフレームワークの規則に任せられる。
+    /// 退行: <c>LoadDefinition</c> から <c>CommitButton.IsDefault</c> の代入を外す。
+    /// </remarks>
+    [Fact]
+    public void OnlyAnEditSession_MakesCommitTheDefaultButton()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerWindow window = CreateWindow(new FakeStrings());
+            Assert.False(window.CommitButton.IsDefault, "開いた直後は既定ボタンでないこと");
+
+            window.LoadDefinition(Editable());
+            Assert.False(window.CommitButton.IsDefault, "プリフィルでは既定ボタンにしないこと");
+
+            window.LoadDefinition(Editable(), editSession: true);
+            Assert.True(window.CommitButton.IsDefault, "編集セッションでは既定ボタンにすること");
+        });
+    }
+
+    /// <summary>
     /// 編集セッションのコミットで窓が閉じること (WinForms 側の
     /// <c>AnEditSessionCommit_ClosesTheFormWithoutTouchingItAfterwards</c> の WPF 対)。
     /// </summary>

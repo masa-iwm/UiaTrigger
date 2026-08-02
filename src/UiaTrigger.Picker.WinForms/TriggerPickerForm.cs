@@ -206,6 +206,9 @@ public sealed class TriggerPickerForm : Form, IPickerView
         // ホバー捕捉を先に止める。開いたまま読み込むと、マウスがどこかの要素の上に
         // 静止しているだけで**編集対象が別の要素に差し替わる**
         _autoSelect.Checked = false;
+        // **編集セッションのときだけ Enter を確定にする** (WPF の IsDefault と同じ理由)。
+        // 録る経路のピッカーは確定しても開いたままなので、書きかけを確定させない
+        AcceptButton = editSession ? _commit : null;
         _presenter.LoadDefinition(definition, editSession);
     }
 

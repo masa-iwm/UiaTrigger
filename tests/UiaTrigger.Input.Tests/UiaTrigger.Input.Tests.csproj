@@ -72,6 +72,8 @@
     <Compile Include="..\UiaTrigger.Picker.UiTests\PickerHostProfile.cs" Link="PickerHostProfile.cs" />
     <Compile Include="..\UiaTrigger.Picker.UiTests\PickerHostProcess.cs" Link="PickerHostProcess.cs" />
     <Compile Include="..\UiaTrigger.Picker.UiTests\OverlayScenario.cs" Link="OverlayScenario.cs" />
+    <!-- エディタ + 子ピッカーの組み立て。Esc が子だけを閉じることを見るのに要る -->
+    <Compile Include="..\UiaTrigger.Picker.UiTests\EditorScenario.cs" Link="EditorScenario.cs" />
   </ItemGroup>
 
 </Project>
