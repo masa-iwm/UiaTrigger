@@ -375,6 +375,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 2 | T1 | `TriggerMonitorPollingTests.Polling_DoesNotDriveResolution` | ビルド直後の 1 回目だけ落ちることがある。見立てはあるが未確認 |
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
 | 4 | T4 | ホストの窓が pick 点を覆う | **塞いである** — 窓を置くのはホスト自身 (`--place-windows`)。戻してはいけない形を下に記す |
+| 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回 |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —
@@ -426,6 +427,23 @@ end-to-end はランナー上の T3 でしか検証されていない** — 開�
   ここが落ちるのは狙いどおりの落ち方である — ガードが無ければ、ホバー捕捉が起きず
   `_lastCapturedPoint` により再捕捉もされないまま「実体化しなかった」という顔の
   20 秒タイムアウトになる (§6 と同じ形)。**緩めないこと。**
+
+**(5)** ランナーでのみ、`TriggerMonitor.StartAsync` が `UiaContext` を作るところで落ちる。
+**T1 のテストだが実 UIA を触る**経路である (下書きが本当に監視に載ることを見るテストなので、
+そこは省けない)。落ちたときの本文:
+
+```
+Assert.Null() Failure: Value is not null
+Actual: System.Runtime.InteropServices.COMException (0x80004005)
+  at UiaTrigger.Interop.IUIAutomation.GetRootElement(IUIAutomationElement& root)
+  at UiaTrigger.Interop.UiaContext..ctor(...)
+  at UiaTrigger.Monitoring.TriggerMonitor.StartCore(...)
+```
+
+`E_FAIL` は UIA の COM サーバー側の初期化失敗で、**製品のコードが分岐を誤ったのではない**。
+`build-and-test` は常に必須のジョブなので、ここが揺れると無関係な変更が止まる。
+**連続で通っても「直った」と書かないこと** (§2 の 4)。次に落ちたら回数を更新し、
+同じ HRESULT かどうかを確かめる — 別の HRESULT なら別の話である。
 
 ## §6 ローカル実行の注意
 
