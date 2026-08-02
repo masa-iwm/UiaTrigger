@@ -32,6 +32,7 @@
         <ListBox x:Name="EditorTriggerList" Grid.Row="1" SelectionMode="Extended"
                  HorizontalContentAlignment="Left"
                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 SelectionChanged="OnSelectionChanged"
                  MouseDoubleClick="OnRowDoubleClick" />
 
         <!--
@@ -51,7 +52,8 @@
                         <TextBlock x:Name="UnwatchedBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
                         <TextBox x:Name="UnwatchedBox" Width="200" Margin="0,0,8,0" />
                         <TextBlock x:Name="CombinePollIntervalBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
-                        <TextBox x:Name="CombinePollIntervalBox" Width="100" />
+                        <TextBox x:Name="CombinePollIntervalBox" Width="100" Margin="0,0,8,0" />
+                        <CheckBox x:Name="CombineStoppedMatchingCheck" VerticalAlignment="Center" />
                     </WrapPanel>
                     <WrapPanel>
                         <Button x:Name="CombineTriggersButton" Padding="10,3" Margin="0,0,8,0" Click="OnCombine" />

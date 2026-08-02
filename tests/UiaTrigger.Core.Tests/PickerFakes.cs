@@ -339,15 +339,22 @@ internal sealed class FakeEditorView : ITriggerListEditorView
 
     public double? CombinePollIntervalSeconds { get; set; }
 
+    public bool CombineNotifyOnStoppedMatching { get; set; }
+
     public IReadOnlyList<int> SelectedIndices { get; set; } = [];
 
     /// <summary>最後に表示された行。</summary>
     public IReadOnlyList<string> Rows { get; private set; } = [];
 
+    /// <summary>いまボタンに載っている文言 (プレゼンターが最後に書いたもの)。</summary>
+    public string? CombineCaption { get; private set; }
+
     /// <summary>ピッカーを開くよう指示された記録 (null = 追加のため)。</summary>
     public List<TriggerDefinition?> PickerRequests { get; } = [];
 
     string ITriggerListEditorView.Status { set => LastStatus = value; }
+
+    string ITriggerListEditorView.CombineCaption { set => CombineCaption = value; }
 
     public void ShowRows(IReadOnlyList<string> rows) => Rows = rows;
 

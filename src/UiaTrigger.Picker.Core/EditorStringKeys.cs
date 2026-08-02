@@ -37,6 +37,17 @@ public static class EditorStringKeys
     /// <summary>Caption of the button that combines the selected triggers into one.</summary>
     public const string CombineButtonContent = "CombineTriggersButton.Content";
 
+    /// <summary>
+    /// Caption the combine button takes on while exactly one composite is selected, which makes it
+    /// rewrite that composite instead of combining.
+    /// </summary>
+    /// <remarks>
+    /// Not a control key, for the same reason as <see cref="PickerStringKeys.CommitButtonUpdate"/>:
+    /// the caption is swapped at run time, so there is no static host to carry a matching
+    /// <c>x:Uid</c>.
+    /// </remarks>
+    public const string CombineButtonUpdate = "CombineButtonUpdate";
+
     /// <summary>Caption of the button that takes the selected composite apart again.</summary>
     public const string DecomposeButtonContent = "DecomposeTriggerButton.Content";
 
@@ -54,6 +65,14 @@ public static class EditorStringKeys
 
     /// <summary>Label of the box holding the poll interval for the composite about to be combined.</summary>
     public const string CombinePollIntervalBoxHeader = "CombinePollIntervalBox.Header";
+
+    /// <summary>Label of the choice that makes the composite report the falling edge too.</summary>
+    /// <remarks>
+    /// A separate control from the picker's, and a separate key: a composite is more than one
+    /// condition, so it cannot be taken back into a picker, and this is the only place
+    /// <see cref="Models.TriggerDefinition.NotifyOnStoppedMatching"/> can be set on one.
+    /// </remarks>
+    public const string CombineStoppedMatchingCheckContent = "CombineStoppedMatchingCheck.Content";
 
     /// <summary>Accessible name of the list of triggers.</summary>
     /// <remarks>
@@ -93,6 +112,12 @@ public static class EditorStringKeys
     /// <summary>Combining was refused. Takes the reason.</summary>
     public const string CombineFailed = "EditorCombineFailed";
 
+    /// <summary>A composite was rewritten. Takes its id.</summary>
+    public const string UpdateDone = "EditorUpdateDone";
+
+    /// <summary>Rewriting was refused. Takes the reason.</summary>
+    public const string UpdateFailed = "EditorUpdateFailed";
+
     /// <summary>A composite was taken apart. Takes its id and the number of triggers recovered.</summary>
     public const string DecomposeDone = "EditorDecomposeDone";
 
@@ -108,11 +133,13 @@ public static class EditorStringKeys
     [
         WindowTitle,
         AddButtonContent, EditButtonContent, DeleteButtonContent, CombineButtonContent,
-        DecomposeButtonContent, AcceptButtonContent, CancelButtonContent,
+        CombineButtonUpdate, DecomposeButtonContent, AcceptButtonContent, CancelButtonContent,
         ExpressionBoxHeader, UnwatchedBoxHeader, CombinePollIntervalBoxHeader,
+        CombineStoppedMatchingCheckContent,
         TriggerListAutomationName,
         TriggerRow, CompositeRow, NoClauses,
         SelectOneToEdit, CannotEditWithThePicker, SelectACompositeToDecompose,
-        CombineDone, CombineFailed, DecomposeDone, DeleteDone, SelectSomething,
+        CombineDone, CombineFailed, UpdateDone, UpdateFailed,
+        DecomposeDone, DeleteDone, SelectSomething,
     ];
 }

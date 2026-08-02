@@ -449,6 +449,190 @@ public sealed class TriggerListEditorPresenterTests
         Assert.Equal(["b"], h.Presenter.Snapshot().Select(t => t.Id));
     }
 
+    // ---- 複合を選ぶ → 欄が埋まる ----
+
+    [Fact]
+    public void SelectingOneComposite_FillsTheFieldsAndRenamesTheButton()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineButtonUpdate] = "update";
+        h.Open([Simple("z"), RichComposite()]);
+        h.View.SelectedIndices = [1];
+
+        h.Presenter.NotifySelectionChanged();
+
+        Assert.Equal("(login-1 && login-2) || b", h.View.ExpressionText);
+        // **句の実効名で返ること** (元トリガーの id "login" ではない — docs/DESIGN.md C17)
+        Assert.Equal("login-1, login-2", h.View.UnwatchedText);
+        Assert.Equal(2, h.View.CombinePollIntervalSeconds);
+        Assert.True(h.View.CombineNotifyOnStoppedMatching);
+        Assert.Equal("update", h.View.CombineCaption);
+    }
+
+    /// <summary>
+    /// 複合 1 件以外を選んでも欄に触らないこと。**触ると、式を打ちかけたまま別の行を
+    /// クリックした瞬間にそれが消える。**埋める経路だけがあり、消す経路は無い。
+    /// </summary>
+    [Theory]
+    [InlineData(new int[0])]          // 選択なし
+    [InlineData(new[] { 0 })]         // 素のトリガー
+    [InlineData(new[] { 0, 1 })]      // 複数選択 (複合を含んでいても)
+    [InlineData(new[] { 2 })]         // 句が 2 つあるだけの PropertyChanged トリガー
+    public void SelectingAnythingElse_LeavesTheTypedFieldsAlone(int[] selection)
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
+        h.Open([Simple("z"), RichComposite(), TwoClausePropertyChanged()]);
+        h.View.ExpressionText = "typed";
+        h.View.UnwatchedText = "typed-unwatched";
+        h.View.CombinePollIntervalSeconds = 9;
+        h.View.CombineNotifyOnStoppedMatching = true;
+        h.View.SelectedIndices = selection;
+
+        h.Presenter.NotifySelectionChanged();
+
+        Assert.Equal("typed", h.View.ExpressionText);
+        Assert.Equal("typed-unwatched", h.View.UnwatchedText);
+        Assert.Equal(9, h.View.CombinePollIntervalSeconds);
+        Assert.True(h.View.CombineNotifyOnStoppedMatching);
+        // 文言は最初の ShowRows が入れた「まとめる」のまま
+        Assert.Equal("combine", h.View.CombineCaption);
+    }
+
+    // ---- 複合を更新する ----
+
+    /// <summary>
+    /// **恒等** (docs/DESIGN.md C17)。複合を選んで、何も直さずに押すと何も変わらないこと。
+    /// 一覧まるごとの JSON で見るので、「行が動いた」「複製が増えた」「値が欠けた」を 1 発で拾う。
+    /// </summary>
+    [Fact]
+    public void SelectingAComposite_ThenPressingUpdate_ChangesNothing()
+    {
+        var h = new Harness();
+        h.Open([Simple("z"), RichComposite()]);
+        string before = JsonList(h.Presenter.Snapshot());
+        h.View.SelectedIndices = [1];
+
+        h.Presenter.NotifySelectionChanged();
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.Equal(before, JsonList(h.Presenter.Snapshot()));
+    }
+
+    [Fact]
+    public void UpdatingAComposite_RewritesItInPlace()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.UpdateDone] = "done {0}";
+        h.Open([Simple("z"), RichComposite(), Simple("y")]);
+        h.View.SelectedIndices = [1];
+        h.Presenter.NotifySelectionChanged();
+
+        // 式はすべての句を指すこと。指さない句を残すと ValidateExpression が断る
+        // (句を黙って落とさないための規則)
+        h.View.ExpressionText = "login-1 && login-2 && b";
+        h.View.UnwatchedText = "b";
+        h.View.CombinePollIntervalSeconds = null;
+        h.View.CombineNotifyOnStoppedMatching = false;
+        h.Presenter.NotifyCombineRequested();
+
+        IReadOnlyList<TriggerDefinition> after = h.Presenter.Snapshot();
+        // 行は増えず、同じ位置・同じ id のまま
+        Assert.Equal(3, after.Count);
+        Assert.Equal(["z", "composite-1", "y"], after.Select(t => t.Id));
+        TriggerDefinition updated = after[1];
+        Assert.Equal("login-1 && login-2 && b", updated.Expression);
+        Assert.Null(updated.PollInterval);
+        Assert.False(updated.NotifyOnStoppedMatching);
+        Assert.Equal([true, true, false], updated.Clauses.Select(c => c.Watch));
+        // 句そのもの (要素と述語) は据え置き
+        Assert.Equal(["login-1", "login-2", "b"], updated.Clauses.Select(c => c.Name));
+        Assert.Equal("done composite-1", h.View.LastStatus);
+    }
+
+    [Fact]
+    public void UpdatingWithABrokenExpression_ReportsTheReasonAndChangesNothing()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.UpdateFailed] = "no: {0}";
+        h.Open([RichComposite()]);
+        string before = JsonList(h.Presenter.Snapshot());
+        h.View.SelectedIndices = [0];
+        h.Presenter.NotifySelectionChanged();
+
+        h.View.ExpressionText = "login-1 &&";
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.StartsWith("no: ", h.View.LastStatus, StringComparison.Ordinal);
+        Assert.Equal(before, JsonList(h.Presenter.Snapshot()));
+    }
+
+    /// <summary>
+    /// 行を描き直すと 3 変種とも選択が落ちるので、文言も「まとめる」へ戻ること。
+    /// 断ったときは行が動かない = 選択も生きているので「更新」のままでよい。
+    /// </summary>
+    [Fact]
+    public void TheCaptionGoesBackToCombineOnlyWhenTheRowsAreRedrawn()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
+        h.Strings.Values[EditorStringKeys.CombineButtonUpdate] = "update";
+        h.Open([RichComposite()]);
+        h.View.SelectedIndices = [0];
+        h.Presenter.NotifySelectionChanged();
+        Assert.Equal("update", h.View.CombineCaption);
+
+        h.View.ExpressionText = "login-1 &&";
+        h.Presenter.NotifyCombineRequested();
+        Assert.Equal("update", h.View.CombineCaption);
+
+        h.View.ExpressionText = "login-1 && login-2 && b";
+        h.Presenter.NotifyCombineRequested();
+        Assert.Equal("combine", h.View.CombineCaption);
+    }
+
+    /// <summary>
+    /// 句が 2 つあるだけの PropertyChanged トリガーは書き換えの対象にしない。
+    /// 立ち下がり通知は WhileMatching 専用なので、書き込むと監視が受け付けない定義になる。
+    /// 選んでもまとめる側へ落ち、Compose が「2 件要る」と断ること。
+    /// </summary>
+    [Fact]
+    public void ATwoClausePropertyChangedTrigger_IsNotUpdatable()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineFailed] = "combine-no: {0}";
+        h.Open([TwoClausePropertyChanged()]);
+        string before = JsonList(h.Presenter.Snapshot());
+        h.View.SelectedIndices = [0];
+
+        h.Presenter.NotifySelectionChanged();
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.StartsWith("combine-no: ", h.View.LastStatus, StringComparison.Ordinal);
+        Assert.Equal(before, JsonList(h.Presenter.Snapshot()));
+    }
+
+    // ---- まとめる時の立ち下がり通知 ----
+
+    /// <summary>
+    /// 複合は必ず WhileMatching なので、下段のチェックがそのまま複合の旗になること。
+    /// 複合はピッカーで編集できないので、ここが唯一の入力口である (docs/DESIGN.md C14)。
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CombineTakesNotifyOnStoppedMatchingFromTheField(bool notify)
+    {
+        var h = new Harness();
+        h.Open([Simple("a"), Simple("b")]);
+        h.View.SelectedIndices = [0, 1];
+        h.View.CombineNotifyOnStoppedMatching = notify;
+
+        h.Presenter.NotifyCombineRequested();
+
+        Assert.Equal(notify, h.Presenter.Snapshot()[^1].NotifyOnStoppedMatching);
+    }
+
     // ---- 素材 ----
 
     private static TriggerDefinition Simple(string id) => new()
@@ -476,8 +660,42 @@ public sealed class TriggerListEditorPresenterTests
         return result.Definition!;
     }
 
+    /// <summary>複数句・絞るだけ・式・ポーリング間隔・立ち下がり通知の全部入りの複合。</summary>
+    private static TriggerDefinition RichComposite()
+    {
+        TriggerDefinition login = Simple("login");
+        login.Clauses.Add(new PropertyClause
+        {
+            Property = TriggerProperty.Value, Op = ComparisonOp.GreaterThan, Value = 1,
+        });
+        TriggerCompositionResult result = TriggerComposer.Compose(
+            [login, Simple("b")],
+            "(login-1 && login-2) || b",
+            ["login"],
+            [],
+            TimeSpan.FromSeconds(2),
+            notifyOnStoppedMatching: true);
+        Assert.True(result.IsValid);
+        return result.Definition!;
+    }
+
+    /// <summary>句が 2 つあるだけの、まとめたものではないトリガー。</summary>
+    private static TriggerDefinition TwoClausePropertyChanged()
+    {
+        TriggerDefinition definition = Simple("two");
+        definition.Clauses.Add(new PropertyClause
+        {
+            Property = TriggerProperty.Value, Op = ComparisonOp.GreaterThan, Value = 1,
+        });
+        return definition;
+    }
+
     private static string Json(TriggerDefinition definition) => JsonSerializer.Serialize(
         definition, TriggerJsonContext.Default.TriggerDefinition);
+
+    /// <summary>一覧まるごとの比較用。行の位置・件数・中身の欠けを 1 つの Assert で拾う。</summary>
+    private static string JsonList(IReadOnlyList<TriggerDefinition> triggers) =>
+        string.Join("\n", triggers.Select(Json));
 
     private sealed class Harness
     {

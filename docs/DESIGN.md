@@ -226,7 +226,7 @@ public sealed class TriggerDefinition
 - 成立判定は `Fire` で再計算する (記録した値へ同じ述語をもう一度当てる)。どちらも純粋なので結果は変わらず、プロセス間呼び出しも増えない
 - スナップショットは句ごとに出さない。同じ要素を指す句はスナップショットを共有するので「同じものが n 個」になる。要るとなったら**スロット単位で**足すこと
 
-### TriggerComposer — まとめる・ほどく
+### TriggerComposer — まとめる・ほどく・書き換える
 
 複数トリガーを 1 つの複合条件にまとめる規則は UI に依らない純粋な処理であり、`UiaTrigger.Core` の `TriggerComposer` が持つ。ホストは委譲するだけで、規則を写経しない。
 
@@ -240,9 +240,14 @@ public sealed class TriggerDefinition
 | `Decompose` が戻さないもの | 元の `On`・`MinInterval`・`PollInterval` (複合が記録していない)。**複合自身の `PollInterval` も戻さない** — まとめた条件を読み直すための費用判断であり、どれか 1 つの句のものではない。式も捨て、`Watch` は既定へ戻す — 「絞るだけ」は複合の中でだけ意味を持つ |
 | `Decompose` が付ける id | **句の実効名** = 複合の式がその句を指していた名前。分解 → まとめ直しで同じ式がそのまま使える |
 | 非複合の `Decompose` | `ArgumentException` (プログラマ向けの契約)。呼び出し側が選択を先にガードする |
-| どちらも**非破壊** | まとめても・ほどいても元は一覧に残る。取り消し機能を持たずに取り消せる形で、2 つの操作の線が揃う |
+| `Compose` / `Decompose` はどちらも**非破壊** | まとめても・ほどいても元は一覧に残る。取り消し機能を持たずに取り消せる形で、2 つの操作の線が揃う |
+| `Update` が書き換えるもの | **式・句ごとの `Watch`・`PollInterval`・`NotifyOnStoppedMatching` の 4 つだけ。**`Id`・`Window`/`Locator`・句の要素と述語・句の並びは写しのまま据え置く。だから呼び出し元は結果を**元が在った位置へ**戻せる。写しは `TriggerJsonContext` の往復で取る (手写しはモデルにプロパティが増えた日に「更新を通したときだけ」黙って欠ける) |
+| `Update` の語彙 (C17) | **`unwatchedNames` も式も句の実効名で照合する。**`Compose` の非対称 (unwatched は元トリガーの id) は「まとめる前」にしか存在しない語彙で、まとめ終えた後に残っているのは句の名前だけである — 複合はどの句がどの元トリガー由来かを記録していない。`UnwatchedNames` が返すのはちょうど `Update` が期待する名前なので、**読み出してそのまま渡し返すと何も変わらない (恒等)** |
+| `Update` が断るもの | 複合でない / `On` が `WhileMatching` でない定義は `ArgumentException` (`Decompose` と同じ線)。`On` を見るのは、句が 2 つあるだけの `PropertyChanged` トリガーも「複合」の形には合致するが、そこへ立ち下がり通知を書くと**監視が追加時に弾く定義**ができるためである。黙って `On` を書き換えるほうが悪い。負のポーリング間隔と未知の名前は `Compose` と同じ理由文字列で断る |
+| 複合の `NotifyOnStoppedMatching` | まとめる時にも指定できる (`Compose` の `notifyOnStoppedMatching`)。複合は常に `WhileMatching` = あの旗が効く唯一のライフサイクルであり、かつ複合はピッカーで編集できない (`CanEdit`) ので、**エディタの下段が複合にこの旗を立てる唯一の口**である (C14) |
+| `Update` だけが**破壊的** | その場で上書きするので、式を消して押せば元の式は戻らない。`Compose` / `Decompose` を足すだけにしてある理由 (取り消し機能なしで取り消せる) から外れる唯一の操作であり、外す代わりに「id も句も動かさない」を契約にして影響範囲を 4 つの設定に閉じてある |
 
-検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName` / `Compose_PollIntervalNegative`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone`)。
+検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName` / `Compose_PollIntervalNegative`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone` / `UpdateFailed` / `UpdateDone`)。
 
 ### トリガ一覧エディタ — 値渡し・値返し
 
@@ -252,6 +257,11 @@ public sealed class TriggerDefinition
 - **写しは 3 か所**: コンストラクタ (渡されたリスト) / `Snapshot` (返すリスト) / 子ピッカーへ渡す定義。3 つ目を忘れるとキャンセルしても作業用リストが変わる — ピッカーは渡された実体へ書き戻す契約だからである
 - 編集中の差し替えは「**その位置で**」。末尾へ移すと利用者が並べた順序が編集で崩れる。id を変えて確定したときは衝突する行を先に消す (残すと id が重複したリストを返し `AddAsync` が投げる)
 - 子ピッカーは同時 1 枚。2 枚開けると「どちらのコミットがどの行か」が決まらない
+- **複合を 1 件だけ選ぶと、下段は「まとめる」ではなく「書き換える」になる。**欄にその複合の値 (式・絞るだけの句名・ポーリング間隔・立ち下がり通知) が入り、ボタンは `CombineButtonUpdate` を名乗る。押すと `TriggerComposer.Update` が**その行をその位置で**書き換える (編集中の差し替えと同じ理由で末尾へ移さない)。判断は**押した時点の選択**で行い、ボタンの文言では行わない — 行を差し替えると選択が落ちるので、文言のほうは遅れうる。句が 2 つあるだけの `PropertyChanged` トリガーは対象外 (`Update` の契約と揃える)
+- **欄を空にする経路は無い。**複合以外を選んだときは欄に触らない — 触ると、式を打ちかけたまま別の行をクリックした瞬間にそれが消える。埋めるのは「複合ちょうど 1 件」のときだけである
+- **一覧の差し替え中は選択変化を報告しない** (`_suppressSelectionChanged` — ピッカーの `BeginNodeUpdate` / `EndNodeUpdate` と同じ規律)。`ShowRows` はまとめる / 書き換える / 削除 / ほどく / ピッカーのコミットのたびに走る。実測では鳴り方が変種で割れる: **WPF の `ItemsSource` 差し替えは 1 回鳴らし** (抑止が実際に効いている)、**Windows Forms の `Items.Clear()` は 0 回** (`LB_RESETCONTENT` は通知を親へ返さない。ハンドル有りでも同じ)。Windows Forms でも同じ形を残すのは、一覧を `DataSource` へ変えた日に**そこだけ**鳴りはじめるからである
+- **文言を「まとめる」へ戻すのは presenter の `ShowRows` の中** (呼び出し側ごとに書くと必ずどれかが取りこぼす)。そこで選択を読み直さないのは、差し替えの途中に View へ問い合わせる形を作らないためである (WinUI の選択は遅れて落ちうる)
+- **WPF の `SelectedIndices` は項目から添字を引き戻す** (`SelectedItems` が返すのは項目)。素朴な `Items.IndexOf` だと同じ文字列に描画される 2 行が同じ添字に潰れて**選択の件数が減り**、2 行選んだつもりが「複合 1 件」と見なされて単独指定していない複合が書き換わる。一致した項目を消し込みながら前から拾うことで件数を保つ
 - **行のダブルクリック = [条件を編集]** (`NotifyEditRequested` に写像する)。編集できない選択 (複合・複数選択) はボタンと同じ理由をステータスへ出す。一覧の空白部分は無視する — でないと、選択済みの行が空白のダブルクリックで編集され始める。空白の判定はフレームワーク固有で View が持つ (WinUI は `DataContext`、WPF は `ContainerFromElement`、Windows Forms は `IndexFromPoint`)
 - **ダブルクリックのハンドラの中で子ピッカーを直接開かない** — 入力が掃けた後にディスパッチャで回す。二打目の入力系列が残ったまま `Activate` すると、残りの入力処理がエディタを前面へ戻す。実測: WinUI は所有関係が無いと**ピッカーが窓ごと後ろに出る** (picker BEHIND editor / foreground=editor)。WPF / Windows Forms は所有関係が重なりを保つが、フォーカスはエディタへ戻る — 3 変種とも同じ形で遅らせる
 - **WinUI の子ピッカーには Win32 の所有関係を付ける** (`WindowOwnership` — `GWLP_HWNDPARENT`。WPF の `Owner` / Windows Forms の `Show(this)` と同じ意味)。遅延だけでは活性化の競争に環境によって負ける (実機で再発した)。所有関係は重なりを**構造で**決める — エディタを強制的に前面化しても、所有された窓は上に居続ける (実測)。副作用も Win32 の規則のとおり: タスクバーに独立のボタンを出さず、所有者と一緒に最小化され、**UIA の木ではデスクトップ直下ではなく所有者の子に出る** (T4 ハーネスの `TopLevelWindows` / `PickerWindows` はそれを織り込んで探す)
@@ -632,6 +642,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | C14 | 立ち下がり通知 (`NotifyOnStoppedMatching` → イベントは `On=StoppedMatching`) は `WhileMatching` 専用で、`MinInterval` の対象外。停止・削除では通知しない | §4 |
 | C15 | `ElementRemoved` の条件は消滅直前の値で評価する。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ (発火源にはしない) | §4 |
 | C16 | 在否 (`IsAbsent`) と値は別の軸。`Op=Always` は「要素が在ること」(presence) で成立し、値の述語は消えた要素でも最後に見えた値で評価され続ける | §4 |
+| C17 | 「絞るだけ」の語彙は非対称。`Compose` は元トリガーの id で照合し、`Update` と `UnwatchedNames` は句の実効名 (`login-1`) で照合する — まとめ終えた複合に元トリガーの id は残っていない。`UnwatchedNames` → `Update` は恒等 | §4 |
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 |
 | D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — |

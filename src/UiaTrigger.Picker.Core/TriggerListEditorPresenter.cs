@@ -25,15 +25,25 @@ public interface ITriggerListEditorView
     /// <summary>Sets the line describing the outcome of the last operation.</summary>
     string Status { set; }
 
-    /// <summary>The clause expression the user typed, for combining.</summary>
-    string ExpressionText { get; }
+    /// <summary>The clause expression the user typed, for combining or for rewriting.</summary>
+    /// <remarks>
+    /// Written by <see cref="TriggerListEditorPresenter.NotifySelectionChanged"/> when the selection
+    /// becomes a single composite, so that the fields describe the composite the button would
+    /// rewrite. Never written back to empty — see that method.
+    /// </remarks>
+    string ExpressionText { get; set; }
 
-    /// <summary>Ids of the triggers the user wants to narrow with rather than watch.</summary>
-    string UnwatchedText { get; }
+    /// <summary>The triggers the user wants to narrow with rather than watch.</summary>
+    /// <remarks>
+    /// Ids of the source triggers while combining; names of the composite's clauses while rewriting
+    /// one. The two vocabularies differ, and <see cref="TriggerComposer.UnwatchedNames"/> is what
+    /// supplies the second.
+    /// </remarks>
+    string UnwatchedText { get; set; }
 
     /// <summary>
-    /// Poll interval in seconds for the composite about to be combined, or null when the field is
-    /// empty.
+    /// Poll interval in seconds for the composite being combined or rewritten, or null when the
+    /// field is empty.
     /// </summary>
     /// <remarks>
     /// Reading is the view's job for the same reason as <see cref="IPickerView.ReadDraft"/>: how a
@@ -41,7 +51,26 @@ public interface ITriggerListEditorView
     /// as <see cref="double.NaN"/>. A negative number is handed on as it is;
     /// <see cref="TriggerComposer.Compose"/> owns that refusal, so every host states the same reason.
     /// </remarks>
-    double? CombinePollIntervalSeconds { get; }
+    double? CombinePollIntervalSeconds { get; set; }
+
+    /// <summary>
+    /// Whether the composite should also report the falling edge
+    /// (<see cref="TriggerDefinition.NotifyOnStoppedMatching"/>).
+    /// </summary>
+    /// <remarks>
+    /// Read when combining and when rewriting. A composite always fires on
+    /// <see cref="TriggerOn.WhileMatching"/>, the one lifecycle that flag applies to, and a composite
+    /// cannot be taken into a picker — so this is the only place it can be set on one.
+    /// </remarks>
+    bool CombineNotifyOnStoppedMatching { get; set; }
+
+    /// <summary>Sets the caption of the button that combines, or rewrites.</summary>
+    /// <remarks>
+    /// With exactly one composite selected that button rewrites that composite, and "combine the
+    /// selected" would misdescribe it. Same reason as <see cref="IPickerView.CommitCaption"/>: the
+    /// caption is decided at run time, so the view cannot carry it statically.
+    /// </remarks>
+    string CombineCaption { set; }
 
     /// <summary>The selected rows, as indices into the list last shown, in ascending order.</summary>
     IReadOnlyList<int> SelectedIndices { get; }
@@ -167,16 +196,32 @@ public sealed class TriggerListEditorPresenter
         _view.Status = Format(EditorStringKeys.DeleteDone, selected.Length);
     }
 
-    /// <summary>Reports that the user asked to combine the selected triggers into one.</summary>
+    /// <summary>
+    /// Reports that the user pressed the button that combines the selected triggers into one — or,
+    /// with exactly one composite selected, rewrites that composite's combining settings.
+    /// </summary>
     /// <remarks>
-    /// The sources stay in the list. Combining is additive, which is what makes it undoable without
-    /// an undo: remove the composite and the originals are still there.
+    /// <para>
+    /// Combining is additive: the sources stay in the list, which is what makes it undoable without
+    /// an undo — remove the composite and the originals are still there. Rewriting is not, and is
+    /// the one operation here that cannot be taken back; it replaces the composite where it is.
+    /// </para>
+    /// <para>
+    /// Which of the two happens is decided from the selection at the moment of the press, not from
+    /// the button's caption: replacing the rows drops the selection in every framework, so the
+    /// caption can lag reality while the selection cannot.
+    /// </para>
     /// </remarks>
     public void NotifyCombineRequested()
     {
+        if (SelectedCompositeIndex() is int target and >= 0)
+        {
+            UpdateComposite(target);
+            return;
+        }
+
         int[] selected = Selected();
-        string[] unwatched = _view.UnwatchedText.Split(
-            ',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        string[] unwatched = Split(_view.UnwatchedText);
 
         // 負値もそのまま渡す。拒否の理由は Compose が 1 か所で持つ — ここで先に弾くと、
         // 自前の「まとめる」UI を持つホストと理由の文言がずれていく
@@ -185,7 +230,8 @@ public sealed class TriggerListEditorPresenter
             _view.ExpressionText,
             unwatched,
             _working.Select(t => t.Id),
-            _view.CombinePollIntervalSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null);
+            _view.CombinePollIntervalSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null,
+            _view.CombineNotifyOnStoppedMatching);
         if (!result.IsValid)
         {
             _view.Status = Format(EditorStringKeys.CombineFailed, result.Error);
@@ -196,6 +242,82 @@ public sealed class TriggerListEditorPresenter
         ShowRows();
         _view.Status = Format(EditorStringKeys.CombineDone, result.Definition!.Id, selected.Length);
     }
+
+    /// <summary>Reports that the user changed which rows are selected.</summary>
+    /// <remarks>
+    /// <para>
+    /// With exactly one composite selected, the fields below the list are filled in from it and the
+    /// combine button takes on <see cref="EditorStringKeys.CombineButtonUpdate"/>, so that pressing
+    /// it rewrites that composite rather than combining.
+    /// </para>
+    /// <para>
+    /// **Any other selection leaves the fields as the user typed them.** There is no path here that
+    /// empties them: clearing on deselection would throw away a half-typed expression the moment a
+    /// click landed somewhere else.
+    /// </para>
+    /// <para>
+    /// A view must not call this while it is replacing the rows itself
+    /// (<see cref="ITriggerListEditorView.ShowRows"/>) — that is not the user changing the
+    /// selection.
+    /// </para>
+    /// </remarks>
+    public void NotifySelectionChanged()
+    {
+        if (SelectedCompositeIndex() is not (int index and >= 0))
+        {
+            return;
+        }
+
+        TriggerDefinition composite = _working[index];
+        _view.ExpressionText = composite.Expression ?? string.Empty;
+        // 区切りは Split と揃える。UnwatchedNames が返すのは句の実効名である (docs/DESIGN.md C17)
+        _view.UnwatchedText = string.Join(", ", TriggerComposer.UnwatchedNames(composite));
+        _view.CombinePollIntervalSeconds = composite.PollInterval?.TotalSeconds;
+        _view.CombineNotifyOnStoppedMatching = composite.NotifyOnStoppedMatching;
+        _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonUpdate);
+    }
+
+    /// <summary>選んだ複合を、下段の 4 つの設定で書き換える。</summary>
+    private void UpdateComposite(int index)
+    {
+        TriggerCompositionResult result = TriggerComposer.Update(
+            _working[index],
+            _view.ExpressionText,
+            Split(_view.UnwatchedText),
+            _view.CombinePollIntervalSeconds is { } seconds ? TimeSpan.FromSeconds(seconds) : null,
+            _view.CombineNotifyOnStoppedMatching);
+        if (!result.IsValid)
+        {
+            // 断ったときは行も選択も動かさない。文言は「更新」のままでよい (選択が生きているので)
+            _view.Status = Format(EditorStringKeys.UpdateFailed, result.Error);
+            return;
+        }
+
+        // **その位置で差し替える** (NotifyPickerCommitted と同じ理由: 並べた順序を崩さない)
+        _working[index] = result.Definition!;
+        ShowRows();
+        _view.Status = Format(EditorStringKeys.UpdateDone, result.Definition!.Id);
+    }
+
+    /// <summary>
+    /// 書き換えの対象になる選択 = 複合ちょうど 1 行。それ以外は -1。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="TriggerOn.WhileMatching"/> も見るのは <see cref="TriggerComposer.Update"/> の
+    /// 契約に合わせるためである。句が 2 つあるだけの <see cref="TriggerOn.PropertyChanged"/>
+    /// トリガーも <see cref="IsComposite"/> は true にするが、あれに立ち下がり通知は書けない
+    /// (監視が受け付けない)。
+    /// </remarks>
+    private int SelectedCompositeIndex() =>
+        Selected() is [int index] &&
+        IsComposite(_working[index]) &&
+        _working[index].On == TriggerOn.WhileMatching
+            ? index
+            : -1;
+
+    /// <summary>カンマ区切りの入力欄を名前の配列にする。</summary>
+    private static string[] Split(string text) =>
+        text.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
     /// <summary>Reports that the user asked to take the selected composite apart.</summary>
     /// <remarks>
@@ -307,6 +429,12 @@ public sealed class TriggerListEditorPresenter
                 EditorStringKeys.TriggerRow, def.Id, def.DisplayName, def.Window.ProcessName, def.On, clauses));
         }
         _view.ShowRows(rows);
+        // 行を差し替えると 3 変種とも選択が落ちるので、文言も「まとめる」へ戻す。**ここに置く** —
+        // まとめる / 更新 / 削除 / ほどく / ピッカーのコミットのすべてがここを通るので、
+        // 呼び出し側ごとに書くと必ずどれかが取りこぼす。選択を読み直さないのは、
+        // 差し替えの途中に View へ問い合わせる形にしたくないからである
+        // (WinUI の選択は遅れて落ちうる)
+        _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonContent);
     }
 
     /// <summary>表示専用の整形。現在の UI カルチャに従う (docs/DESIGN.md L7)。</summary>

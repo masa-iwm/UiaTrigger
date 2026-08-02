@@ -202,6 +202,10 @@
   <data name="CombineTriggersButton.Content" xml:space="preserve">
     <value>選択をまとめる</value>
   </data>
+  <data name="CombineButtonUpdate" xml:space="preserve">
+    <value>複合を更新</value>
+    <comment>Replaces the combine button's caption while one composite is selected</comment>
+  </data>
   <data name="DecomposeTriggerButton.Content" xml:space="preserve">
     <value>ほどく</value>
   </data>
@@ -219,6 +223,9 @@
   </data>
   <data name="CombinePollIntervalBox.Header" xml:space="preserve">
     <value>ポーリング間隔 (秒)</value>
+  </data>
+  <data name="CombineStoppedMatchingCheck.Content" xml:space="preserve">
+    <value>成立しなくなった時も通知</value>
   </data>
   <data name="EditorTriggerList.AutomationProperties.Name" xml:space="preserve">
     <value>トリガー一覧</value>
@@ -238,7 +245,7 @@
     <value>条件を編集するトリガーを 1 つ選んでください。</value>
   </data>
   <data name="EditorCannotEditWithThePicker" xml:space="preserve">
-    <value>ピッカーが編集できるのは素の条件 1 件です。先にこのトリガーをほどいて、その部品を編集してください。</value>
+    <value>ピッカーが編集できるのは素の条件 1 件です。まとめ方の設定は一覧の下で変えられます。条件そのものを変えるには、先にこのトリガーをほどいてください。</value>
   </data>
   <data name="EditorSelectACompositeToDecompose" xml:space="preserve">
     <value>ほどくトリガー (まとめたもの) を 1 つ選んでください。</value>
@@ -249,6 +256,14 @@
   </data>
   <data name="EditorCombineFailed" xml:space="preserve">
     <value>まとめられませんでした: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="EditorUpdateDone" xml:space="preserve">
+    <value>'{0}' を更新しました。</value>
+    <comment>{0} = composite id</comment>
+  </data>
+  <data name="EditorUpdateFailed" xml:space="preserve">
+    <value>更新できませんでした: {0}</value>
     <comment>{0} = reason</comment>
   </data>
   <data name="EditorDecomposeDone" xml:space="preserve">

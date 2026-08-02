@@ -7,9 +7,15 @@
 // ほどく側 (Decompose) について: まとめる前の元トリガーを削除してしまうと
 // 複合はどこからも編集できなくなる — が、句には要素 (Window / Locator) と条件が
 // 全部残っているので、句 1 つ = トリガー 1 件として常に取り出せる。
+//
+// 書き換える側 (Update) について: 語彙が Compose と違う (docs/DESIGN.md C17)。
+// Compose の unwatchedNames は**元トリガーの id** を指すが、まとめ終えた後に
+// 残っているのは句の名前だけである。よって Update と UnwatchedNames は句の実効名で話す。
 using System.Globalization;
+using System.Text.Json;
 using UiaTrigger.Monitoring;
 using UiaTrigger.Resources;
+using UiaTrigger.Serialization;
 
 namespace UiaTrigger.Models;
 
@@ -52,6 +58,12 @@ public static class TriggerComposer
     /// event-driven monitoring only. Zero also means unset, matching
     /// <see cref="TriggerDefinition.PollInterval"/>; a negative value is a reason not to combine.
     /// </param>
+    /// <param name="notifyOnStoppedMatching">
+    /// Whether the composite should also report the falling edge
+    /// (<see cref="TriggerDefinition.NotifyOnStoppedMatching"/>). Safe to set here because a
+    /// composite always fires on <see cref="TriggerOn.WhileMatching"/>, the one lifecycle that flag
+    /// applies to.
+    /// </param>
     /// <returns>A result carrying either a localized reason, or the composite definition.</returns>
     /// <remarks>
     /// The sources are left untouched; the composite carries copies of their clauses, each clause
@@ -64,7 +76,8 @@ public static class TriggerComposer
         string? expression,
         IReadOnlyCollection<string> unwatchedNames,
         IEnumerable<string> existingIds,
-        TimeSpan? pollInterval = null)
+        TimeSpan? pollInterval = null,
+        bool notifyOnStoppedMatching = false)
     {
         ArgumentNullException.ThrowIfNull(sources);
         ArgumentNullException.ThrowIfNull(unwatchedNames);
@@ -153,8 +166,137 @@ public static class TriggerComposer
             // 0 は「未設定」に倒す — TriggerDefinition.PollInterval の意味論 (Null or Zero =
             // イベント駆動) と揃える。負値は上で拒否済み
             PollInterval = pollInterval is { Ticks: > 0 } ? pollInterval : null,
+            // On が WhileMatching で固定なので、ここで立てた旗は必ず監視が受け付ける
+            NotifyOnStoppedMatching = notifyOnStoppedMatching,
         };
         return new TriggerCompositionResult(null, composite);
+    }
+
+    /// <summary>Rewrites a composite's combining settings, leaving what it combines alone.</summary>
+    /// <param name="composite">The composite to rewrite. It is left untouched; the result is a copy.</param>
+    /// <param name="expression">
+    /// Boolean expression over the clause names, or null or blank to require every clause. The names
+    /// are the composite's own clause names — the ones its current expression already refers to.
+    /// </param>
+    /// <param name="unwatchedNames">
+    /// Names of the clauses that should only narrow: required but never subscribed to, so their
+    /// changes alone fire nothing. Matched against the composite's clause names, which is where this
+    /// differs from <see cref="Compose"/> — that one matches source trigger ids, because before
+    /// combining that is what exists. <see cref="UnwatchedNames"/> hands back exactly what this
+    /// expects.
+    /// </param>
+    /// <param name="pollInterval"><inheritdoc cref="Compose" path="/param[@name='pollInterval']"/></param>
+    /// <param name="notifyOnStoppedMatching">
+    /// <inheritdoc cref="Compose" path="/param[@name='notifyOnStoppedMatching']"/>
+    /// </param>
+    /// <returns>A result carrying either a localized reason, or the rewritten composite.</returns>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="composite"/> is not a composite — it has no expression and at most one clause
+    /// — or it does not fire on <see cref="TriggerOn.WhileMatching"/>.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// Four things are rewritten and no others: the expression, each clause's
+    /// <see cref="PropertyClause.Watch"/>, the poll interval and the falling-edge flag. The id, the
+    /// clauses' elements and predicates, and the order of the clauses are carried over as they are,
+    /// so a caller can put the result back exactly where the original was. Reading a composite's
+    /// current settings and handing them straight back changes nothing.
+    /// </para>
+    /// <para>
+    /// This is the only way to set <see cref="TriggerDefinition.NotifyOnStoppedMatching"/> on an
+    /// existing composite: the flag needs <see cref="TriggerOn.WhileMatching"/>, which is what every
+    /// composite fires on, but a composite is more than one condition and so cannot be taken back
+    /// into a picker (see the trigger-list editor's refusal to edit one).
+    /// </para>
+    /// </remarks>
+    public static TriggerCompositionResult Update(
+        TriggerDefinition composite,
+        string? expression,
+        IReadOnlyCollection<string> unwatchedNames,
+        TimeSpan? pollInterval = null,
+        bool notifyOnStoppedMatching = false)
+    {
+        ArgumentNullException.ThrowIfNull(composite);
+        ArgumentNullException.ThrowIfNull(unwatchedNames);
+        if (composite.Expression is null && composite.Clauses.Count <= 1)
+        {
+            // Decompose と同じプログラマ向けの契約。呼び出し側 (エディタ) が先に選択をガードする
+            throw new ArgumentException(
+                "The definition is not a composite: it has no expression and at most one clause.",
+                nameof(composite));
+        }
+        // **On を見る理由。**句が 2 つあるだけの PropertyChanged トリガーも「複合」の形には
+        // 合致するが、そこへ NotifyOnStoppedMatching を書くと TriggerMonitor が追加時に弾く
+        // 定義ができる (立ち下がり通知は WhileMatching 専用 — docs/DESIGN.md C14)。
+        // 黙って On を書き換えるのは論外なので、断る
+        if (composite.On != TriggerOn.WhileMatching)
+        {
+            throw new ArgumentException(
+                "The definition does not fire on WhileMatching, so its combining settings cannot be rewritten.",
+                nameof(composite));
+        }
+        if (pollInterval is { Ticks: < 0 })
+        {
+            return new TriggerCompositionResult(Strings.Compose_PollIntervalNegative, null);
+        }
+
+        // **写しは JSON の往復で取る。**手で写すと、モデルにプロパティが増えた日に
+        // 「更新を通したときだけ」黙って欠ける — しかも保存されたファイルを見るまで分からない
+        // (TriggerListEditorPresenter の写しと同じ理由)。source-generated なので AOT でも動く
+        TriggerDefinition updated = JsonSerializer.Deserialize(
+            JsonSerializer.Serialize(composite, TriggerJsonContext.Default.TriggerDefinition),
+            TriggerJsonContext.Default.TriggerDefinition)!;
+
+        // 消し込みと判定を 1 度で (Compose の同じ行と同じ罠を避ける)
+        HashSet<string> unwatched = new(unwatchedNames, StringComparer.Ordinal);
+        for (int i = 0; i < updated.Clauses.Count; i++)
+        {
+            updated.Clauses[i].Watch =
+                !unwatched.Remove(ClauseExpression.EffectiveName(updated.Clauses[i], i));
+        }
+        if (unwatched.Count > 0)
+        {
+            return new TriggerCompositionResult(
+                Message.Format(Strings.Compose_UnknownName, unwatched.First()), null);
+        }
+
+        string? trimmed = string.IsNullOrWhiteSpace(expression) ? null : expression.Trim();
+        if (TriggerDraftValidator.ValidateExpression(trimmed, updated.Clauses) is { } error)
+        {
+            return new TriggerCompositionResult(error, null);
+        }
+
+        // 書き換えるのはここから下の 4 つだけ。Id・Window・Locator・句の要素と述語は写しのまま
+        updated.Expression = trimmed;
+        updated.PollInterval = pollInterval is { Ticks: > 0 } ? pollInterval : null;
+        updated.NotifyOnStoppedMatching = notifyOnStoppedMatching;
+        return new TriggerCompositionResult(null, updated);
+    }
+
+    /// <summary>The names of the clauses of <paramref name="composite"/> that only narrow.</summary>
+    /// <param name="composite">The composite to read. It is left untouched.</param>
+    /// <returns>
+    /// The names of the clauses whose <see cref="PropertyClause.Watch"/> is false, in clause order.
+    /// </returns>
+    /// <remarks>
+    /// The vocabulary <see cref="Update"/> takes, which is not the one <see cref="Compose"/> takes:
+    /// a source contributing several clauses is one name to <see cref="Compose"/> (<c>login</c>) and
+    /// several to the composite it produced (<c>login-1</c>, <c>login-2</c>), because a combined
+    /// trigger no longer records which source a clause came from. Feeding this straight back to
+    /// <see cref="Update"/> leaves the composite as it was.
+    /// </remarks>
+    public static IReadOnlyList<string> UnwatchedNames(TriggerDefinition composite)
+    {
+        ArgumentNullException.ThrowIfNull(composite);
+        var names = new List<string>();
+        for (int i = 0; i < composite.Clauses.Count; i++)
+        {
+            if (!composite.Clauses[i].Watch)
+            {
+                names.Add(ClauseExpression.EffectiveName(composite.Clauses[i], i));
+            }
+        }
+        return names;
     }
 
     /// <summary>Takes a composite definition apart into one stand-alone trigger per clause.</summary>

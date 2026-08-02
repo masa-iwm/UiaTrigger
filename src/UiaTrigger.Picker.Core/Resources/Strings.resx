@@ -223,6 +223,10 @@
   <data name="CombineTriggersButton.Content" xml:space="preserve">
     <value>Combine the selected</value>
   </data>
+  <data name="CombineButtonUpdate" xml:space="preserve">
+    <value>Update the composite</value>
+    <comment>Replaces the combine button's caption while one composite is selected</comment>
+  </data>
   <data name="DecomposeTriggerButton.Content" xml:space="preserve">
     <value>Take apart</value>
   </data>
@@ -240,6 +244,9 @@
   </data>
   <data name="CombinePollIntervalBox.Header" xml:space="preserve">
     <value>Poll interval (s)</value>
+  </data>
+  <data name="CombineStoppedMatchingCheck.Content" xml:space="preserve">
+    <value>Also notify when it stops matching</value>
   </data>
   <data name="EditorTriggerList.AutomationProperties.Name" xml:space="preserve">
     <value>Triggers</value>
@@ -259,7 +266,7 @@
     <value>Select one trigger to edit its condition.</value>
   </data>
   <data name="EditorCannotEditWithThePicker" xml:space="preserve">
-    <value>The picker edits one plain condition. Take this trigger apart first, then edit the parts.</value>
+    <value>The picker edits one plain condition. Combining settings are below the list; to change the conditions themselves, take this trigger apart first.</value>
   </data>
   <data name="EditorSelectACompositeToDecompose" xml:space="preserve">
     <value>Select one combined trigger to take apart.</value>
@@ -270,6 +277,14 @@
   </data>
   <data name="EditorCombineFailed" xml:space="preserve">
     <value>Could not combine: {0}</value>
+    <comment>{0} = reason</comment>
+  </data>
+  <data name="EditorUpdateDone" xml:space="preserve">
+    <value>Updated '{0}'.</value>
+    <comment>{0} = composite id</comment>
+  </data>
+  <data name="EditorUpdateFailed" xml:space="preserve">
+    <value>Could not update: {0}</value>
     <comment>{0} = reason</comment>
   </data>
   <data name="EditorDecomposeDone" xml:space="preserve">

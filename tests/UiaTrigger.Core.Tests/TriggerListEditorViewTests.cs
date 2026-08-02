@@ -382,6 +382,321 @@ public sealed class TriggerListEditorViewTests
         });
     }
 
+    // ---------- 複合の書き換え (継ぎ目の新しい口) ----------
+
+    /// <summary>
+    /// 下段の欄が本物のコントロールを通して往復すること。
+    ///
+    /// <para>
+    /// presenter 側の恒等テストは素の代入しか通らないので、実際に壊れうる箇所 —
+    /// 数値の書式 (読みと書きのカルチャの対) と「空欄 = 値なし」の約束 — はここでしか見られない。
+    /// </para>
+    /// <para>
+    /// **小数点がカンマのカルチャで走らせる。**開発機の既定 (en-US / invariant) のままだと、
+    /// 書きだけ <c>InvariantCulture</c> に変えても同じ文字列になり、対のずれを検出できない。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheWpfViewRoundTripsTheCombineFields()
+    {
+        Sta.Run(() =>
+        {
+            CultureInfo original = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var window = new TriggerListEditorWindow(
+                new ResxPickerStrings(), [], createPresenter: null, FakeWpfPicker);
+            try
+            {
+                var view = (ITriggerListEditorView)window;
+
+                view.ExpressionText = "a && b";
+                view.UnwatchedText = "b, c";
+                view.CombinePollIntervalSeconds = 2.5;
+                view.CombineNotifyOnStoppedMatching = true;
+                view.CombineCaption = "更新";
+
+                Assert.Equal("a && b", view.ExpressionText);
+                Assert.Equal("b, c", view.UnwatchedText);
+                Assert.Equal(2.5, view.CombinePollIntervalSeconds);
+                Assert.True(view.CombineNotifyOnStoppedMatching);
+                Assert.Equal("更新", window.CombineTriggersButton.Content);
+
+                // 「値なし」は空欄へ戻ること (0 に化けると打ち間違いが 0 秒として届く)
+                view.CombinePollIntervalSeconds = null;
+                Assert.Null(view.CombinePollIntervalSeconds);
+                Assert.Equal(string.Empty, window.CombinePollIntervalBox.Text);
+            }
+            finally
+            {
+                window.Close();
+                CultureInfo.CurrentCulture = original;
+            }
+        });
+    }
+
+    /// <summary>
+    /// 自分で一覧を差し替えたときの選択変化を presenter へ報告しないこと。
+    /// 報告すると、いずれ「欄を埋め直す」経路がそこに乗った日に打ちかけの式が消える。
+    /// </summary>
+    [Fact]
+    public void TheWpfViewDoesNotReportASelectionChangeItCausedItself()
+    {
+        Sta.Run(() =>
+        {
+            RecordingEditorView? recorder = null;
+            var window = new TriggerListEditorWindow(
+                new ResxPickerStrings(),
+                [Simple("a"), Simple("b")],
+                v => new TriggerListEditorPresenter(
+                    recorder = new RecordingEditorView(v), new ResxPickerStrings(),
+                    [Simple("a"), Simple("b")]),
+                FakeWpfPicker);
+            try
+            {
+                // (a) ユーザーの選択は届くこと — これが無いとこのテストは空になる
+                int before = recorder!.SelectionReads;
+                window.EditorTriggerList.SelectedIndex = 0;
+                Assert.True(recorder.SelectionReads > before, "選択が presenter に届いていない");
+
+                // (b) 自分で差し替えたときは届かないこと
+                before = recorder.SelectionReads;
+                ((ITriggerListEditorView)window).ShowRows(["x", "y"]);
+                Assert.Equal(before, recorder.SelectionReads);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
+    /// **恒等を本物のコントロールで。**複合を選んで、何も直さずに押すと定義が変わらないこと。
+    /// ここが崩れる原因は presenter には無く、欄の書式 (数値のカルチャ・区切り文字) にある。
+    /// </summary>
+    [Fact]
+    public void TheWpfViewUpdatesACompositeWithoutChangingIt()
+    {
+        Sta.Run(() =>
+        {
+            // 小数点がカンマのカルチャで走らせる (往復テストと同じ理由)
+            CultureInfo original = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var window = new TriggerListEditorWindow(
+                new ResxPickerStrings(), [RichComposite()], createPresenter: null, FakeWpfPicker);
+            try
+            {
+                window.Accept();
+                string before = JsonList(window.Result!);
+
+                window.EditorTriggerList.SelectedIndex = 0;
+                window.CombineTriggersButton.RaiseEvent(
+                    new System.Windows.RoutedEventArgs(
+                        System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
+                // 押せていることを先に確かめる (押されていなければ「変わらない」は当たり前)
+                Assert.NotEmpty(window.EditorStatus.Text);
+
+                window.Accept();
+                Assert.Equal(before, JsonList(window.Result!));
+            }
+            finally
+            {
+                window.Close();
+                CultureInfo.CurrentCulture = original;
+            }
+        });
+    }
+
+    /// <summary>WPF 側と同じ規則。カルチャを変える理由もそちらと同じ。</summary>
+    [Fact]
+    public void TheWinFormsViewRoundTripsTheCombineFields()
+    {
+        Sta.Run(() =>
+        {
+            CultureInfo original = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            try
+            {
+            using var form = new TriggerListEditorForm(
+                new ResxPickerStrings(), [], createPresenter: null, FakeWinFormsPicker);
+            Control[] all = [.. form.Controls.Cast<Control>().SelectMany(Descendants)];
+            var view = (ITriggerListEditorView)form;
+
+            view.ExpressionText = "a && b";
+            view.UnwatchedText = "b, c";
+            view.CombinePollIntervalSeconds = 2.5;
+            view.CombineNotifyOnStoppedMatching = true;
+            view.CombineCaption = "更新";
+
+            Assert.Equal("a && b", view.ExpressionText);
+            Assert.Equal("b, c", view.UnwatchedText);
+            Assert.Equal(2.5, view.CombinePollIntervalSeconds);
+            Assert.True(view.CombineNotifyOnStoppedMatching);
+            Assert.Contains(all, c => c is Button { Name: "CombineTriggersButton", Text: "更新" });
+
+            view.CombinePollIntervalSeconds = null;
+            Assert.Null(view.CombinePollIntervalSeconds);
+            Assert.Contains(all, c => c is TextBox { Name: "CombinePollIntervalBox", Text: "" });
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = original;
+            }
+        });
+    }
+
+    /// <summary>
+    /// ユーザーの選択が presenter へ届くこと。
+    ///
+    /// <para>
+    /// WPF 側にある「自分で起こした選択変化は報告しない」の対はここに置かない —
+    /// <c>ListBox.Items.Clear()</c> は <c>SelectedIndexChanged</c> を**鳴らさない**
+    /// (実測: ハンドル有りでも 0 回。<c>LB_RESETCONTENT</c> は通知を親へ返さない)。
+    /// 鳴らないものを見るテストは常に緑になるので置かない。View 側に抑止を残す理由は
+    /// <c>TriggerListEditorForm.ShowRows</c> のコメントにある。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheWinFormsViewReportsTheUsersSelectionChange()
+    {
+        Sta.Run(() =>
+        {
+            RecordingEditorView? recorder = null;
+            using var form = new TriggerListEditorForm(
+                new ResxPickerStrings(),
+                [Simple("a"), Simple("b")],
+                v => new TriggerListEditorPresenter(
+                    recorder = new RecordingEditorView(v), new ResxPickerStrings(),
+                    [Simple("a"), Simple("b")]),
+                FakeWinFormsPicker);
+            ListBox list = Assert.Single(
+                form.Controls.Cast<Control>().SelectMany(Descendants).OfType<ListBox>(),
+                c => c.Name == "EditorTriggerList");
+
+            int before = recorder!.SelectionReads;
+            list.SelectedIndex = 0;
+
+            Assert.True(recorder.SelectionReads > before, "選択が presenter に届いていない");
+        });
+    }
+
+    [Fact]
+    public void TheWinFormsViewUpdatesACompositeWithoutChangingIt()
+    {
+        Sta.Run(() =>
+        {
+            CultureInfo original = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            try
+            {
+                using var form = new TriggerListEditorForm(
+                    new ResxPickerStrings(), [RichComposite()], createPresenter: null, FakeWinFormsPicker);
+                Control[] all = [.. form.Controls.Cast<Control>().SelectMany(Descendants)];
+                ListBox list = Assert.Single(all.OfType<ListBox>(), c => c.Name == "EditorTriggerList");
+                Button combine = Assert.Single(all.OfType<Button>(), c => c.Name == "CombineTriggersButton");
+
+                form.Accept();
+                string before = JsonList(form.Result!);
+
+                // PerformClick は見えていないフォームでは何もしない (CanSelect が false)。
+                // ピッカーの Windows Forms テストと同じく先に出す
+                form.Show();
+                list.SelectedIndex = 0;
+                combine.PerformClick();
+
+                // 押せていることを先に確かめる。押されていなければ「変わらない」は当たり前で、
+                // このテストは何も見ていないことになる
+                Label status = Assert.Single(all.OfType<Label>(), c => c.Name == "EditorStatus");
+                Assert.NotEmpty(status.Text);
+
+                form.Accept();
+                Assert.Equal(before, JsonList(form.Result!));
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = original;
+            }
+        });
+    }
+
+    /// <summary>複数句・絞るだけ・式・ポーリング間隔・立ち下がり通知の全部入りの複合。</summary>
+    private static TriggerDefinition RichComposite()
+    {
+        TriggerDefinition login = Simple("login");
+        login.Clauses.Add(new PropertyClause
+        {
+            Property = TriggerProperty.Value, Op = ComparisonOp.GreaterThan, Value = 1,
+        });
+        TriggerCompositionResult result = TriggerComposer.Compose(
+            [login, Simple("b")],
+            "(login-1 && login-2) || b",
+            ["login"],
+            [],
+            // 小数を含めるのは、欄への往復でカルチャがずれたら落ちるようにするためである
+            TimeSpan.FromSeconds(2.5),
+            notifyOnStoppedMatching: true);
+        Assert.True(result.IsValid);
+        return result.Definition!;
+    }
+
+    private static string JsonList(IReadOnlyList<TriggerDefinition> triggers) =>
+        string.Join("\n", triggers.Select(t => System.Text.Json.JsonSerializer.Serialize(
+            t, UiaTrigger.Serialization.TriggerJsonContext.Default.TriggerDefinition)));
+
+    /// <summary>
+    /// View と presenter の間に挟んで、presenter が選択を読んだ回数を数える。
+    /// </summary>
+    /// <remarks>
+    /// 「報告されたか」を直に数える口が無いので、<see cref="ITriggerListEditorView.SelectedIndices"/>
+    /// の読みで代用する — <c>NotifySelectionChanged</c> は必ずここを通る。
+    /// </remarks>
+    private sealed class RecordingEditorView(ITriggerListEditorView inner) : ITriggerListEditorView
+    {
+        public int SelectionReads { get; private set; }
+
+        public string Status { set => inner.Status = value; }
+
+        public string ExpressionText
+        {
+            get => inner.ExpressionText;
+            set => inner.ExpressionText = value;
+        }
+
+        public string UnwatchedText
+        {
+            get => inner.UnwatchedText;
+            set => inner.UnwatchedText = value;
+        }
+
+        public double? CombinePollIntervalSeconds
+        {
+            get => inner.CombinePollIntervalSeconds;
+            set => inner.CombinePollIntervalSeconds = value;
+        }
+
+        public bool CombineNotifyOnStoppedMatching
+        {
+            get => inner.CombineNotifyOnStoppedMatching;
+            set => inner.CombineNotifyOnStoppedMatching = value;
+        }
+
+        public string CombineCaption { set => inner.CombineCaption = value; }
+
+        public IReadOnlyList<int> SelectedIndices
+        {
+            get
+            {
+                SelectionReads++;
+                return inner.SelectedIndices;
+            }
+        }
+
+        public void ShowRows(IReadOnlyList<string> rows) => inner.ShowRows(rows);
+
+        public void ShowPicker(TriggerDefinition? definitionToEdit) => inner.ShowPicker(definitionToEdit);
+    }
+
     private static IEnumerable<Control> Descendants(Control control)
     {
         yield return control;

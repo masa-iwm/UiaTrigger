@@ -327,7 +327,7 @@
     <member name="M:UiaTrigger.Models.ElementRect.ToString">
       <summary>invariant な <c>(L,T)-(R,B)</c> 形式。表示にも比較にも使われる。</summary>
     </member>
-    <member name="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan})">
+    <member name="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan},System.Boolean)">
       <summary><paramref name="sources" /> を 1 つの複合トリガーにまとめる。</summary>
       <param name="sources">まとめるトリガー (並び順のまま)。2 つ以上。</param>
       <param name="expression">
@@ -346,6 +346,13 @@
         0 も「未設定」を意味し、<see cref="P:UiaTrigger.Models.TriggerDefinition.PollInterval" />
         と揃う。負の値はまとめられない理由になる。
       </param>
+      <param name="notifyOnStoppedMatching">
+        まとめた条件が成立しなくなった時にも複合が通知するか
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" />)。
+        ここで指定して安全なのは、複合が必ず
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火するからである —
+        あの旗が効く唯一のライフサイクルである。
+      </param>
       <returns>ローカライズ済みの理由か、複合の定義のどちらかを運ぶ結果。</returns>
       <remarks>
         元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
@@ -353,6 +360,71 @@
         自分の条件を持たない元トリガーは「その要素が在ること」を持ち込む。複合は
         <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する:
         まとめた条件が成立した瞬間に 1 回である。
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerComposer.Update(UiaTrigger.Models.TriggerDefinition,System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Nullable{System.TimeSpan},System.Boolean)">
+      <summary>複合の「まとめ方」だけを書き換える。何をまとめているかには触れない。</summary>
+      <param name="composite">書き換える複合。それ自体には触れず、結果は写しである。</param>
+      <param name="expression">
+        条件名に対するブール式。null または空白だけなら「すべての条件を要求する」。
+        名前は複合自身の条件名 — いまの式が既に指している名前である。
+      </param>
+      <param name="unwatchedNames">
+        「絞るだけ」にする条件の名前。必要とはされるが購読されず、その変化だけでは何も
+        発火しない。照合は**複合の条件名**に対して行われ、ここが
+        <see cref="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan},System.Boolean)" />
+        との違いである — あちらが元トリガーの id を照合するのは、まとめる前に在るのが
+        それだけだからである。
+        <see cref="M:UiaTrigger.Models.TriggerComposer.UnwatchedNames(UiaTrigger.Models.TriggerDefinition)" />
+        が返すのはちょうどここが期待する名前である。
+      </param>
+      <param name="pollInterval">
+        複合の解決済み要素を読み直す周期。null (既定) はイベント駆動のみ。
+        0 も「未設定」を意味し、負の値は書き換えられない理由になる。
+      </param>
+      <param name="notifyOnStoppedMatching">
+        まとめた条件が成立しなくなった時にも複合が通知するか
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" />)。
+      </param>
+      <returns>ローカライズ済みの理由か、書き換えた複合のどちらかを運ぶ結果。</returns>
+      <exception cref="T:System.ArgumentException">
+        <paramref name="composite" /> が複合でない (式を持たず条件も 1 つ以下)、または
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火しない。
+      </exception>
+      <remarks>
+        <para>
+          書き換わるのは 4 つだけである: 式・条件ごとの
+          <see cref="P:UiaTrigger.Models.PropertyClause.Watch" />・ポーリング間隔・
+          立ち下がり通知の旗。id も、条件の要素と述語も、条件の並びもそのまま引き継ぐので、
+          呼び出し元は結果を**元が在った位置へ**戻せる。複合のいまの設定を読み出して
+          そのまま渡し直しても何も変わらない。
+        </para>
+        <para>
+          既存の複合に
+          <see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" /> を
+          立てる唯一の方法である: あの旗には
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> が要り、複合はまさに
+          それで発火するが、複合は条件が 2 つ以上あるのでピッカーへは戻せない。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Models.TriggerComposer.UnwatchedNames(UiaTrigger.Models.TriggerDefinition)">
+      <summary><paramref name="composite" /> の条件のうち「絞るだけ」のものの名前。</summary>
+      <param name="composite">読む複合。それ自体には触れない。</param>
+      <returns>
+        <see cref="P:UiaTrigger.Models.PropertyClause.Watch" /> が false の条件の名前を、
+        条件の並び順で返す。
+      </returns>
+      <remarks>
+        <see cref="M:UiaTrigger.Models.TriggerComposer.Update(UiaTrigger.Models.TriggerDefinition,System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Nullable{System.TimeSpan},System.Boolean)" />
+        が取る語彙であり、
+        <see cref="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan},System.Boolean)" />
+        が取る語彙ではない: 条件を複数持ち込む元トリガーは、まとめる側から見れば 1 つの名前
+        (<c>login</c>) だが、出来上がった複合から見れば複数 (<c>login-1</c>、<c>login-2</c>)
+        である — まとめたトリガーは、どの条件がどの元トリガー由来かをもう記録していない。
+        これをそのまま
+        <see cref="M:UiaTrigger.Models.TriggerComposer.Update(UiaTrigger.Models.TriggerDefinition,System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Nullable{System.TimeSpan},System.Boolean)" />
+        へ渡し返すと、複合は元のままである。
       </remarks>
     </member>
     <member name="M:UiaTrigger.Models.TriggerComposer.Decompose(UiaTrigger.Models.TriggerDefinition,System.Collections.Generic.IEnumerable{System.String})">

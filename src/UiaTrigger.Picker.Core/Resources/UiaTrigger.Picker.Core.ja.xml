@@ -662,19 +662,52 @@
       <summary>直前の操作の結果を表す行を設定する。</summary>
     </member>
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.ExpressionText">
-      <summary>まとめるためにユーザーが入力した条件式。</summary>
+      <summary>まとめる / 書き換えるためにユーザーが入力した条件式。</summary>
+      <remarks>
+        選択が複合 1 件になったとき
+        <see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifySelectionChanged" />
+        が書き込む — ボタンが書き換える対象を欄が表すようにするためである。
+        空へ戻すことは無い (理由はあのメソッドを参照)。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.UnwatchedText">
-      <summary>監視ではなく絞り込みだけに使いたいトリガーの id。</summary>
+      <summary>監視ではなく絞り込みだけに使いたいトリガー。</summary>
+      <remarks>
+        まとめるときは元トリガーの id、複合を書き換えるときは複合の条件名である。
+        2 つの語彙は違い、後者を供給するのが
+        <see cref="M:UiaTrigger.Models.TriggerComposer.UnwatchedNames(UiaTrigger.Models.TriggerDefinition)" />
+        である。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.CombinePollIntervalSeconds">
-      <summary>これからまとめる複合のポーリング間隔 (秒)。欄が空のときは null。</summary>
+      <summary>まとめる / 書き換える複合のポーリング間隔 (秒)。欄が空のときは null。</summary>
       <remarks>
         読み取りが View の仕事なのは <see cref="M:UiaTrigger.Picker.IPickerView.ReadDraft" /> と
         同じ理由である — 「値なし」の表し方はフレームワーク固有で、WinUI の <c>NumberBox</c> は
         空欄を <see cref="F:System.Double.NaN" /> として報告する。負の数はそのまま渡す。
-        拒否は <see cref="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan})" />
+        拒否は <see cref="M:UiaTrigger.Models.TriggerComposer.Compose(System.Collections.Generic.IReadOnlyList{UiaTrigger.Models.TriggerDefinition},System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Collections.Generic.IEnumerable{System.String},System.Nullable{System.TimeSpan},System.Boolean)" />
         が持ち、どのホストも同じ理由を出す。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.CombineNotifyOnStoppedMatching">
+      <summary>
+        まとめた条件が成立しなくなった時にも複合が通知するか
+        (<see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" />)。
+      </summary>
+      <remarks>
+        まとめるときにも書き換えるときにも読まれる。複合は必ず
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する — あの旗が効く
+        唯一のライフサイクルである — うえ、複合はピッカーへ持ち込めないので、
+        複合にこれを立てられるのはここだけである。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Picker.ITriggerListEditorView.CombineCaption">
+      <summary>まとめる / 書き換えるボタンの文字を設定する。</summary>
+      <remarks>
+        複合をちょうど 1 件選んでいる間、そのボタンはその複合を書き換えるので、
+        「選択をまとめる」では実態と食い違う。
+        <see cref="P:UiaTrigger.Picker.IPickerView.CommitCaption" /> と同じ理由である:
+        文字が実行時に決まるので、View は静的に持てない。
       </remarks>
     </member>
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.SelectedIndices">
@@ -739,10 +772,40 @@
       <summary>ユーザーが選択中のトリガーを削除しようとしたことを伝える。</summary>
     </member>
     <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyCombineRequested">
-      <summary>ユーザーが選択中のトリガーを 1 件にまとめようとしたことを伝える。</summary>
+      <summary>
+        ユーザーが「選択中のトリガーを 1 件にまとめる」ボタンを押したことを伝える —
+        複合をちょうど 1 件選んでいるときは、その複合のまとめ方を書き換える。
+      </summary>
       <remarks>
-        元のトリガーは一覧に残る。まとめるのは**足すだけ**の操作であり、それが
-        取り消し機能なしでも取り消せる理由である — 複合を削除すれば元はまだそこにある。
+        <para>
+          まとめるのは**足すだけ**の操作である: 元のトリガーは一覧に残り、それが取り消し機能
+          なしでも取り消せる理由である — 複合を削除すれば元はまだそこにある。書き換えのほうは
+          そうではなく、この節で唯一やり直しの効かない操作である。複合をその位置で置き換える。
+        </para>
+        <para>
+          どちらになるかは**押した時点の選択**で決まり、ボタンの文字では決まらない:
+          行を差し替えるとどのフレームワークでも選択が落ちるので、文字は実態より遅れうるが
+          選択は遅れない。
+        </para>
+      </remarks>
+    </member>
+    <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifySelectionChanged">
+      <summary>ユーザーが選択行を変えたことを伝える。</summary>
+      <remarks>
+        <para>
+          複合をちょうど 1 件選んでいるとき、一覧の下の欄がその複合の値で埋まり、まとめるボタンは
+          <see cref="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonUpdate" /> を名乗る —
+          押すとまとめるのではなく、その複合を書き換えるようになる。
+        </para>
+        <para>
+          **それ以外の選択では、欄はユーザーが入力したままにする。**ここに欄を空にする経路は
+          無い: 選択が外れたら消す形にすると、打ちかけの式が、別の場所をクリックした瞬間に消える。
+        </para>
+        <para>
+          View は自分で行を差し替えている最中
+          (<see cref="M:UiaTrigger.Picker.ITriggerListEditorView.ShowRows(System.Collections.Generic.IReadOnlyList{System.String})" />)
+          にこれを呼んではならない — それはユーザーが選択を変えたのではない。
+        </para>
       </remarks>
     </member>
     <member name="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifyDecomposeRequested">
@@ -801,6 +864,17 @@
     <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonContent">
       <summary>選択中のトリガーを 1 件にまとめるボタンの文字。</summary>
     </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonUpdate">
+      <summary>
+        複合をちょうど 1 件選んでいる間だけ、まとめるボタンが名乗る文字。
+        その状態のボタンはまとめるのではなく、その複合を書き換える。
+      </summary>
+      <remarks>
+        コントロールのキーではない。理由は
+        <see cref="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonUpdate" /> と同じで、
+        文字を実行時に差し替えるため、対応する <c>x:Uid</c> を持つ静的な置き場が無い。
+      </remarks>
+    </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.DecomposeButtonContent">
       <summary>選択中の複合をほどくボタンの文字。</summary>
     </member>
@@ -818,6 +892,15 @@
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.UnwatchedBoxHeader">
       <summary>絞るだけにするトリガーを並べる入力欄のラベル。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineStoppedMatchingCheckContent">
+      <summary>複合が立ち下がりも通知するようにする選択肢のラベル。</summary>
+      <remarks>
+        ピッカーのものとは別のコントロールであり、キーも別である: 複合は条件が 2 つ以上あるので
+        ピッカーへは持ち込めず、複合に
+        <see cref="P:UiaTrigger.Models.TriggerDefinition.NotifyOnStoppedMatching" /> を
+        立てられるのはここだけである。
+      </remarks>
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.TriggerListAutomationName">
       <summary>トリガー一覧が読み上げに名乗る名前。</summary>
@@ -852,6 +935,12 @@
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineFailed">
       <summary>まとめられなかった。理由を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.UpdateDone">
+      <summary>複合を書き換えた。その id を受け取る。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.UpdateFailed">
+      <summary>書き換えられなかった。理由を受け取る。</summary>
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.DecomposeDone">
       <summary>複合をほどいた。その id と、取り出したトリガーの件数を受け取る。</summary>

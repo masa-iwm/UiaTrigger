@@ -25,18 +25,36 @@ public sealed class TriggerComposerTests
         Clauses = [new PropertyClause { Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = id }],
     };
 
+    /// <summary>句 2 つのトリガー。まとめると <c>id-1</c> / <c>id-2</c> へ展開される。</summary>
+    private static TriggerDefinition Multi(string id)
+    {
+        TriggerDefinition definition = Simple(id);
+        definition.Clauses.Add(new PropertyClause
+        {
+            Property = TriggerProperty.Value, Op = ComparisonOp.GreaterThan, Value = 1,
+        });
+        return definition;
+    }
+
+    /// <summary>定義まるごとの比較用。個別の Assert を並べるより取りこぼしが少ない。</summary>
+    private static string Json(TriggerDefinition definition) =>
+        System.Text.Json.JsonSerializer.Serialize(
+            definition, UiaTrigger.Serialization.TriggerJsonContext.Default.TriggerDefinition);
+
     private static TriggerCompositionResult Compose(
         IReadOnlyList<TriggerDefinition> sources,
         string? expression = null,
         IReadOnlyCollection<string>? unwatchedNames = null,
         IEnumerable<string>? existingIds = null,
-        TimeSpan? pollInterval = null)
+        TimeSpan? pollInterval = null,
+        bool notifyOnStoppedMatching = false)
         => TriggerComposer.Compose(
             sources,
             expression,
             unwatchedNames ?? [],
             existingIds ?? sources.Select(s => s.Id),
-            pollInterval);
+            pollInterval,
+            notifyOnStoppedMatching);
 
     // ---- Compose: 基本形 ----
 
@@ -413,7 +431,247 @@ public sealed class TriggerComposerTests
         Assert.False(composite.Clauses[1].Watch);
     }
 
+    // ---- Compose: 立ち下がり通知 ----
+
+    /// <summary>
+    /// まとめる時に立ち下がり通知を指定できること。複合は必ず WhileMatching なので、
+    /// ここで立てた旗は必ず監視が受け付ける (docs/DESIGN.md C14)。
+    /// </summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Compose_CarriesNotifyOnStoppedMatchingOntoTheComposite(bool notify)
+    {
+        TriggerCompositionResult result = Compose(
+            [Simple("a"), Simple("b")], notifyOnStoppedMatching: notify);
+
+        Assert.Equal(notify, result.Definition!.NotifyOnStoppedMatching);
+    }
+
+    // ---- Update ----
+
+    /// <summary>
+    /// 書き換わるのは 4 つ (式・句ごとの Watch・ポーリング間隔・立ち下がり通知) だけで、
+    /// id も句の要素も述語も並びも動かないこと。呼び出し元が結果を**元の位置へ**戻せる根拠である。
+    /// </summary>
+    [Fact]
+    public void Update_RewritesTheFourSettings_AndNothingElse()
+    {
+        TriggerDefinition composite = Composite();
+
+        TriggerCompositionResult result = TriggerComposer.Update(
+            composite, "a || b", ["a"], TimeSpan.FromSeconds(3), notifyOnStoppedMatching: true);
+
+        Assert.True(result.IsValid);
+        TriggerDefinition updated = result.Definition!;
+        Assert.Equal("a || b", updated.Expression);
+        Assert.Equal(TimeSpan.FromSeconds(3), updated.PollInterval);
+        Assert.True(updated.NotifyOnStoppedMatching);
+        Assert.False(updated.Clauses[0].Watch);
+        Assert.True(updated.Clauses[1].Watch);
+        // 据え置き
+        Assert.Equal("composite-1", updated.Id);
+        Assert.Equal(TriggerOn.WhileMatching, updated.On);
+        Assert.Equal(["a", "b"], updated.Clauses.Select(c => c.Name));
+        Assert.Equal(TriggerProperty.Value, updated.Clauses[1].Property);
+        Assert.Equal(ComparisonOp.GreaterThan, updated.Clauses[1].Op);
+        Assert.Equal(3, updated.Clauses[1].Value);
+        Assert.Equal(0.5, updated.Clauses[1].Tolerance);
+        Assert.Equal("a.exe", updated.Clauses[0].Window!.ProcessName);
+    }
+
+    /// <summary>渡された複合には触れず、返すのは別の実体であること (句まで別であること)。</summary>
+    [Fact]
+    public void Update_LeavesTheCompositeItWasGivenUntouched()
+    {
+        TriggerDefinition composite = Composite();
+        string before = Json(composite);
+
+        TriggerDefinition updated = TriggerComposer
+            .Update(composite, "a || b", [], TimeSpan.FromSeconds(3), true).Definition!;
+
+        Assert.Equal(before, Json(composite));
+        Assert.NotSame(composite, updated);
+        Assert.NotSame(composite.Clauses[0], updated.Clauses[0]);
+    }
+
+    /// <summary>
+    /// **語彙が Compose と違う** (docs/DESIGN.md C17)。まとめた後に残っているのは句の名前だけなので、
+    /// 複数句のソース由来の句は <c>login-1</c> / <c>login-2</c> として個別に指す。
+    /// 元トリガーの id (<c>login</c>) はもうどこにも無い。
+    /// </summary>
+    [Fact]
+    public void Update_MatchesUnwatchedNamesAgainstClauseNames_NotSourceIds()
+    {
+        TriggerDefinition composite = Compose([Multi("login"), Simple("b")]).Definition!;
+
+        TriggerDefinition updated = TriggerComposer.Update(composite, null, ["login-2"]).Definition!;
+
+        Assert.True(updated.Clauses[0].Watch);    // login-1
+        Assert.False(updated.Clauses[1].Watch);   // login-2 だけが絞るだけになる
+        Assert.True(updated.Clauses[2].Watch);    // b
+
+        // Compose の語彙 (元トリガーの id) はここでは通らない
+        TriggerCompositionResult bySourceId = TriggerComposer.Update(composite, null, ["login"]);
+        Assert.False(bySourceId.IsValid);
+        Assert.Contains("login", bySourceId.Error, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Update_AnUnknownUnwatchedName_IsRefusedNamingTheTypo()
+    {
+        TriggerCompositionResult result = TriggerComposer.Update(Composite(), null, ["missing"]);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("missing", result.Error, StringComparison.Ordinal);
+        Assert.Null(result.Definition);
+    }
+
+    [Fact]
+    public void Update_ANegativePollInterval_IsRefused()
+    {
+        TriggerCompositionResult result = TriggerComposer.Update(
+            Composite(), null, [], TimeSpan.FromSeconds(-1));
+
+        Assert.False(result.IsValid);
+        Assert.Null(result.Definition);
+    }
+
+    /// <summary>null と 0 は「未設定」— Compose と同じ意味論。</summary>
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Update_WithoutAUsablePollInterval_LeavesItUnset(int? seconds)
+    {
+        TriggerDefinition composite = Composite();
+        composite.PollInterval = TimeSpan.FromSeconds(9);
+
+        TriggerCompositionResult result = TriggerComposer.Update(
+            composite, null, [], seconds is { } s ? TimeSpan.FromSeconds(s) : null);
+
+        Assert.True(result.IsValid);
+        Assert.Null(result.Definition!.PollInterval);
+    }
+
+    [Fact]
+    public void Update_TrimsTheExpression_AndTreatsBlankAsNone()
+    {
+        Assert.Equal("a && b", TriggerComposer.Update(Composite(), "  a && b  ", []).Definition!.Expression);
+        Assert.Null(TriggerComposer.Update(Composite(), "   ", []).Definition!.Expression);
+    }
+
+    [Fact]
+    public void Update_ABrokenExpression_PassesTheValidatorsReasonThrough()
+    {
+        TriggerCompositionResult result = TriggerComposer.Update(Composite(), "a &&", []);
+
+        Assert.False(result.IsValid);
+        Assert.NotNull(result.Error);
+        Assert.Null(result.Definition);
+    }
+
+    [Fact]
+    public void Update_ANonComposite_Throws()
+    {
+        Assert.Throws<ArgumentException>(
+            "composite", () => TriggerComposer.Update(Simple("x"), null, []));
+    }
+
+    /// <summary>
+    /// 句が 2 つあるだけの PropertyChanged トリガーは「複合」の形に合致するが、
+    /// 立ち下がり通知は WhileMatching 専用なので、書き込むと監視が受け付けない定義になる。
+    /// 黙って On を書き換えるのも論外なので断る。
+    /// </summary>
+    [Fact]
+    public void Update_ACompositeThatIsNotWhileMatching_Throws()
+    {
+        TriggerDefinition twoClause = Multi("x");
+        Assert.Equal(TriggerOn.PropertyChanged, twoClause.On);
+
+        Assert.Throws<ArgumentException>(
+            "composite", () => TriggerComposer.Update(twoClause, null, []));
+    }
+
+    /// <summary>
+    /// 書き換えた複合が監視開始まで通ること。Update と CreateRuntime の検証が食い違うと
+    /// 「更新できたのに開始できない定義」になる
+    /// (<see cref="Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts"/> と同じ線)。
+    /// </summary>
+    [Fact]
+    public async Task Update_AlwaysProducesADefinitionTheMonitorAccepts()
+    {
+        TriggerDefinition composite = Compose(
+            [Simple("no-such-process-uiatrigger-a"), Simple("no-such-process-uiatrigger-b")])
+            .Definition!;
+        TriggerDefinition updated = TriggerComposer.Update(
+            composite,
+            null,
+            [],
+            TimeSpan.FromMilliseconds(500),
+            notifyOnStoppedMatching: true).Definition!;
+
+        await using var monitor = new UiaTrigger.Monitoring.TriggerMonitor();
+        Exception? error = await Record.ExceptionAsync(
+            () => monitor.StartAsync([updated], TestContext.Current.CancellationToken));
+
+        Assert.Null(error);
+    }
+
+    // ---- UnwatchedNames ----
+
+    [Fact]
+    public void UnwatchedNames_ReturnsOnlyTheNarrowingClauses_InClauseOrder()
+    {
+        TriggerDefinition composite = Compose(
+            [Multi("login"), Simple("b"), Simple("c")], unwatchedNames: ["login", "c"]).Definition!;
+
+        Assert.Equal(["login-1", "login-2", "c"], TriggerComposer.UnwatchedNames(composite));
+    }
+
+    /// <summary>名前の無い句は位置由来の名前で返る (式がその句を指す名前と同じ)。</summary>
+    [Fact]
+    public void UnwatchedNames_UnnamedClauses_ComeBackWithTheirPositionalNames()
+    {
+        TriggerDefinition composite = Composite();
+        composite.Expression = null;
+        composite.Clauses[0].Name = null;
+        composite.Clauses[1].Name = null;
+
+        Assert.Equal(["c2"], TriggerComposer.UnwatchedNames(composite));
+    }
+
+    [Fact]
+    public void UnwatchedNames_NothingNarrows_ComesBackEmpty()
+        => Assert.Empty(TriggerComposer.UnwatchedNames(Compose([Simple("a"), Simple("b")]).Definition!));
+
     // ---- 往復 ----
+
+    /// <summary>
+    /// **恒等** (docs/DESIGN.md C17)。複合の設定を読み出してそのまま書き戻すと何も変わらないこと。
+    /// これが崩れると、エディタで複合を選んで何も直さずに [更新] を押しただけで定義が変わる。
+    /// 題材は複数句・絞るだけ・式・ポーリング間隔・立ち下がり通知の全部入りにする。
+    /// </summary>
+    [Fact]
+    public void ReadingACompositesSettingsAndWritingThemBack_ChangesNothing()
+    {
+        TriggerDefinition composite = Compose(
+            [Multi("login"), Simple("b")],
+            "(login-1 && login-2) || b",
+            unwatchedNames: ["login"],
+            pollInterval: TimeSpan.FromSeconds(2),
+            notifyOnStoppedMatching: true).Definition!;
+        string before = Json(composite);
+
+        TriggerCompositionResult result = TriggerComposer.Update(
+            composite,
+            composite.Expression,
+            TriggerComposer.UnwatchedNames(composite),
+            composite.PollInterval,
+            composite.NotifyOnStoppedMatching);
+
+        Assert.True(result.IsValid);
+        Assert.Equal(before, Json(result.Definition!));
+    }
 
     [Fact]
     public void ComposeDecomposeCompose_KeepsTheNamesAndTheExpression()

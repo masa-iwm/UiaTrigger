@@ -32,6 +32,9 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
     /// <summary>[OK] で確定した結果。null = キャンセル (窓を閉じただけ)。</summary>
     private IReadOnlyList<TriggerDefinition>? _result;
 
+    /// <summary>一覧を差し替えている最中か (その間の選択変化はユーザー操作ではない)。</summary>
+    private bool _suppressSelectionChanged;
+
     /// <summary>Shows the editor modally and returns the edited list, or null when cancelled.</summary>
     /// <param name="owner">The window to own the dialog, or null for none.</param>
     /// <param name="triggers">The triggers to edit. Neither the list nor its items are modified.</param>
@@ -110,6 +113,8 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
         UnwatchedBoxLabel.Text = _strings.GetString(EditorStringKeys.UnwatchedBoxHeader);
         CombinePollIntervalBoxLabel.Text =
             _strings.GetString(EditorStringKeys.CombinePollIntervalBoxHeader);
+        CombineStoppedMatchingCheck.Content =
+            _strings.GetString(EditorStringKeys.CombineStoppedMatchingCheckContent);
         // 一覧は見出しを持たないので、読み上げに出るのはこの名前だけである
         AutomationProperties.SetName(
             EditorTriggerList, _strings.GetString(EditorStringKeys.TriggerListAutomationName));
@@ -165,6 +170,19 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
             () => _presenter.NotifyEditRequested());
     }
 
+    /// <summary>
+    /// 選択が変わった。**自分で一覧を差し替えている最中は報告しない** —
+    /// <c>ItemsSource</c> の代入は選択を落として <c>SelectionChanged</c> を鳴らすが、
+    /// あれはユーザーが選択を変えたのではない。
+    /// </summary>
+    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_suppressSelectionChanged)
+        {
+            _presenter.NotifySelectionChanged();
+        }
+    }
+
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();
 
     private void OnCombine(object sender, RoutedEventArgs e) => _presenter.NotifyCombineRequested();
@@ -189,22 +207,84 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
 
     string ITriggerListEditorView.Status { set => EditorStatus.Text = value; }
 
-    string ITriggerListEditorView.ExpressionText => ExpressionBox.Text ?? string.Empty;
+    string ITriggerListEditorView.ExpressionText
+    {
+        get => ExpressionBox.Text ?? string.Empty;
+        set => ExpressionBox.Text = value;
+    }
 
-    string ITriggerListEditorView.UnwatchedText => UnwatchedBox.Text ?? string.Empty;
+    string ITriggerListEditorView.UnwatchedText
+    {
+        get => UnwatchedBox.Text ?? string.Empty;
+        set => UnwatchedBox.Text = value;
+    }
 
-    // 空欄も読めない入力も「値なし」。ピッカーの数値欄と同じ規則 (TriggerPickerWindow.ReadNumber)
-    double? ITriggerListEditorView.CombinePollIntervalSeconds =>
-        TriggerPickerWindow.ReadNumber(CombinePollIntervalBox);
+    // 空欄も読めない入力も「値なし」。ピッカーの数値欄と同じ規則 (TriggerPickerWindow.ReadNumber)。
+    // **書くほうも同じ組で使うこと** — 書式が読みとずれると、読み込んだ値をそのまま確定するだけで
+    // 設定が変わる (例外にもならない)
+    double? ITriggerListEditorView.CombinePollIntervalSeconds
+    {
+        get => TriggerPickerWindow.ReadNumber(CombinePollIntervalBox);
+        set => TriggerPickerWindow.WriteNumber(CombinePollIntervalBox, value);
+    }
 
-    IReadOnlyList<int> ITriggerListEditorView.SelectedIndices =>
-        [.. EditorTriggerList.SelectedItems.Cast<object>()
-            .Select(item => EditorTriggerList.Items.IndexOf(item))];
+    bool ITriggerListEditorView.CombineNotifyOnStoppedMatching
+    {
+        get => CombineStoppedMatchingCheck.IsChecked == true;
+        set => CombineStoppedMatchingCheck.IsChecked = value;
+    }
+
+    string ITriggerListEditorView.CombineCaption { set => CombineTriggersButton.Content = value; }
+
+    /// <summary>選択されている行の index。</summary>
+    /// <remarks>
+    /// <para>
+    /// WPF の <c>SelectedItems</c> は**項目**を返すので、index は引き戻すしかない。素朴に
+    /// <c>Items.IndexOf</c> を使うと、同じ文字列に描画される 2 行が同じ index に潰れて
+    /// **選択の件数が減る** — presenter は「複合ちょうど 1 件」で書き換えに入るので、
+    /// 2 行選んだつもりが 1 件と見なされ、単独指定していない複合を書き換えうる。
+    /// </para>
+    /// <para>
+    /// そこで一致した項目を 1 つずつ消し込みながら前から拾う。行がすべて異なる通常の場合は
+    /// <c>IndexOf</c> と同じ答えになり、重複したときも件数だけは合う。
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<int> ITriggerListEditorView.SelectedIndices
+    {
+        get
+        {
+            List<object> remaining = [.. EditorTriggerList.SelectedItems.Cast<object>()];
+            var indices = new List<int>(remaining.Count);
+            for (int i = 0; i < EditorTriggerList.Items.Count && remaining.Count > 0; i++)
+            {
+                int at = remaining.IndexOf(EditorTriggerList.Items[i]);
+                if (at >= 0)
+                {
+                    remaining.RemoveAt(at);
+                    indices.Add(i);
+                }
+            }
+            return indices;
+        }
+    }
 
     // 継ぎ目が渡すリストは配列にしてから ItemsSource へ渡す (プレゼンター側のリストは
     // 更新され続けないため、コントロールに参照を持たせたままにしない)
     void ITriggerListEditorView.ShowRows(IReadOnlyList<string> rows)
-        => EditorTriggerList.ItemsSource = rows.ToArray();
+    {
+        // 差し替えは選択を落として SelectionChanged を鳴らす。**コンストラクターの最初の
+        // ShowRows もここを通る** — ハンドラーは InitializeComponent で結ばれるので、
+        // _presenter の代入より前に鳴りうる。この try/finally がその窓もふさぐ
+        _suppressSelectionChanged = true;
+        try
+        {
+            EditorTriggerList.ItemsSource = rows.ToArray();
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
+        }
+    }
 
     void ITriggerListEditorView.ShowPicker(TriggerDefinition? definitionToEdit)
     {

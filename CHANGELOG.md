@@ -35,6 +35,24 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   that picker stays open so you can commit as many as you like.
 - **Double-clicking a row in the trigger-list editor edits it**, in all three editors — the same
   as pressing "Edit condition", including the same refusal message for a composite.
+- **A composite can now be changed without taking it apart.** Select exactly one composite in the
+  trigger-list editor and the fields under the list fill in from it — the expression, the clauses
+  that only narrow, the poll interval and the new "Also notify when it stops matching" checkbox —
+  while "Combine the selected" becomes **Update the composite**. Pressing it rewrites those four
+  things on that trigger *in place*: its id, its clauses' elements and comparisons, and its
+  position in the list all stay put. Selecting anything else leaves the fields exactly as you
+  typed them, so a half-typed expression survives a stray click. `TriggerComposer.Update` carries
+  the rule and `TriggerComposer.UnwatchedNames` reads the narrowing clauses back out, so a host
+  with its own combine UI gets both.
+- **Combining can now set `NotifyOnStoppedMatching`.** A composite always fires on
+  `WhileMatching`, which is the one lifecycle that flag applies to — but nothing in any UI could
+  reach it: `Compose` never set it, and the picker refuses to edit composites. The new checkbox is
+  read both when combining and when updating.
+
+  One asymmetry to know about: `Update` matches `unwatchedNames` against **clause names**
+  (`login-1`), where `Compose` matches **source trigger ids** (`login`). A composite no longer
+  records which source a clause came from. `UnwatchedNames` hands back exactly the names `Update`
+  expects, so reading a composite's settings and pressing Update without editing changes nothing.
 
 ### Fixed
 
@@ -68,11 +86,19 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
 ### Breaking (for `IPickerView` / `ITriggerListEditorView` implementers)
 
 - `IPickerView` gained `CommitCaption { set; }` and `Close()`.
-- `ITriggerListEditorView` gained `CombinePollIntervalSeconds { get; }`.
+- `ITriggerListEditorView` gained `CombinePollIntervalSeconds`, and `ExpressionText`,
+  `UnwatchedText` and `CombinePollIntervalSeconds` all carry setters — the presenter writes them
+  when the selection becomes a single composite. It also gained
+  `CombineNotifyOnStoppedMatching { get; set; }` and `CombineCaption { set; }`.
+- `TriggerListEditorPresenter` gained `NotifySelectionChanged()`. A view must call it when the
+  **user** changes the selection, and must not call it while it is replacing the rows itself.
+- `EditorStringKeys` gained `CombineStoppedMatchingCheckContent`, `CombineButtonUpdate`,
+  `UpdateDone` and `UpdateFailed` — a host supplying its own `IPickerStrings` must supply all four.
 - `OperandVisibility` gained a `StoppedMatching` flag; the positional constructor changed.
 - `TriggerDraft` gained `NotifyOnStoppedMatching`; `TriggerDraftValidator.Apply` clears the
   definition's flag when the draft's lifecycle is not `WhileMatching`.
-- `TriggerComposer.Compose` gained an optional `pollInterval` parameter.
+- `TriggerComposer.Compose` gained optional `pollInterval` and `notifyOnStoppedMatching`
+  parameters, and `TriggerComposer` gained `Update` and `UnwatchedNames`.
 - `TriggerOn` gained the event-only member `StoppedMatching`. Enums are persisted as names, so
   saved trigger files are unaffected; a definition using it as its lifecycle is rejected when the
   trigger is added.

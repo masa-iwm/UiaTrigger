@@ -38,6 +38,10 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
     private readonly TextBox _unwatched = new() { Name = "UnwatchedBox", Width = 200 };
     private readonly Label _combinePollIntervalLabel = new() { Name = "CombinePollIntervalBoxLabel", AutoSize = true };
     private readonly TextBox _combinePollInterval = new() { Name = "CombinePollIntervalBox", Width = 90 };
+    private readonly CheckBox _combineStoppedMatching = new()
+    {
+        Name = "CombineStoppedMatchingCheck", AutoSize = true,
+    };
     private readonly Button _combine = new() { Name = "CombineTriggersButton", AutoSize = true };
     private readonly Button _decompose = new() { Name = "DecomposeTriggerButton", AutoSize = true };
     private readonly Label _status = new()
@@ -55,6 +59,9 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
     private TriggerPickerForm? _picker;
 
     private IReadOnlyList<TriggerDefinition>? _result;
+
+    /// <summary>一覧を差し替えている最中か (その間の選択変化はユーザー操作ではない)。</summary>
+    private bool _suppressSelectionChanged;
 
     /// <summary>Shows the editor modally and returns the edited list, or null when cancelled.</summary>
     /// <param name="owner">The window to own the dialog, or null for none.</param>
@@ -131,6 +138,15 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
                 _ = BeginInvoke(_presenter.NotifyEditRequested);
             }
         };
+        // **自分で一覧を差し替えている最中は報告しない。**Items.Clear() は BeginUpdate の中でも
+        // SelectedIndexChanged を鳴らすが、あれはユーザーが選択を変えたのではない
+        _list.SelectedIndexChanged += (_, _) =>
+        {
+            if (!_suppressSelectionChanged)
+            {
+                _presenter.NotifySelectionChanged();
+            }
+        };
         _delete.Click += (_, _) => _presenter.NotifyDeleteRequested();
         _combine.Click += (_, _) => _presenter.NotifyCombineRequested();
         _decompose.Click += (_, _) => _presenter.NotifyDecomposeRequested();
@@ -157,7 +173,8 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         combineBar.Controls.AddRange(
         [
             _expressionLabel, _expression, _unwatchedLabel, _unwatched,
-            _combinePollIntervalLabel, _combinePollInterval, _combine, _decompose,
+            _combinePollIntervalLabel, _combinePollInterval, _combineStoppedMatching,
+            _combine, _decompose,
         ]);
 
         var bottomBar = new FlowLayoutPanel
@@ -192,6 +209,8 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         _unwatchedLabel.Text = _strings.GetString(EditorStringKeys.UnwatchedBoxHeader);
         _combinePollIntervalLabel.Text =
             _strings.GetString(EditorStringKeys.CombinePollIntervalBoxHeader);
+        _combineStoppedMatching.Text =
+            _strings.GetString(EditorStringKeys.CombineStoppedMatchingCheckContent);
         // 一覧は見出しを持たないので、読み上げに出るのはこの名前だけである
         _list.AccessibleName = _strings.GetString(EditorStringKeys.TriggerListAutomationName);
     }
@@ -206,18 +225,47 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
 
     string ITriggerListEditorView.Status { set => _status.Text = value; }
 
-    string ITriggerListEditorView.ExpressionText => _expression.Text ?? string.Empty;
+    string ITriggerListEditorView.ExpressionText
+    {
+        get => _expression.Text ?? string.Empty;
+        set => _expression.Text = value;
+    }
 
-    string ITriggerListEditorView.UnwatchedText => _unwatched.Text ?? string.Empty;
+    string ITriggerListEditorView.UnwatchedText
+    {
+        get => _unwatched.Text ?? string.Empty;
+        set => _unwatched.Text = value;
+    }
 
-    // 空欄も読めない入力も「値なし」。ピッカーの数値欄と同じ規則 (TriggerPickerForm.ReadNumber)
-    double? ITriggerListEditorView.CombinePollIntervalSeconds =>
-        TriggerPickerForm.ReadNumber(_combinePollInterval);
+    // 空欄も読めない入力も「値なし」。ピッカーの数値欄と同じ規則 (TriggerPickerForm.ReadNumber)。
+    // **書くほうも同じ組で使うこと** — 書式が読みとずれると、読み込んだ値をそのまま確定するだけで
+    // 設定が変わる (例外にもならない)
+    double? ITriggerListEditorView.CombinePollIntervalSeconds
+    {
+        get => TriggerPickerForm.ReadNumber(_combinePollInterval);
+        set => TriggerPickerForm.WriteNumber(_combinePollInterval, value);
+    }
+
+    bool ITriggerListEditorView.CombineNotifyOnStoppedMatching
+    {
+        get => _combineStoppedMatching.Checked;
+        set => _combineStoppedMatching.Checked = value;
+    }
+
+    string ITriggerListEditorView.CombineCaption { set => _combine.Text = value; }
 
     IReadOnlyList<int> ITriggerListEditorView.SelectedIndices => [.. _list.SelectedIndices.Cast<int>()];
 
     void ITriggerListEditorView.ShowRows(IReadOnlyList<string> rows)
     {
+        // **この変種では実際には鳴らない。**実測 (ハンドル有り・無しの両方): 選択のある ListBox に
+        // Items.Clear() をかけても SelectedIndexChanged は 0 回である — LB_RESETCONTENT は
+        // 選択変化の通知を親へ返さない。WPF の ItemsSource 差し替えは 1 回鳴らすので、
+        // そちらでは抑止が実際に効いている (TriggerListEditorViewTests が固定している)。
+        //
+        // それでも同じ形を残すのは、一覧を DataSource / BindingSource へ変えた日に
+        // **ここだけ**鳴りはじめるからである。抑止は BeginUpdate の外から掛ける
+        _suppressSelectionChanged = true;
         _list.BeginUpdate();
         try
         {
@@ -227,6 +275,7 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         finally
         {
             _list.EndUpdate();
+            _suppressSelectionChanged = false;
         }
     }
 

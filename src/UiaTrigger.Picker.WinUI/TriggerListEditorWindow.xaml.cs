@@ -38,6 +38,9 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
     private IReadOnlyList<TriggerDefinition>? _result;
 
+    /// <summary>一覧を差し替えている最中か (その間の選択変化はユーザー操作ではない)。</summary>
+    private bool _suppressSelectionChanged;
+
     /// <summary>Shows the editor and completes with the edited list, or null when it is closed.</summary>
     /// <param name="triggers">The triggers to edit. Neither the list nor its items are modified.</param>
     /// <returns>The edited triggers, or null when the user closed the window without accepting.</returns>
@@ -149,6 +152,23 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
             () => _presenter.NotifyEditRequested());
     }
 
+    /// <summary>
+    /// 選択が変わった。**自分で一覧を差し替えている最中は報告しない** —
+    /// <c>ItemsSource</c> の代入は選択を落として <c>SelectionChanged</c> を鳴らすが、
+    /// あれはユーザーが選択を変えたのではない。
+    /// </summary>
+    /// <remarks>
+    /// この変種だけは通知が遅れて (抑止が解けた後に) 来ることがありうるが、そのときの選択は
+    /// 空なので presenter は何も埋めず、文言を書き直すだけである — 打ちかけの式は消えない。
+    /// </remarks>
+    private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_suppressSelectionChanged)
+        {
+            _presenter.NotifySelectionChanged();
+        }
+    }
+
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();
 
     private void OnCombine(object sender, RoutedEventArgs e) => _presenter.NotifyCombineRequested();
@@ -167,13 +187,33 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
 
     string ITriggerListEditorView.Status { set => EditorStatus.Text = value; }
 
-    string ITriggerListEditorView.ExpressionText => ExpressionBox.Text ?? string.Empty;
+    string ITriggerListEditorView.ExpressionText
+    {
+        get => ExpressionBox.Text ?? string.Empty;
+        set => ExpressionBox.Text = value;
+    }
 
-    string ITriggerListEditorView.UnwatchedText => UnwatchedBox.Text ?? string.Empty;
+    string ITriggerListEditorView.UnwatchedText
+    {
+        get => UnwatchedBox.Text ?? string.Empty;
+        set => UnwatchedBox.Text = value;
+    }
 
-    // NumberBox は「空欄」を NaN で表す。この変換は WinUI の事実なので View に残す
-    double? ITriggerListEditorView.CombinePollIntervalSeconds =>
-        double.IsNaN(CombinePollIntervalBox.Value) ? null : CombinePollIntervalBox.Value;
+    // NumberBox は「空欄」を NaN で表す。この変換は WinUI の事実なので View に残す。
+    // **書くほうも同じ約束で** — null を 0 で書くと「値なし」が「0 秒」に化ける
+    double? ITriggerListEditorView.CombinePollIntervalSeconds
+    {
+        get => double.IsNaN(CombinePollIntervalBox.Value) ? null : CombinePollIntervalBox.Value;
+        set => CombinePollIntervalBox.Value = value ?? double.NaN;
+    }
+
+    bool ITriggerListEditorView.CombineNotifyOnStoppedMatching
+    {
+        get => CombineStoppedMatchingCheck.IsChecked == true;
+        set => CombineStoppedMatchingCheck.IsChecked = value;
+    }
+
+    string ITriggerListEditorView.CombineCaption { set => CombineTriggersButton.Content = value; }
 
     // **具体型へ明示的にキャストする** (docs/DESIGN.md §12)。
     // IReadOnlyList<int> を狙ったコレクション式は具体型が決まらず、
@@ -185,7 +225,19 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     // 継ぎ目が渡すリストは配列にしてから ItemsSource へ渡す。WinUI はインターフェース型の
     // リストをここで受け付けないうえ、プレゼンター側のリストは更新され続けない
     void ITriggerListEditorView.ShowRows(IReadOnlyList<string> rows)
-        => EditorTriggerList.ItemsSource = rows.ToArray();
+    {
+        // 差し替えは選択を落として SelectionChanged を鳴らす。ユーザーが選択を変えたのでは
+        // ないので報告しない (3 変種で同じ規律)
+        _suppressSelectionChanged = true;
+        try
+        {
+            EditorTriggerList.ItemsSource = rows.ToArray();
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
+        }
+    }
 
     void ITriggerListEditorView.ShowPicker(TriggerDefinition? definitionToEdit)
     {
