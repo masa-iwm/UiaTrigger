@@ -1,6 +1,7 @@
 // サンプルホスト (Windows Forms 版) のメインウィンドウ。
 // デザイナーは使わずコードだけで組む — デザイナーが吐く Text = "…" のリテラルを
 // ハードコード検出の対象外にしなければならなくなるためである。
+using UiaTrigger.App.Shared;
 using UiaTrigger.Models;
 using UiaTrigger.Persistence;
 using UiaTrigger.Picker.WinForms;

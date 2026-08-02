@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    サンプルホスト 3 つが共有する、コマンドラインの読み取り (docs/DESIGN.md §12)。
+
+    **ここは「3 ホストが意図的に写しているもの」の例外である。**
+    TriggerFilePath.cs / AppStrings.cs / MainWindow の大半は写しのままでよい —
+    「同じライブラリが 3 つの UI スタックで動く」ことを見せるのが src/UiaTrigger.App.* の
+    目的だからである。HostOptions だけをここへ引き出したのは、読み取る**オプションが
+    4 つになった**ためで、その判断は HostOptions.cs の冒頭に書いてある。
+
+    ソースのリンク共有 (<Compile Include="..\Shared\HostOptions.cs" />) には戻さないこと。
+    あれは WinUI3 / x64 でプロジェクト参照ができない場合の回避としてだけ許している。
+
+    AnyCPU / 素の net10.0-windows である。x64 の App.WinUI からも普通に参照できる
+    (Picker.Core と同じ形)。ここに WindowsAppSDK を足すと TFM が引きずられ、
+    3 ホストで共有できなくなる。
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>UiaTrigger.App.Shared</RootNamespace>
+    <!-- App.WinUI は PublishAot=true。参照される側でも解析を効かせておく -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+    **GenerateDocumentationFile は付けない。**付けると
+    PublicApiDocumentationTests の規制 (英語 XML doc と Resources\<名前>.ja.xml の
+    1:1 一致を両方向で縛る) に入る (docs/LOCALIZATION.md §5)。
+    サンプルホストの内部部品にその費用は要らない。
+    足し忘れではなく判断であることを、EveryAssemblyThatShipsXmlDocumentationIsCovered が
+    「付けたら落ちる」形で守っている。
+
+    IsPackable は Directory.Build.props の既定 (false) のままにする。
+    配るのは 5 パッケージだけで、その数は release.yml が機械で数えている
+    (docs/RELEASING.md §1)。
+  -->
+
+  <ItemGroup>
+    <!-- ICursorSource (pick-at が差し替えるカーソルの取得元) -->
+    <ProjectReference Include="..\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
+  </ItemGroup>
+
+  <!--
+    **公開型を 1 つも作らない。**public にすると上記の ja.xml 規制に入るので、
+    3 ホストへは InternalsVisibleTo で見せる (Picker.Core が同じ理由で同じ形を採っている)。
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="UiaTrigger.App.WinUI" />
+    <InternalsVisibleTo Include="UiaTrigger.App.Wpf" />
+    <InternalsVisibleTo Include="UiaTrigger.App.WinForms" />
+    <!-- 解析そのもの (HostCommandLine.Parse) を T1 が直接見る -->
+    <InternalsVisibleTo Include="UiaTrigger.Core.Tests" />
+  </ItemGroup>
+
+</Project>

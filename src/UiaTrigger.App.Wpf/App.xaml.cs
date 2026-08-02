@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using UiaTrigger.App.Shared;
 
 namespace UiaTrigger.App.Wpf;
 
@@ -12,9 +13,9 @@ public partial class App : Application
     public App()
     {
         // カルチャの上書きは**どのウィンドウを作るより前**に行う (docs/DESIGN.md §12)。
-        // HostOptions の static プロパティ初期化子は MainWindow から初めて触られたときに
-        // 走るので、そこに任せると遅い
-        HostOptions.ApplyCulture();
+        // MRT の言語上書きは WinUI ホストにしか無いので、戻り値は使わない
+        HostOptions.Initialize(Log);
+        _ = HostOptions.ApplyCulture();
 
         // 握り潰さずに残す (docs/DESIGN.md D7)。WinUI 版と同じ扱いで、ファイル名だけ分ける —
         // 3 ホストを同時に動かしたときにログが混ざらないようにするため

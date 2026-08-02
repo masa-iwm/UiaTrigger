@@ -25,6 +25,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\UiaTrigger.App.Shared\UiaTrigger.App.Shared.csproj" />
     <ProjectReference Include="..\UiaTrigger.Core\UiaTrigger.Core.csproj" />
     <ProjectReference Include="..\UiaTrigger.Picker.WinForms\UiaTrigger.Picker.WinForms.csproj" />
   </ItemGroup>
