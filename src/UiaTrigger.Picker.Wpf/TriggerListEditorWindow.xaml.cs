@@ -115,6 +115,28 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
             EditorTriggerList, _strings.GetString(EditorStringKeys.TriggerListAutomationName));
     }
 
+    /// <summary>
+    /// 下段 (まとめる / 状態 / 確定) に「使える高さ」を上限として渡す。
+    /// </summary>
+    /// <remarks>
+    /// ピッカーの <c>OnMainPaneSizeChanged</c> と同じ理由である (docs/DESIGN.md §12):
+    /// <c>Auto</c> の行は子に「欲しいだけ」与えるので、上限を渡さない限り
+    /// <c>LowerPane</c> のビューポートは中身と同じ高さになり、**スクロールが一生起きない**。
+    /// 窓を縮めると Grid が下段を窓の外へ黙って切り落とすだけになる。
+    /// 引くもの (上段の実寸と余白・一覧の最小高さ) は XAML 側が正である。
+    /// </remarks>
+    private void OnRootSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        double reserved = TopBar.ActualHeight + TopBar.Margin.Bottom + Root.RowDefinitions[1].MinHeight;
+        double available = Math.Max(80, e.NewSize.Height - reserved);
+
+        // 変わっていないときに代入しない (レイアウトを無用に回さないため)
+        if (Math.Abs(LowerPane.MaxHeight - available) > 0.5)
+        {
+            LowerPane.MaxHeight = available;
+        }
+    }
+
     // ---------- ユーザー操作 → プレゼンター ----------
 
     private void OnAdd(object sender, RoutedEventArgs e) => _presenter.NotifyAddRequested();
@@ -129,11 +151,18 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
     {
         // 行の上だけを編集にする。一覧の空白部分ではコンテナが引けない —
         // 無視しないと、選択済みの行が空白のダブルクリックで編集され始める
-        if (e.OriginalSource is DependencyObject source &&
-            ItemsControl.ContainerFromElement(EditorTriggerList, source) is ListBoxItem)
+        if (e.OriginalSource is not DependencyObject source ||
+            ItemsControl.ContainerFromElement(EditorTriggerList, source) is not ListBoxItem)
         {
-            _presenter.NotifyEditRequested();
+            return;
         }
+        // ハンドラの中で直接開かない。ダブルクリックの入力系列が残ったまま子ピッカーを
+        // 開くと、残りの入力処理がエディタへフォーカスを戻す (実測: 所有関係があるので
+        // 重なりは上のままだが、フォーカスがピッカーに来ない。WinUI は所有関係が無いので
+        // 窓ごと後ろに出る)。入力が掃けた後 (Background) に回す
+        _ = Dispatcher.BeginInvoke(
+            System.Windows.Threading.DispatcherPriority.Background,
+            () => _presenter.NotifyEditRequested());
     }
 
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();

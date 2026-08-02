@@ -190,6 +190,58 @@ public sealed class TriggerListEditorViewTests
     }
 
     /// <summary>
+    /// 下段 (まとめる / 状態 / 確定) に「使える高さ」の上限が渡っていること。
+    ///
+    /// <para>
+    /// ピッカーの <c>TheConditionFields_AreCappedToTheHeightThePaneActuallyHas</c> と同型である。
+    /// Auto の行は子に「欲しいだけ」与えるので、上限が渡らないと ScrollViewer の
+    /// ビューポートが中身と同じ高さになり**スクロールが一生起きない** — 窓を縮めると
+    /// OK/キャンセルが窓の外へ黙って切れる (T6 で実際に出た)。
+    /// </para>
+    /// <para>
+    /// 見るのは上限の値そのもの。「縮めたらスクロールできること」は表示していない
+    /// Window ではレイアウトを狙った高さで回せない (ピッカー側の実測)。
+    /// 上限が中身より小さければスクロールできるのは ScrollViewer の仕様であり、
+    /// 実際に縮めた画面は docs/MANUAL-CHECKS.md §4.3.5 が見る。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void TheWpfEditorsLowerPane_IsCappedToTheHeightTheWindowActuallyHas()
+    {
+        Sta.Run(() =>
+        {
+            var window = new TriggerListEditorWindow(
+                new ResxPickerStrings(), [Simple("a")], createPresenter: null, FakeWpfPicker);
+            try
+            {
+                var root = (System.Windows.FrameworkElement)window.Content;
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    root.Measure(new System.Windows.Size(900, 560));
+                    root.Arrange(new System.Windows.Rect(0, 0, 900, 560));
+                    root.UpdateLayout();
+                }
+
+                string measured =
+                    $"上段 {window.TopBar.ActualHeight}px / 一覧の最小 {window.Root.RowDefinitions[1].MinHeight}px / " +
+                    $"上限 {window.LowerPane.MaxHeight}";
+                Assert.False(
+                    double.IsPositiveInfinity(window.LowerPane.MaxHeight),
+                    $"下段に上限が渡っていません (配線が外れています)。{measured}");
+
+                double expected = window.Root.ActualHeight - window.TopBar.ActualHeight
+                    - window.TopBar.Margin.Bottom - window.Root.RowDefinitions[1].MinHeight;
+                Assert.True(expected > 0, $"高さを測れていません。{measured}");
+                Assert.Equal(expected, window.LowerPane.MaxHeight, tolerance: 1.0);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    /// <summary>
     /// [OK] が編集後のリストを返し、閉じただけなら null のままであること。
     ///
     /// null は「プロパティを設定しない」を意味する (<c>TriggerListEditor</c> の規約)。

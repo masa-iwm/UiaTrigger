@@ -38,12 +38,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
 
 ### Fixed
 
-- **The WinUI trigger-list editor is usable when its content overflows.** The list now scrolls
+- **The trigger-list editor is usable when its content overflows.** The WinUI list now scrolls
   horizontally, so a long composite row can be read to the end (the WPF and Windows Forms lists
-  already did); and the band below the list — the combine fields, the status line and OK/Cancel —
-  scrolls in both directions when the window is small. It used to clip silently: at 175% scale a
-  760px-wide window cut the composite poll-interval field off entirely, and a short window
-  squashed OK/Cancel to a sliver.
+  already did); and in both the WinUI and WPF editors the band below the list — the combine
+  fields, the status line and OK/Cancel — scrolls when the window is small. It used to clip
+  silently: at 175% scale a 760px-wide WinUI window cut the composite poll-interval field off
+  entirely, and a short window squashed OK/Cancel to a sliver.
+- **Double-clicking a row opens the picker in front, with focus.** Opening it directly inside the
+  double-click handler let the tail of the click sequence re-activate the editor — in WinUI the
+  picker ended up behind the editor window outright.
 
 - **`ElementRemoved` conditions now compare against the value just before removal.** They used to
   be evaluated against the values captured when the element was first resolved, so

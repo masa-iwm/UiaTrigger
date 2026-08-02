@@ -10,17 +10,15 @@
     Width="900" Height="560"
     WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="8">
+    <Grid x:Name="Root" Margin="8" SizeChanged="OnRootSizeChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" MinHeight="120" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- 一覧に対する操作 -->
-        <WrapPanel Margin="0,0,0,8">
+        <WrapPanel x:Name="TopBar" Margin="0,0,0,8">
             <Button x:Name="AddTriggerButton" Padding="10,3" Margin="0,0,8,0" Click="OnAdd" />
             <Button x:Name="EditTriggerButton" Padding="10,3" Margin="0,0,8,0" Click="OnEdit" />
             <Button x:Name="DeleteTriggerButton" Padding="10,3" Margin="0,0,8,0" Click="OnDelete" />
@@ -36,32 +34,43 @@
                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
                  MouseDoubleClick="OnRowDoubleClick" />
 
-        <!-- まとめる / ほどく -->
-        <StackPanel Grid.Row="2" Margin="0,8,0,0">
-            <WrapPanel Margin="0,0,0,4">
-                <TextBlock x:Name="ExpressionBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <TextBox x:Name="ExpressionBox" Width="260" Margin="0,0,8,0" />
-                <TextBlock x:Name="UnwatchedBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <TextBox x:Name="UnwatchedBox" Width="200" Margin="0,0,8,0" />
-                <TextBlock x:Name="CombinePollIntervalBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
-                <TextBox x:Name="CombinePollIntervalBox" Width="100" />
-            </WrapPanel>
-            <WrapPanel>
-                <Button x:Name="CombineTriggersButton" Padding="10,3" Margin="0,0,8,0" Click="OnCombine" />
-                <Button x:Name="DecomposeTriggerButton" Padding="10,3" Click="OnDecompose" />
-            </WrapPanel>
-        </StackPanel>
+        <!--
+            下段 (まとめる / 状態 / 確定)。ScrollViewer で包み、上限は OnRootSizeChanged が渡す —
+            Auto の行は子に「欲しいだけ」与えるので、上限を渡さない限りビューポートが中身と
+            同じ高さになりスクロールが一生起きない (ピッカーの ConditionScroll と同じ理由)。
+            上限なしでは、窓を縮めると Grid が下段を窓の外へ黙って切り落とす。
+            横は WrapPanel が折り返すので縦だけでよい。
+        -->
+        <ScrollViewer x:Name="LowerPane" Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <!-- まとめる / ほどく -->
+                <StackPanel Margin="0,8,0,0">
+                    <WrapPanel Margin="0,0,0,4">
+                        <TextBlock x:Name="ExpressionBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="ExpressionBox" Width="260" Margin="0,0,8,0" />
+                        <TextBlock x:Name="UnwatchedBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="UnwatchedBox" Width="200" Margin="0,0,8,0" />
+                        <TextBlock x:Name="CombinePollIntervalBoxLabel" VerticalAlignment="Center" Margin="0,0,4,0" />
+                        <TextBox x:Name="CombinePollIntervalBox" Width="100" />
+                    </WrapPanel>
+                    <WrapPanel>
+                        <Button x:Name="CombineTriggersButton" Padding="10,3" Margin="0,0,8,0" Click="OnCombine" />
+                        <Button x:Name="DecomposeTriggerButton" Padding="10,3" Click="OnDecompose" />
+                    </WrapPanel>
+                </StackPanel>
 
-        <TextBlock x:Name="EditorStatus" Grid.Row="3" Margin="0,8,0,0" Opacity="0.8"
-                   TextWrapping="Wrap" />
+                <TextBlock x:Name="EditorStatus" Margin="0,8,0,0" Opacity="0.8"
+                           TextWrapping="Wrap" />
 
-        <!-- 確定 / 取り消し -->
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right"
-                    Margin="0,8,0,0">
-            <Button x:Name="AcceptButton" IsDefault="True" MinWidth="88" Padding="10,3"
-                    Margin="0,0,8,0" Click="OnAccept" />
-            <Button x:Name="CancelButton" IsCancel="True" MinWidth="88" Padding="10,3"
-                    Click="OnCancel" />
-        </StackPanel>
+                <!-- 確定 / 取り消し -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            Margin="0,8,0,0">
+                    <Button x:Name="AcceptButton" IsDefault="True" MinWidth="88" Padding="10,3"
+                            Margin="0,0,8,0" Click="OnAccept" />
+                    <Button x:Name="CancelButton" IsCancel="True" MinWidth="88" Padding="10,3"
+                            Click="OnCancel" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
     </Grid>
 </Window>

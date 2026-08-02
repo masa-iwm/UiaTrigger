@@ -136,10 +136,17 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     {
         // 行の上だけを編集にする。一覧の空白部分では DataContext が行の文字列にならない —
         // 無視しないと、選択済みの行が空白のダブルクリックで編集され始める
-        if ((e.OriginalSource as FrameworkElement)?.DataContext is string)
+        if ((e.OriginalSource as FrameworkElement)?.DataContext is not string)
         {
-            _presenter.NotifyEditRequested();
+            return;
         }
+        // ハンドラの中で直接開かない。ダブルクリックの入力系列が残ったまま子ピッカーを
+        // Activate すると、残りの入力処理がエディタを前面へ戻し、**ピッカーが後ろに出る**
+        // (実測: 直接開くと picker BEHIND editor / foreground=editor)。
+        // 入力が掃けた後 (Low) に回すと前面 + フォーカス付きで開く
+        _ = DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            () => _presenter.NotifyEditRequested());
     }
 
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();

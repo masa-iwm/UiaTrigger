@@ -120,12 +120,15 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         _edit.Click += (_, _) => _presenter.NotifyEditRequested();
         // 行のダブルクリック = [条件を編集]。空白部分は IndexFromPoint が NoMatches を返すので
         // 無視する — でないと、選択済みの行が空白のダブルクリックで編集され始める。
-        // 編集できない選択 (複合・複数選択) は presenter がボタンと同じ理由をステータスへ出す
+        // 編集できない選択 (複合・複数選択) は presenter がボタンと同じ理由をステータスへ出す。
+        // ハンドラの中で直接開かず、入力が掃けた後に回す — ダブルクリックの入力系列が
+        // 残ったまま子ピッカーを出すと、残りの入力処理がエディタへフォーカスを戻す
+        // (WPF / WinUI で実測した形と同じ。WinForms は所有関係があるので重なりは保たれる)
         _list.MouseDoubleClick += (_, e) =>
         {
             if (_list.IndexFromPoint(e.Location) != ListBox.NoMatches)
             {
-                _presenter.NotifyEditRequested();
+                _ = BeginInvoke(_presenter.NotifyEditRequested);
             }
         };
         _delete.Click += (_, _) => _presenter.NotifyDeleteRequested();
