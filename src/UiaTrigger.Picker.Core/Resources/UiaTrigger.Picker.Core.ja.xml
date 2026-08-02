@@ -713,6 +713,18 @@
     <member name="P:UiaTrigger.Picker.ITriggerListEditorView.SelectedIndices">
       <summary>選択されている行。最後に表示した一覧に対する添字で、昇順。</summary>
     </member>
+    <member name="M:UiaTrigger.Picker.ITriggerListEditorView.SelectRow(System.Int32)">
+      <summary><paramref name="index" /> の行だけを選択状態にする。</summary>
+      <param name="index">選択する行の添字。</param>
+      <remarks>
+        複合を書き換えた後に選択を元へ戻すために使う: 行を差し替えると選択が落ちるので、
+        これが無いと直したばかりのトリガーが選ばれていない状態になり、続けて直すたびに
+        一覧から探し直すことになる。View はこれを
+        <see cref="M:UiaTrigger.Picker.TriggerListEditorPresenter.NotifySelectionChanged" />
+        で報告し返してはならない — 駆動しているのは利用者ではなくプレゼンターであり、
+        欄はプレゼンターが自分で書く。
+      </remarks>
+    </member>
     <member name="M:UiaTrigger.Picker.ITriggerListEditorView.ShowRows(System.Collections.Generic.IReadOnlyList{System.String})">
       <summary>一覧の行を差し替える。文字列は整形済みで渡る。</summary>
     </member>
@@ -863,6 +875,19 @@
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonContent">
       <summary>選択中のトリガーを 1 件にまとめるボタンの文字。</summary>
+    </member>
+    <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonCombine">
+      <summary>同じ文字を、差し替えた文言を戻すためにプレゼンターが引くためのもの。</summary>
+      <remarks>
+        **同じ言葉に対する 2 つ目のキーであり、そうでなければならない。**ドットを含むキーは
+        コントロールのキーである: WinUI のリソースマップはそれを
+        <c>CombineTriggersButton/Content</c> という経路として持ち、解決できるのは
+        <c>x:Uid</c> だけなので、ドット付きの綴りで
+        <see cref="M:UiaTrigger.Picker.IPickerStrings.GetString(System.String)" /> を引くと失敗し、
+        文言がキーそのものになる。よってプレゼンターが実行時に引くものはドット無しでなければ
+        ならない — <see cref="F:UiaTrigger.Picker.PickerStringKeys.CommitButtonUpdate" /> が
+        その綴りである理由と同じである。
+      </remarks>
     </member>
     <member name="F:UiaTrigger.Picker.EditorStringKeys.CombineButtonUpdate">
       <summary>

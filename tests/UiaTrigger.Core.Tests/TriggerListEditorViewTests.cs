@@ -620,6 +620,67 @@ public sealed class TriggerListEditorViewTests
         });
     }
 
+    /// <summary>
+    /// 本物のチェックボックスを操作してまとめると、複合に立ち下がり通知が乗ること。
+    /// T6 でここが「乗らない」と報告された経路をそのまま辿る。
+    /// </summary>
+    [Fact]
+    public void TheWpfViewCombinesWithTheStoppedMatchingCheckbox()
+    {
+        Sta.Run(() =>
+        {
+            var window = new TriggerListEditorWindow(
+                new ResxPickerStrings(), [Simple("a"), Simple("b")], createPresenter: null, FakeWpfPicker);
+            try
+            {
+                // **選んでからチェックを入れる。**行を選ぶと下段は空に戻る (選択が下段の主) ので、
+                // 順番が逆だとチェックは消える。実際の操作もこの順である
+                window.EditorTriggerList.SelectAll();
+                // 人がチェックを入れるのと同じ経路 (継ぎ目ではなくコントロールを触る)
+                window.CombineStoppedMatchingCheck.IsChecked = true;
+                window.CombineTriggersButton.RaiseEvent(
+                    new System.Windows.RoutedEventArgs(
+                        System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+
+                window.Accept();
+                TriggerDefinition composite = Assert.Single(
+                    window.Result!, t => t.Id.StartsWith("composite", StringComparison.Ordinal));
+                Assert.True(composite.NotifyOnStoppedMatching);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void TheWinFormsViewCombinesWithTheStoppedMatchingCheckbox()
+    {
+        Sta.Run(() =>
+        {
+            using var form = new TriggerListEditorForm(
+                new ResxPickerStrings(), [Simple("a"), Simple("b")], createPresenter: null, FakeWinFormsPicker);
+            Control[] all = [.. form.Controls.Cast<Control>().SelectMany(Descendants)];
+            ListBox list = Assert.Single(all.OfType<ListBox>(), c => c.Name == "EditorTriggerList");
+            Button combine = Assert.Single(all.OfType<Button>(), c => c.Name == "CombineTriggersButton");
+            CheckBox check = Assert.Single(
+                all.OfType<CheckBox>(), c => c.Name == "CombineStoppedMatchingCheck");
+
+            form.Show();
+            // 選んでからチェックを入れる (WPF 側と同じ理由)
+            list.SelectedIndices.Add(0);
+            list.SelectedIndices.Add(1);
+            check.Checked = true;
+            combine.PerformClick();
+
+            form.Accept();
+            TriggerDefinition composite = Assert.Single(
+                form.Result!, t => t.Id.StartsWith("composite", StringComparison.Ordinal));
+            Assert.True(composite.NotifyOnStoppedMatching);
+        });
+    }
+
     /// <summary>複数句・絞るだけ・式・ポーリング間隔・立ち下がり通知の全部入りの複合。</summary>
     private static TriggerDefinition RichComposite()
     {
@@ -691,6 +752,8 @@ public sealed class TriggerListEditorViewTests
                 return inner.SelectedIndices;
             }
         }
+
+        public void SelectRow(int index) => inner.SelectRow(index);
 
         public void ShowRows(IReadOnlyList<string> rows) => inner.ShowRows(rows);
 

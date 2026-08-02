@@ -27,9 +27,9 @@ public interface ITriggerListEditorView
 
     /// <summary>The clause expression the user typed, for combining or for rewriting.</summary>
     /// <remarks>
-    /// Written by <see cref="TriggerListEditorPresenter.NotifySelectionChanged"/> when the selection
-    /// becomes a single composite, so that the fields describe the composite the button would
-    /// rewrite. Never written back to empty — see that method.
+    /// Written by <see cref="TriggerListEditorPresenter.NotifySelectionChanged"/>: filled in from
+    /// the selected composite, and emptied when the selection is anything else, so that the fields
+    /// always describe what the button would do.
     /// </remarks>
     string ExpressionText { get; set; }
 
@@ -74,6 +74,17 @@ public interface ITriggerListEditorView
 
     /// <summary>The selected rows, as indices into the list last shown, in ascending order.</summary>
     IReadOnlyList<int> SelectedIndices { get; }
+
+    /// <summary>Makes <paramref name="index"/> the only selected row.</summary>
+    /// <remarks>
+    /// Used after rewriting a composite to put the selection back where it was: replacing the rows
+    /// drops it, and without this the trigger the user just changed would be deselected, so
+    /// changing it twice in a row would mean re-finding it in the list each time. The view must not
+    /// report this back through
+    /// <see cref="TriggerListEditorPresenter.NotifySelectionChanged"/> — the presenter is driving,
+    /// not the user, and it sets the fields itself.
+    /// </remarks>
+    void SelectRow(int index);
 
     /// <summary>Replaces the rows of the list. The text is already formatted.</summary>
     void ShowRows(IReadOnlyList<string> rows);
@@ -251,11 +262,10 @@ public sealed class TriggerListEditorPresenter
     /// it rewrites that composite rather than combining.
     /// </para>
     /// <para>
-    /// **Any other selection leaves the fields as the user typed them** — only the caption goes
-    /// back. There is no path here that empties the fields: clearing on deselection would throw
-    /// away a half-typed expression the moment a click landed somewhere else. The caption is
-    /// different: leaving it saying "update" while a plain row is selected would have the button
-    /// describe something it will not do.
+    /// **Any other selection empties them again**, so the fields always describe what pressing the
+    /// button would do rather than keeping values that belong to a composite no longer selected.
+    /// The cost is that the order matters: fill the fields *after* choosing the rows, because
+    /// choosing them clears what is there.
     /// </para>
     /// <para>
     /// A view must not call this while it is replacing the rows itself
@@ -263,15 +273,24 @@ public sealed class TriggerListEditorPresenter
     /// selection.
     /// </para>
     /// </remarks>
-    public void NotifySelectionChanged()
+    public void NotifySelectionChanged() => ShowCombineFields(SelectedCompositeIndex());
+
+    /// <summary>
+    /// 下段を <paramref name="index"/> の複合に合わせる。-1 なら「まとめる」の空の状態へ戻す。
+    /// </summary>
+    private void ShowCombineFields(int index)
     {
-        if (SelectedCompositeIndex() is not (int index and >= 0))
+        if (index < 0)
         {
-            // 欄は消さないが、**文言は戻す。**押したら「まとめる」しか起きない状態で
-            // 「複合を更新」と名乗り続けると、ボタンが嘘をつく
-            // 欄は消さないが、**文言は戻す。**押したら「まとめる」しか起きない状態で
-            // 「複合を更新」と名乗り続けると、ボタンが嘘をつく
-            _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonContent);
+            // **欄を空にする。**下段は常に「いま押したら何が起きるか」を表す。複合を選んで
+            // いないなら、そこに残っている値はどの複合のものでもない — 前に選んだ複合の式が
+            // 残っていると、それがこれからまとめる複合に効くように見える
+            _view.ExpressionText = string.Empty;
+            _view.UnwatchedText = string.Empty;
+            _view.CombinePollIntervalSeconds = null;
+            _view.CombineNotifyOnStoppedMatching = false;
+            // **ドット無しのキーで引くこと** (EditorStringKeys.CombineButtonCombine の remarks)
+            _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonCombine);
             return;
         }
 
@@ -303,6 +322,11 @@ public sealed class TriggerListEditorPresenter
         // **その位置で差し替える** (NotifyPickerCommitted と同じ理由: 並べた順序を崩さない)
         _working[index] = result.Definition!;
         ShowRows();
+        // **選択を戻して「更新」の状態のままにする。**行の差し替えで選択が落ちるので、
+        // 戻さないと直したばかりの複合が選ばれていない状態になり、続けて直すたびに
+        // 一覧から探し直すことになる。欄と文言はここで書き直す (View からの報告は待たない)
+        _view.SelectRow(index);
+        ShowCombineFields(index);
         _view.Status = Format(EditorStringKeys.UpdateDone, result.Definition!.Id);
     }
 
@@ -440,8 +464,12 @@ public sealed class TriggerListEditorPresenter
         // まとめる / 更新 / 削除 / ほどく / ピッカーのコミットのすべてがここを通るので、
         // 呼び出し側ごとに書くと必ずどれかが取りこぼす。選択を読み直さないのは、
         // 差し替えの途中に View へ問い合わせる形にしたくないからである
-        // (WinUI の選択は遅れて落ちうる)
-        _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonContent);
+        // (WinUI の選択は遅れて落ちうる)。
+        //
+        // **欄は消さない。**消すのは利用者が別の行を選んだときだけである — まとめた直後に
+        // 式まで消すと、似た複合をもう 1 件作るのに打ち直しになる。
+        // ドット無しのキーで引く理由は EditorStringKeys.CombineButtonCombine の remarks
+        _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonCombine);
     }
 
     /// <summary>表示専用の整形。現在の UI カルチャに従う (docs/DESIGN.md L7)。</summary>

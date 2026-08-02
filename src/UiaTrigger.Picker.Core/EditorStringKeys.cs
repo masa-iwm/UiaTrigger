@@ -35,17 +35,28 @@ public static class EditorStringKeys
     public const string DeleteButtonContent = "DeleteTriggerButton.Content";
 
     /// <summary>Caption of the button that combines the selected triggers into one.</summary>
+    /// <remarks>
+    /// The control key, which is what puts the caption there to begin with. The presenter must not
+    /// ask for this one — see <see cref="CombineButtonCombine"/>.
+    /// </remarks>
     public const string CombineButtonContent = "CombineTriggersButton.Content";
+
+    /// <summary>The same caption, for the presenter to put back after it swapped it.</summary>
+    /// <remarks>
+    /// **A second key with the same words, and it has to be.** A key containing a dot is a control
+    /// key: WinUI's resource map stores it as a path (<c>CombineTriggersButton/Content</c>) that
+    /// only <c>x:Uid</c> resolves, so asking <see cref="IPickerStrings.GetString"/> for the dotted
+    /// spelling fails and the caption becomes the key itself. Anything the presenter asks for at
+    /// run time therefore has to be dot-less — the same reason
+    /// <see cref="PickerStringKeys.CommitButtonUpdate"/> is spelled that way.
+    /// </remarks>
+    public const string CombineButtonCombine = "CombineButtonCombine";
 
     /// <summary>
     /// Caption the combine button takes on while exactly one composite is selected, which makes it
     /// rewrite that composite instead of combining.
     /// </summary>
-    /// <remarks>
-    /// Not a control key, for the same reason as <see cref="PickerStringKeys.CommitButtonUpdate"/>:
-    /// the caption is swapped at run time, so there is no static host to carry a matching
-    /// <c>x:Uid</c>.
-    /// </remarks>
+    /// <remarks>Dot-less for the reason given on <see cref="CombineButtonCombine"/>.</remarks>
     public const string CombineButtonUpdate = "CombineButtonUpdate";
 
     /// <summary>Caption of the button that takes the selected composite apart again.</summary>
@@ -133,7 +144,8 @@ public static class EditorStringKeys
     [
         WindowTitle,
         AddButtonContent, EditButtonContent, DeleteButtonContent, CombineButtonContent,
-        CombineButtonUpdate, DecomposeButtonContent, AcceptButtonContent, CancelButtonContent,
+        CombineButtonCombine, CombineButtonUpdate,
+        DecomposeButtonContent, AcceptButtonContent, CancelButtonContent,
         ExpressionBoxHeader, UnwatchedBoxHeader, CombinePollIntervalBoxHeader,
         CombineStoppedMatchingCheckContent,
         TriggerListAutomationName,

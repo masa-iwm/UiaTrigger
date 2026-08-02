@@ -358,6 +358,9 @@ internal sealed class FakeEditorView : ITriggerListEditorView
 
     public void ShowRows(IReadOnlyList<string> rows) => Rows = rows;
 
+    /// <summary>presenter が選択を戻した結果。本物の View と同じく選択に反映する。</summary>
+    public void SelectRow(int index) => SelectedIndices = [index];
+
     public void ShowPicker(TriggerDefinition? definitionToEdit) => PickerRequests.Add(definitionToEdit);
 }
 

@@ -268,6 +268,20 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
         }
     }
 
+    void ITriggerListEditorView.SelectRow(int index)
+    {
+        // presenter が駆動しているので報告し返さない (欄も文言も presenter が直後に書く)
+        _suppressSelectionChanged = true;
+        try
+        {
+            EditorTriggerList.SelectedIndex = index;
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
+        }
+    }
+
     // 継ぎ目が渡すリストは配列にしてから ItemsSource へ渡す (プレゼンター側のリストは
     // 更新され続けないため、コントロールに参照を持たせたままにしない)
     void ITriggerListEditorView.ShowRows(IReadOnlyList<string> rows)

@@ -222,6 +222,20 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
         (int[])[.. EditorTriggerList.SelectedRanges
             .SelectMany(r => Enumerable.Range(r.FirstIndex, (int)r.Length))];
 
+    void ITriggerListEditorView.SelectRow(int index)
+    {
+        // presenter が駆動しているので報告し返さない (欄も文言も presenter が直後に書く)
+        _suppressSelectionChanged = true;
+        try
+        {
+            EditorTriggerList.SelectedIndex = index;
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
+        }
+    }
+
     // 継ぎ目が渡すリストは配列にしてから ItemsSource へ渡す。WinUI はインターフェース型の
     // リストをここで受け付けないうえ、プレゼンター側のリストは更新され続けない
     void ITriggerListEditorView.ShowRows(IReadOnlyList<string> rows)

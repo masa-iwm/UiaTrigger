@@ -210,6 +210,82 @@ public sealed class EditorShowcaseTests
     }
 
     /// <summary>対象アプリ + WinUI ホスト。ピッカーはエディタから開く。</summary>
+    /// <summary>
+    /// 複合の経路を丸ごと 1 回のホスト起動で見る (docs/MANUAL-CHECKS.md §4.3.5 の自動化)。
+    ///
+    /// <para>
+    /// ここでしか見られないものが 3 つある。**どれも T1 は緑のまま通す:**
+    /// </para>
+    /// <list type="number">
+    /// <item>
+    /// ボタンの文言が**解決済みの文字**であること。プレゼンターが実行時に引くキーは
+    /// ドット無しでなければならず、ドット付きだと MRT が解決できず
+    /// 画面に <c>CombineTriggersButton.Content</c> と出る (T6 で実際に出た)。
+    /// resx 経路 (WPF / Windows Forms) はドットでも引けるので T1 では出ない。
+    /// </item>
+    /// <item>
+    /// **選び直したときに画面が保存値を映すこと。**チェックの状態は
+    /// <c>TogglePattern</c> で読めるので、ファイルを見ずに UI で確かめられる。
+    /// </item>
+    /// <item>WinUI の View 全体 (T1 から実体化できない)。</item>
+    /// </list>
+    /// </summary>
+    [Fact]
+    public void CombiningWithTheFallingEdge_ShowsUpInTheUiAndInTheFile_AndStaysUpdatable()
+    {
+        Dictionary<string, string> expected =
+            PickerResources.For(PickerHostProfile.ByName("WinUI"), Culture);
+        using var scenario = EditorScenario.Open();
+
+        scenario.OpenEditor();
+        scenario.RecordOneThroughTheChildPicker(out string first);
+        scenario.RecordAnotherWithId("second-trigger");
+
+        // (1) 文言が解決済みであること。キーが漏れていれば "CombineTriggersButton.Content" になる
+        Assert.Equal(expected["CombineButtonCombine"], scenario.CombineCaption());
+
+        // **選んでからチェックを入れる。**行を選ぶと下段は空へ戻る (下段は選択に従う)
+        scenario.SelectEveryRow();
+        scenario.CheckTheFallingEdge();
+        scenario.CombineButton().Invoke();
+
+        AutomationElement compositeRow = Ui.Until(
+            () => scenario.CompositeRow(),
+            Settle,
+            "まとめた行が一覧に出ること",
+            scenario.Diagnostics);
+        string compositeId = compositeRow.NameOf();
+
+        // (2) 選び直すと、画面がまとめた値を映すこと (ファイルを見ずに UI で確かめられる)
+        scenario.SelectTheRowContaining("composite-1");
+        Assert.Equal(ToggleState.On, scenario.FallingEdgeState());
+        Assert.Equal(expected["CombineButtonUpdate"], scenario.CombineCaption());
+
+        // 何も直さずに更新しても壊れず、そのまま選ばれたままで続けて更新できること
+        scenario.CombineButton().Invoke();
+        Assert.Equal(expected["CombineButtonUpdate"], scenario.CombineCaption());
+        Assert.Equal(ToggleState.On, scenario.FallingEdgeState());
+
+        // 素の行へ移ると下段が空に戻ること (仕様: 下段は常に「いま押したら何が起きるか」)
+        scenario.SelectTheRowContaining(first);
+        Assert.Equal(expected["CombineButtonCombine"], scenario.CombineCaption());
+        Assert.Equal(ToggleState.Off, scenario.FallingEdgeState());
+        Assert.Equal(string.Empty, scenario.ExpressionText());
+
+        // 真偽の根拠はファイル (画面だけだと「出ているが保存されていない」を通す)
+        scenario.Accept();
+        IReadOnlyList<TriggerDefinition> saved = Ui.Until(
+            () => scenario.SavedTriggers() is { Count: 3 } list ? list : null,
+            Settle,
+            "元 2 件 + 複合 1 件がファイルに入ること",
+            scenario.Diagnostics);
+        TriggerDefinition composite = Assert.Single(
+            saved, t => t.Expression is not null || t.Clauses.Count > 1);
+        Assert.True(
+            composite.NotifyOnStoppedMatching,
+            $"複合 '{compositeId}' に立ち下がり通知が乗っていません。");
+    }
+
     private sealed class EditorScenario : IDisposable
     {
         private readonly TestTargetProcess _target;
@@ -329,6 +405,75 @@ public sealed class EditorShowcaseTests
                 "エディタの一覧から行が消えること",
                 Diagnostics);
         }
+
+        /// <summary>いま開いている子ピッカーから、id だけ変えてもう 1 件コミットする。</summary>
+        /// <remarks>
+        /// ピッカーは追加のとき開いたままなので、同じ要素に対して id 違いの 2 件目が録れる。
+        /// まとめるには 2 行あればよく、どの要素かは問わない。
+        /// </remarks>
+        public void RecordAnotherWithId(string id)
+        {
+            AutomationElement picker = PickerWindow();
+            picker.RequireByIdEventually("KeyBox", Diagnostics).SetText(id);
+            picker.RequireByIdEventually("CommitButton", Diagnostics).Invoke();
+            _ = Ui.Until(
+                () => Rows().Any(r => r.NameOf().Contains($"[{id}]", StringComparison.Ordinal))
+                    ? "ok" : null,
+                Settle,
+                $"'{id}' の行が一覧に出ること",
+                Diagnostics);
+        }
+
+        /// <summary>まとめた行 (id が composite- で始まるもの)、まだ無ければ null。</summary>
+        public AutomationElement? CompositeRow() =>
+            Rows().FirstOrDefault(r => r.NameOf().Contains("[composite-", StringComparison.Ordinal));
+
+        public void SelectEveryRow()
+        {
+            foreach (AutomationElement row in Rows())
+            {
+                ((SelectionItemPattern)row.GetCurrentPattern(SelectionItemPattern.Pattern))
+                    .AddToSelection();
+            }
+        }
+
+        /// <summary>id を含む行を単独で選ぶ。</summary>
+        public void SelectTheRowContaining(string id)
+        {
+            AutomationElement row = Ui.Until(
+                () => Rows().FirstOrDefault(
+                    r => r.NameOf().Contains(id, StringComparison.Ordinal)),
+                Settle,
+                $"'{id}' の行が在ること",
+                Diagnostics);
+            ((SelectionItemPattern)row.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+        }
+
+        private AutomationElement CombineCheck() =>
+            Editor().RequireByIdEventually("CombineStoppedMatchingCheck", Diagnostics);
+
+        /// <summary>立ち下がり通知のチェックを入れる。</summary>
+        public void CheckTheFallingEdge()
+        {
+            var toggle = (TogglePattern)CombineCheck().GetCurrentPattern(TogglePattern.Pattern);
+            if (toggle.Current.ToggleState != ToggleState.On)
+            {
+                toggle.Toggle();
+            }
+        }
+
+        /// <summary>画面に出ている立ち下がり通知の状態。</summary>
+        public ToggleState FallingEdgeState() =>
+            ((TogglePattern)CombineCheck().GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState;
+
+        public AutomationElement CombineButton() =>
+            Editor().RequireByIdEventually("CombineTriggersButton", Diagnostics);
+
+        /// <summary>まとめる / 更新のボタンがいま名乗っている文字。</summary>
+        public string CombineCaption() => CombineButton().NameOf();
+
+        public string ExpressionText() =>
+            Editor().RequireByIdEventually("ExpressionBox", Diagnostics).ValueOf() ?? string.Empty;
 
         public void SelectTheFirstRow()
         {

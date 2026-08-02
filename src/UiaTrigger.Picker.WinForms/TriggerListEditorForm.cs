@@ -256,6 +256,21 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
 
     IReadOnlyList<int> ITriggerListEditorView.SelectedIndices => [.. _list.SelectedIndices.Cast<int>()];
 
+    void ITriggerListEditorView.SelectRow(int index)
+    {
+        // presenter が駆動しているので報告し返さない (欄も文言も presenter が直後に書く)
+        _suppressSelectionChanged = true;
+        try
+        {
+            _list.ClearSelected();
+            _list.SelectedIndex = index;
+        }
+        finally
+        {
+            _suppressSelectionChanged = false;
+        }
+    }
+
     void ITriggerListEditorView.ShowRows(IReadOnlyList<string> rows)
     {
         // **この変種では実際には鳴らない。**実測 (ハンドル有り・無しの両方): 選択のある ListBox に

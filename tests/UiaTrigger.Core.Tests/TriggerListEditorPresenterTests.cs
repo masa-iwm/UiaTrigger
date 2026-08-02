@@ -470,18 +470,24 @@ public sealed class TriggerListEditorPresenterTests
     }
 
     /// <summary>
-    /// 複合 1 件以外を選んでも欄に触らないこと。**触ると、式を打ちかけたまま別の行を
-    /// クリックした瞬間にそれが消える。**埋める経路だけがあり、消す経路は無い。
+    /// 複合 1 件以外を選ぶと下段が空に戻ること。**下段は常に「いま押したら何が起きるか」を表す** —
+    /// 前に選んだ複合の値が残っていると、それがこれからまとめる複合に効くように見える。
+    ///
+    /// <para>
+    /// 代償として、**選ぶより先に入力した値は消える** (選び直すと空になる)。まとめる操作は
+    /// 「選んでから入力する」順なので実害は無いが、順番が意味を持つようになった点は
+    /// docs/DESIGN.md §4 に書いてある。
+    /// </para>
     /// </summary>
     [Theory]
     [InlineData(new int[0])]          // 選択なし
     [InlineData(new[] { 0 })]         // 素のトリガー
     [InlineData(new[] { 0, 1 })]      // 複数選択 (複合を含んでいても)
     [InlineData(new[] { 2 })]         // 句が 2 つあるだけの PropertyChanged トリガー
-    public void SelectingAnythingElse_LeavesTheTypedFieldsAlone(int[] selection)
+    public void SelectingAnythingElse_ClearsTheFields(int[] selection)
     {
         var h = new Harness();
-        h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
+        h.Strings.Values[EditorStringKeys.CombineButtonCombine] = "combine";
         h.Open([Simple("z"), RichComposite(), TwoClausePropertyChanged()]);
         h.View.ExpressionText = "typed";
         h.View.UnwatchedText = "typed-unwatched";
@@ -491,11 +497,10 @@ public sealed class TriggerListEditorPresenterTests
 
         h.Presenter.NotifySelectionChanged();
 
-        Assert.Equal("typed", h.View.ExpressionText);
-        Assert.Equal("typed-unwatched", h.View.UnwatchedText);
-        Assert.Equal(9, h.View.CombinePollIntervalSeconds);
-        Assert.True(h.View.CombineNotifyOnStoppedMatching);
-        // 文言は最初の ShowRows が入れた「まとめる」のまま
+        Assert.Equal(string.Empty, h.View.ExpressionText);
+        Assert.Equal(string.Empty, h.View.UnwatchedText);
+        Assert.Null(h.View.CombinePollIntervalSeconds);
+        Assert.False(h.View.CombineNotifyOnStoppedMatching);
         Assert.Equal("combine", h.View.CombineCaption);
     }
 
@@ -579,7 +584,7 @@ public sealed class TriggerListEditorPresenterTests
     public void LeavingAComposite_PutsTheCaptionBackToCombine(int[] selection)
     {
         var h = new Harness();
-        h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
+        h.Strings.Values[EditorStringKeys.CombineButtonCombine] = "combine";
         h.Strings.Values[EditorStringKeys.CombineButtonUpdate] = "update";
         h.Open([Simple("z"), RichComposite()]);
 
@@ -591,30 +596,64 @@ public sealed class TriggerListEditorPresenterTests
         h.Presenter.NotifySelectionChanged();
 
         Assert.Equal("combine", h.View.CombineCaption);
-        // 欄のほうは触らないままであること (文言だけが戻る)
-        Assert.Equal("(login-1 && login-2) || b", h.View.ExpressionText);
+        Assert.Equal(string.Empty, h.View.ExpressionText);
     }
 
     /// <summary>
-    /// 行を描き直すと 3 変種とも選択が落ちるので、文言も「まとめる」へ戻ること。
+    /// **更新した後もその複合が選ばれたままで、続けて更新できること。**
+    /// 行を差し替えると選択が落ちるので、戻さないと直したばかりの複合が選ばれていない状態になり、
+    /// 続けて直すたびに一覧から探し直すことになる。
+    /// </summary>
+    [Fact]
+    public void AfterUpdating_TheSameCompositeStaysSelectedAndUpdatable()
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineButtonUpdate] = "update";
+        h.Open([Simple("z"), RichComposite()]);
+        h.View.SelectedIndices = [1];
+        h.Presenter.NotifySelectionChanged();
+
+        h.View.ExpressionText = "login-1 && login-2 && b";
+        h.Presenter.NotifyCombineRequested();
+
+        // 選択・欄・文言が「その複合を更新する」状態のまま
+        Assert.Equal([1], h.View.SelectedIndices);
+        Assert.Equal("update", h.View.CombineCaption);
+        Assert.Equal("login-1 && login-2 && b", h.View.ExpressionText);
+
+        // そのまま 2 度目の更新が通り、行は増えず同じ位置のまま
+        h.View.ExpressionText = "login-1 || login-2 || b";
+        h.Presenter.NotifyCombineRequested();
+
+        IReadOnlyList<TriggerDefinition> after = h.Presenter.Snapshot();
+        Assert.Equal(["z", "composite-1"], after.Select(t => t.Id));
+        Assert.Equal("login-1 || login-2 || b", after[1].Expression);
+    }
+
+    /// <summary>
+    /// まとめた後・断られた後の文言。まとめると選択が落ちるので「まとめる」へ戻り、
     /// 断ったときは行が動かない = 選択も生きているので「更新」のままでよい。
     /// </summary>
     [Fact]
-    public void TheCaptionGoesBackToCombineWhenTheRowsAreRedrawn()
+    public void TheCaptionFollowsWhatTheButtonWouldDo()
     {
         var h = new Harness();
-        h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
+        h.Strings.Values[EditorStringKeys.CombineButtonCombine] = "combine";
         h.Strings.Values[EditorStringKeys.CombineButtonUpdate] = "update";
         h.Open([RichComposite()]);
         h.View.SelectedIndices = [0];
         h.Presenter.NotifySelectionChanged();
         Assert.Equal("update", h.View.CombineCaption);
 
+        // 断られた: 行も選択も動かないので「更新」のまま
         h.View.ExpressionText = "login-1 &&";
         h.Presenter.NotifyCombineRequested();
         Assert.Equal("update", h.View.CombineCaption);
 
-        h.View.ExpressionText = "login-1 && login-2 && b";
+        // まとめた (複合 2 件を選択): 選択が落ちるので「まとめる」へ戻る
+        h.Presenter.NotifyPickerCommitted(Simple("y"));
+        h.View.SelectedIndices = [0, 1];
+        h.Presenter.NotifySelectionChanged();
         h.Presenter.NotifyCombineRequested();
         Assert.Equal("combine", h.View.CombineCaption);
     }
