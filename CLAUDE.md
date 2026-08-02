@@ -18,6 +18,7 @@ UIA アクセスは `UiaSession` の専用 MTA スレッド 1 本に一元化し
 | `src/UiaTrigger.Picker.WinUI` | WinUI3 の View。`TriggerPickerWindow` と `.resw`。振る舞いは持たない |
 | `src/UiaTrigger.Picker.Wpf` | WPF の View。`TriggerPickerWindow`。振る舞いは持たない |
 | `src/UiaTrigger.Picker.WinForms` | Windows Forms の View。`TriggerPickerForm` と `TreeMirror`。振る舞いは持たない |
+| `src/UiaTrigger.App.Shared` | サンプルホスト 3 つが共有するコマンドライン読み取り (`HostOptions` / `HostWindowPlacer`)。AnyCPU・**配らない** (公開型を持たず `InternalsVisibleTo` で見せる) |
 | `src/UiaTrigger.App.WinUI` | サンプルホスト (WinUI3)。Picker 起動 + JSON 保存 + 監視のショーケース (docs/DESIGN.md D9) |
 | `src/UiaTrigger.App.Wpf` | サンプルホスト (WPF)。Picker 起動 + JSON 保存 |
 | `src/UiaTrigger.App.WinForms` | サンプルホスト (Windows Forms)。Picker 起動 + JSON 保存 |

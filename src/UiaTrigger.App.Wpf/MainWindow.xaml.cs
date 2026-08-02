@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using System.Windows;
+using UiaTrigger.App.Shared;
 using UiaTrigger.Models;
 using UiaTrigger.Persistence;
 using UiaTrigger.Picker.Wpf;

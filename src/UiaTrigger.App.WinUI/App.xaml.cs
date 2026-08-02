@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.Windows.Globalization;
+using UiaTrigger.App.Shared;
 
 namespace UiaTrigger.App.WinUI;
 
@@ -12,9 +14,9 @@ public partial class App : Application
     {
         // カルチャの上書きは**どのウィンドウを作るより前**に行う (docs/DESIGN.md §12)。
         // MrtPickerStrings.Loader は static readonly Lazy なので、一度でも文字列を読んだら
-        // その時点の言語で決着している。HostOptions の static プロパティ初期化子は
-        // MainWindow から初めて触られたときに走るため、そこに任せると遅い
-        HostOptions.ApplyCulture();
+        // その時点の言語で決着している
+        HostOptions.Initialize(Log);
+        ApplyCulture();
         InitializeComponent();
         UnhandledException += (_, e) =>
         {
@@ -23,6 +25,34 @@ public partial class App : Application
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) => Log($"AppDomain: {e.ExceptionObject}");
         TaskScheduler.UnobservedTaskException += (_, e) => Log($"UnobservedTask: {e.Exception}");
+    }
+
+    /// <summary>
+    /// <c>--culture</c> を反映する。**MRT の言語上書きはこのホストにしか無い。**
+    /// </summary>
+    /// <remarks>
+    /// <c>CurrentUICulture</c> までは共有の <see cref="HostOptions.ApplyCulture"/> が行うが、
+    /// WinUI の MRT はそれだけでは切り替わらないので <c>PrimaryLanguageOverride</c> も立てる。
+    /// 共有側に置けないのは Windows App SDK に依存するためで、
+    /// だから <c>ApplyCulture</c> は適用した名前を返すようになっている (docs/DESIGN.md §12)。
+    /// </remarks>
+    private static void ApplyCulture()
+    {
+        if (HostOptions.ApplyCulture() is not { } name)
+        {
+            return;
+        }
+
+        try
+        {
+            ApplicationLanguages.PrimaryLanguageOverride = name;
+        }
+        catch (Exception ex)
+        {
+            // アンパッケージのホストで効くかは環境依存である。効かなくても
+            // resx 側 (メインウィンドウ) は切り替わるので、ここで落とす価値は無い
+            Log($"PrimaryLanguageOverride を設定できませんでした: {ex}");
+        }
     }
 
     internal static void Log(string message)

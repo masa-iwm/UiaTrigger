@@ -34,11 +34,11 @@ jobs:
     name: Build and draft the release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: "10.0.x"
 

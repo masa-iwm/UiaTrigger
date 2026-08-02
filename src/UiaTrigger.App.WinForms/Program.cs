@@ -1,3 +1,5 @@
+using UiaTrigger.App.Shared;
+
 namespace UiaTrigger.App.WinForms;
 
 internal static class Program
@@ -25,9 +27,9 @@ internal static class Program
         ApplicationConfiguration.Initialize();
 
         // カルチャの上書きは**ウィンドウを 1 つも作る前**に行う (docs/DESIGN.md §12)。
-        // HostOptions の static プロパティ初期化子は MainForm から初めて触られたときに
-        // 走るので、そこに任せると遅い
-        HostOptions.ApplyCulture();
+        // MRT の言語上書きは WinUI ホストにしか無いので、戻り値は使わない
+        HostOptions.Initialize(Log);
+        _ = HostOptions.ApplyCulture();
 
         Application.Run(new MainForm());
     }

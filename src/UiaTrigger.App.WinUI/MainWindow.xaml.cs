@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
+using UiaTrigger.App.Shared;
 using UiaTrigger.Models;
 using UiaTrigger.Monitoring;
 using UiaTrigger.Persistence;

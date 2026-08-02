@@ -51,6 +51,14 @@
     -->
     <ProjectReference Include="..\..\src\UiaTrigger.Picker.Wpf\UiaTrigger.Picker.Wpf.csproj" />
     <ProjectReference Include="..\..\src\UiaTrigger.Picker.WinForms\UiaTrigger.Picker.WinForms.csproj" />
+    <!--
+      サンプルホスト 3 つが共有するコマンドライン解析 (docs/DESIGN.md §12)。
+
+      解析そのもの (HostCommandLine.Parse) は状態を持たない純関数なので T1 に載る。
+      ホストの実行ファイルは 3 つとも T1 から参照できない (WinUI3 は x64、
+      WPF / WinForms は WinExe) が、**解析はホストの外に出してあるので触れる**。
+    -->
+    <ProjectReference Include="..\..\src\UiaTrigger.App.Shared\UiaTrigger.App.Shared.csproj" />
   </ItemGroup>
 
 </Project>

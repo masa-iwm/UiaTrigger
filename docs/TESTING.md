@@ -17,8 +17,8 @@ GUI 領域の大半は自動化できる。前提は 2 つだけである:
 |---|---|---|---|---|
 | T1 | UIA 非依存の純ロジック | `tests/UiaTrigger.Core.Tests` | `build-and-test` | 必須 |
 | T2 | 構成・環境の不変条件 | 同上 | `build-and-test` | 必須 |
-| T3 | 専用対象アプリへの実 UIA | `tests/UiaTrigger.RealUia.Tests` | `real-uia` | 観測 (`continue-on-error`) |
-| T4 | ピッカーの UI 自体を UIA で駆動 | `tests/UiaTrigger.Picker.UiTests` | `picker-ui` | 観測 (`continue-on-error`)。ただし `PublishedResourceTests` / `HostPublishedResourceTests` だけは `aot` ジョブでも回り、そちらは必須 (フィルタは部分一致で両クラスを含む) |
+| T3 | 専用対象アプリへの実 UIA | `tests/UiaTrigger.RealUia.Tests` | `real-uia` | 必須 (揺れ始めたら観測へ戻してよい — 1 行である) |
+| T4 | ピッカーの UI 自体を UIA で駆動 | `tests/UiaTrigger.Picker.UiTests` | `picker-ui` | 必須。`PublishedResourceTests` / `HostPublishedResourceTests` は `aot` ジョブでも回る (フィルタは部分一致で両クラスを含む) |
 | T5 | 合成入力で最下層から駆動 | `tests/UiaTrigger.Input.Tests` | `input` | 必須 |
 | T6 | 手動チェックリスト | docs/MANUAL-CHECKS.md | — | 人 |
 
@@ -32,7 +32,9 @@ GUI 領域の大半は自動化できる。前提は 2 つだけである:
   同じデスクトップで同時に走らせると互いの窓を掴む。
 - **T5 は T4 と別ランナー。**低レベルフックはグローバルで、撃ったキーは同じデスクトップの
   すべてのプロセスに届く。窓を分けても分離できない。
-- T3/T4/T5 は対話セッションを要するため「まず観測 → 安定したら必須化」。T1/T2 は常に必須。
+- T3/T4/T5 は対話セッションを要する。**新しく足すあいだは「まず観測 → 安定したら必須化」**
+  の順で扱い、必須化の根拠は連続実行の実測で取る (揺れたら `continue-on-error: true` を
+  戻してよい — 1 行である)。T1/T2 は常に必須。
 
 ### T1 — UIA 非依存の純ロジック層
 
@@ -372,7 +374,8 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 1 | T5 | `TargetInputTests.WhileThePickerHooksTheKeyboard_OtherAppsStillReceiveArrows` | 全体実行でまれに落ちる。原因未特定 |
 | 2 | T1 | `TriggerMonitorPollingTests.Polling_DoesNotDriveResolution` | ビルド直後の 1 回目だけ落ちることがある。見立てはあるが未確認 |
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
-| 4 | T4 | ランナーで**どれか 1 件**が「ホストの窓が pick 点を覆う」で落ちる | 落ちる顔ぶれは回ごとに違うが、**矩形も pick 点も毎回同じ**。余裕が 4px しかない |
+| 4 | T4 | ホストの窓が pick 点を覆う | **塞いである** — 窓を置くのはホスト自身 (`--place-windows`)。戻してはいけない形を下に記す |
+| 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回 |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —
@@ -410,27 +413,37 @@ end-to-end はランナー上の T3 でしか検証されていない** — 開�
 残る不明点は「ランナーで実際に落ちたのはどの呼び出しか」であり、分けるには
 ランナー上の monitor のログが要る。設計側の記述は docs/DESIGN.md §8。
 
-**(4)** `PickerHostProcess.RequireThePickPointsAreNotCoveredByTheHost` が落とす。
-**これは狙いどおりの落ち方である** — ガードが無ければ、ホバー捕捉が起きず
-`_lastCapturedPoint` により再捕捉もされないまま「実体化しなかった」という顔の
-20 秒タイムアウトになる (§6 と同じ形)。落ちたときの実測値:
+**(4)** ホストの窓が pick 点を覆う形は、**窓を置く側をホストへ移して塞いである**
+(`--place-windows` / `HostWindowPlacer`)。残る規律だけをここに書く:
+
+- **ハーネス側で退かす形へ戻さないこと。**5ms ごとの見張りスレッドには**寿命**があり
+  (ボタンを押す前後だけ立てて `finally` で止める)、止まったあとに現れた窓や
+  フレームワークが配置を当て直した窓は誰も退かさない。実測ではその隙に
+  ホストの窓 (234,234)-(1674,987) が pick 点 (1670,676) を**4px** 覆った。
+- **幾何の調整では塞げない。**カスケードの位置は**セッション中に作られた窓の数で動く**ので、
+  「pick 点との余裕」を測る相手になる定数が無い。対象アプリを寄せても窓の隙間を広げても
+  原理的に成立しない (`DesktopLayout` 冒頭の「カスケードの位置を前提にしない」と同じ話)。
+- `RequireThePickPointsAreNotCoveredByTheHost` は**負のコントロールとして残してある**。
+  ここが落ちるのは狙いどおりの落ち方である — ガードが無ければ、ホバー捕捉が起きず
+  `_lastCapturedPoint` により再捕捉もされないまま「実体化しなかった」という顔の
+  20 秒タイムアウトになる (§6 と同じ形)。**緩めないこと。**
+
+**(5)** ランナーでのみ、`TriggerMonitor.StartAsync` が `UiaContext` を作るところで落ちる。
+**T1 のテストだが実 UIA を触る**経路である (下書きが本当に監視に載ることを見るテストなので、
+そこは省けない)。落ちたときの本文:
 
 ```
-pick 点 (1670,676) がホストの窓 (234,234)-(1674,987) に覆われています
-(class='WinUIDesktopWin32WindowClass')
+Assert.Null() Failure: Value is not null
+Actual: System.Runtime.InteropServices.COMException (0x80004005)
+  at UiaTrigger.Interop.IUIAutomation.GetRootElement(IUIAutomationElement& root)
+  at UiaTrigger.Interop.UiaContext..ctor(...)
+  at UiaTrigger.Monitoring.TriggerMonitor.StartCore(...)
 ```
 
-**落ちる顔ぶれは回ごとに違う** (`CompositeShowcaseTests.ABrokenExpression_IsRefusedAndAddsNothing`
-と `MonitorShowcaseTests.DeletingOneTriggerWhileMonitoring_LeavesTheOthersRunning` で実測)。
-**しかし矩形も pick 点も 2 回とも 1 px 違わず同じである。**窓の出る位置が揺れているのではない。
-
-- **余裕が 4px しかない。**pick 点の x=1670 に対してホストの窓の右端は 1674 である。
-  つまり境界の当たり方の問題であり、**どのテストが落ちるかだけが揺れている**。
-- 窓の幅は 1440px で、`DesktopLayout.NarrowHost` の 1100px ではない。狭いホストの話ではない。
-- 再実行すると緑になる (実測 1 回)。**「直った」とは書かない。**
-
-次に触るときは、揺れを追うのではなく **pick 点と `DesktopLayout` の `Host` 右端・`Gap` を
-突き合わせる**こと。4px という数字は、片方をわずかに動かせば消える種類の重なりを指している。
+`E_FAIL` は UIA の COM サーバー側の初期化失敗で、**製品のコードが分岐を誤ったのではない**。
+`build-and-test` は常に必須のジョブなので、ここが揺れると無関係な変更が止まる。
+**連続で通っても「直った」と書かないこと** (§2 の 4)。次に落ちたら回数を更新し、
+同じ HRESULT かどうかを確かめる — 別の HRESULT なら別の話である。
 
 ## §6 ローカル実行の注意
 

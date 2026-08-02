@@ -9,6 +9,7 @@
     </Project>
     <Project Path="src/UiaTrigger.Core/UiaTrigger.Core.csproj" />
     <Project Path="src/UiaTrigger.App.WinForms/UiaTrigger.App.WinForms.csproj" />
+    <Project Path="src/UiaTrigger.App.Shared/UiaTrigger.App.Shared.csproj" />
     <Project Path="src/UiaTrigger.App.Wpf/UiaTrigger.App.Wpf.csproj" />
     <Project Path="src/UiaTrigger.Picker.Core/UiaTrigger.Picker.Core.csproj" />
     <Project Path="src/UiaTrigger.Picker.WinForms/UiaTrigger.Picker.WinForms.csproj" />
