@@ -251,9 +251,11 @@ public sealed class TriggerListEditorPresenter
     /// it rewrites that composite rather than combining.
     /// </para>
     /// <para>
-    /// **Any other selection leaves the fields as the user typed them.** There is no path here that
-    /// empties them: clearing on deselection would throw away a half-typed expression the moment a
-    /// click landed somewhere else.
+    /// **Any other selection leaves the fields as the user typed them** — only the caption goes
+    /// back. There is no path here that empties the fields: clearing on deselection would throw
+    /// away a half-typed expression the moment a click landed somewhere else. The caption is
+    /// different: leaving it saying "update" while a plain row is selected would have the button
+    /// describe something it will not do.
     /// </para>
     /// <para>
     /// A view must not call this while it is replacing the rows itself
@@ -265,6 +267,11 @@ public sealed class TriggerListEditorPresenter
     {
         if (SelectedCompositeIndex() is not (int index and >= 0))
         {
+            // 欄は消さないが、**文言は戻す。**押したら「まとめる」しか起きない状態で
+            // 「複合を更新」と名乗り続けると、ボタンが嘘をつく
+            // 欄は消さないが、**文言は戻す。**押したら「まとめる」しか起きない状態で
+            // 「複合を更新」と名乗り続けると、ボタンが嘘をつく
+            _view.CombineCaption = _strings.GetString(EditorStringKeys.CombineButtonContent);
             return;
         }
 

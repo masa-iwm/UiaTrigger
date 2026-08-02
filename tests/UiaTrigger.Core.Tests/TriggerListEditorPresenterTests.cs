@@ -568,11 +568,39 @@ public sealed class TriggerListEditorPresenterTests
     }
 
     /// <summary>
+    /// **複合を選んだ後に別の行へ移ると、文言が「まとめる」へ戻ること。**
+    /// 欄は消さないが文言は戻す — 押しても「まとめる」しか起きない状態で「複合を更新」と
+    /// 名乗り続けると、ボタンが実際にすることと食い違う。
+    /// </summary>
+    [Theory]
+    [InlineData(new int[0])]      // 選択を外した
+    [InlineData(new[] { 0 })]     // 素のトリガーへ移った
+    [InlineData(new[] { 0, 1 })]  // 複合を含む複数選択へ広げた
+    public void LeavingAComposite_PutsTheCaptionBackToCombine(int[] selection)
+    {
+        var h = new Harness();
+        h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
+        h.Strings.Values[EditorStringKeys.CombineButtonUpdate] = "update";
+        h.Open([Simple("z"), RichComposite()]);
+
+        h.View.SelectedIndices = [1];
+        h.Presenter.NotifySelectionChanged();
+        Assert.Equal("update", h.View.CombineCaption);
+
+        h.View.SelectedIndices = selection;
+        h.Presenter.NotifySelectionChanged();
+
+        Assert.Equal("combine", h.View.CombineCaption);
+        // 欄のほうは触らないままであること (文言だけが戻る)
+        Assert.Equal("(login-1 && login-2) || b", h.View.ExpressionText);
+    }
+
+    /// <summary>
     /// 行を描き直すと 3 変種とも選択が落ちるので、文言も「まとめる」へ戻ること。
     /// 断ったときは行が動かない = 選択も生きているので「更新」のままでよい。
     /// </summary>
     [Fact]
-    public void TheCaptionGoesBackToCombineOnlyWhenTheRowsAreRedrawn()
+    public void TheCaptionGoesBackToCombineWhenTheRowsAreRedrawn()
     {
         var h = new Harness();
         h.Strings.Values[EditorStringKeys.CombineButtonContent] = "combine";
