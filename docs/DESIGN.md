@@ -244,7 +244,7 @@ public sealed class TriggerDefinition
 | `Update` が書き換えるもの | **式・句ごとの `Watch`・`PollInterval`・`NotifyOnStoppedMatching` の 4 つだけ。**`Id`・`Window`/`Locator`・句の要素と述語・句の並びは写しのまま据え置く。だから呼び出し元は結果を**元が在った位置へ**戻せる。写しは `TriggerJsonContext` の往復で取る (手写しはモデルにプロパティが増えた日に「更新を通したときだけ」黙って欠ける) |
 | `Update` の語彙 (C17) | **`unwatchedNames` も式も句の実効名で照合する。**`Compose` の非対称 (unwatched は元トリガーの id) は「まとめる前」にしか存在しない語彙で、まとめ終えた後に残っているのは句の名前だけである — 複合はどの句がどの元トリガー由来かを記録していない。`UnwatchedNames` が返すのはちょうど `Update` が期待する名前なので、**読み出してそのまま渡し返すと何も変わらない (恒等)** |
 | `Update` が断るもの | 複合でない / `On` が `WhileMatching` でない定義は `ArgumentException` (`Decompose` と同じ線)。`On` を見るのは、句が 2 つあるだけの `PropertyChanged` トリガーも「複合」の形には合致するが、そこへ立ち下がり通知を書くと**監視が追加時に弾く定義**ができるためである。黙って `On` を書き換えるほうが悪い。負のポーリング間隔と未知の名前は `Compose` と同じ理由文字列で断る |
-| 複合の `NotifyOnStoppedMatching` | まとめる時にも指定できる (`Compose` の `notifyOnStoppedMatching`)。複合は常に `WhileMatching` = あの旗が効く唯一のライフサイクルであり、かつ複合はピッカーで編集できない (`CanEdit`) ので、**エディタの下段が複合にこの旗を立てる唯一の口**である (C14) |
+| 複合の `NotifyOnStoppedMatching` | まとめる時にも指定できる (`Compose` の `notifyOnStoppedMatching`)。複合は常に `WhileMatching` = あの旗が効く唯一のライフサイクルであり、かつ複合はピッカーで編集できない (`CanEdit`) ので、**エディタの下段が複合にこの旗を立てる唯一の口**である (C14)。**元トリガーの旗は引き継がない** — 旗は「この条件が成立しなくなったら知らせる」であって、まとめた後の「この条件」は元のどれとも違うものだからである。**引き継ぐと読まれやすい**ので、下段のチェックが唯一の入力であることを明示しておく |
 | `Update` だけが**破壊的** | その場で上書きするので、式を消して押せば元の式は戻らない。`Compose` / `Decompose` を足すだけにしてある理由 (取り消し機能なしで取り消せる) から外れる唯一の操作であり、外す代わりに「id も句も動かさない」を契約にして影響範囲を 4 つの設定に閉じてある |
 
 検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName` / `Compose_PollIntervalNegative`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone` / `UpdateFailed` / `UpdateDone`)。

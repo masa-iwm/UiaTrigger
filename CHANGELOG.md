@@ -15,38 +15,30 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   that only narrow, the poll interval and the new "Also notify when it stops matching" checkbox —
   while "Combine the selected" becomes **Update the composite**. Pressing it rewrites those four
   things on that trigger *in place*: its id, its clauses' elements and comparisons, and its
-  position in the list all stay put. Selecting anything else leaves the fields exactly as you
-  typed them, so a half-typed expression survives a stray click. `TriggerComposer.Update` carries
-  the rule and `TriggerComposer.UnwatchedNames` reads the narrowing clauses back out, so a host
-  with its own combine UI gets both.
-- **Combining can now set `NotifyOnStoppedMatching`.** A composite always fires on
-  `WhileMatching`, which is the one lifecycle that flag applies to — but nothing in any UI could
-  reach it: `Compose` never set it, and the picker refuses to edit composites. The new checkbox is
-  read both when combining and when updating.
+  position in the list all stay put, and it stays selected afterwards so you can change it again.
+  `TriggerComposer.Update` carries the rule and `TriggerComposer.UnwatchedNames` reads the
+  narrowing clauses back out, so a host with its own combine UI gets both.
+
+  The fields follow the selection: choosing anything else empties them, so what is in them always
+  describes what pressing the button would do. **Fill them in after choosing the rows** — choosing
+  rows clears what is there.
 
   One asymmetry to know about: `Update` matches `unwatchedNames` against **clause names**
   (`login-1`), where `Compose` matches **source trigger ids** (`login`). A composite no longer
   records which source a clause came from. `UnwatchedNames` hands back exactly the names `Update`
   expects, so reading a composite's settings and pressing Update without editing changes nothing.
-
-  The fields follow the selection: choosing a plain row empties them again, so what is in them
-  always describes what pressing the button would do. Fill them in *after* choosing the rows.
-- **A composite stays selected after you update it**, so you can change it twice without finding
-  it in the list again.
-
-### Fixed
-
-- **The trigger-list editor's combine button showed a resource key in the WinUI host.** A key
-  containing a dot is a control key: WinUI's resource map stores it as a path only `x:Uid`
-  resolves, so asking for it by name at run time failed and the caption became
-  `CombineTriggersButton.Content`. Captions the presenter swaps at run time now use dot-less keys,
-  and a test refuses any dotted key a presenter asks for.
+- **Combining can now set `NotifyOnStoppedMatching`.** A composite always fires on
+  `WhileMatching`, which is the one lifecycle that flag applies to — but nothing in any UI could
+  reach it: `Compose` never set it, and the picker refuses to edit composites. The new checkbox is
+  read both when combining and when updating. It is the composite's own setting: combining does
+  not carry the flag over from the triggers being combined.
 
 ### Breaking (for `ITriggerListEditorView` implementers)
 
 - `ITriggerListEditorView`: `ExpressionText`, `UnwatchedText` and `CombinePollIntervalSeconds`
-  gained setters — the presenter writes them when the selection becomes a single composite. The
-  interface also gained `CombineNotifyOnStoppedMatching { get; set; }` and `CombineCaption { set; }`.
+  gained setters — the presenter fills them in from the selected composite and empties them when
+  the selection is anything else. The interface also gained
+  `CombineNotifyOnStoppedMatching { get; set; }` and `CombineCaption { set; }`.
 - `ITriggerListEditorView` also gained `SelectRow(int)`, used to put the selection back after a
   composite is rewritten. A view must not report that back as a selection change.
 - `TriggerListEditorPresenter` gained `NotifySelectionChanged()`. A view must call it when the
