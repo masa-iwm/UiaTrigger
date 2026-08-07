@@ -379,6 +379,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
 | 4 | T4 | ホストの窓が pick 点を覆う | **塞いである** — 窓を置くのはホスト自身 (`--place-windows`)。戻してはいけない形を下に記す |
 | 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` / `TriggerComposerTests.Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts` / `Update_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回。**`monitor.StartAsync` を呼ぶ T1 はどれも同じ形で落ちうる** — 名前で覚えず「実 UIA を触る T1」で括ること |
+| 6 | T4 / T5 | `PickerHostProcess.OpenAndAwaitPlacement` を通るすべて (`OpenPicker` / `OpenEditor` の入口) | `TimeoutException: AutomationId 'OpenPickerButton' (または `EditListButton`) の要素 が 10 秒以内に成立しませんでした`。**名前で覚えないこと** — 落ちるのはハーネスの 1 か所で、そこを通る WinUI のテストはどれも同じ形で落ちる |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —
@@ -458,6 +459,39 @@ Actual: System.Runtime.InteropServices.COMException (0x80004005)
 `build-and-test` は常に必須のジョブなので、ここが揺れると無関係な変更が止まる。
 **連続で通っても「直った」と書かないこと** (§2 の 4)。次に落ちたら回数を更新し、
 同じ HRESULT かどうかを確かめる — 別の HRESULT なら別の話である。
+
+**(6)** WinUI プロファイルのテストが、ホストのメインウィンドウのボタンを 10 秒待っても
+掴めずに落ちる。落ちる場所は `PickerHostProcess.OpenAndAwaitPlacement` の
+`RequireByIdEventually` で、通る入口はどれも同じ (`OpenPicker` / `OpenEditor`)。
+**T5 も同じハーネスを使うので同じ形で落ちる** (`EditorScenario` 経由)。本文:
+
+```
+System.TimeoutException : AutomationId 'OpenPickerButton' の要素 が 10 秒以内に成立しませんでした。
+  at UiaTrigger.Picker.UiTests.PickerHostProcess.OpenAndAwaitPlacement(...)
+```
+
+実測 (T4 の全体実行 3 回で 0 件 → 4 件 → 1 件 / T5 の全体実行 5 回で 1 件 → 0 → 0 → 1 件 → 1 件):
+
+- **落ちた顔ぶれは実行のたびに変わる。**T5 で 2 回続けて落ちた
+  `EscapeKeyTests.EscapeWorksOnAFreshlyOpenedChildPicker` も、**単体では 20 秒で緑**、
+  `EditorScenario` を使う 6 件だけの実行でも緑だった。**全体実行でしか出ない。**
+- **同じ実行の中で WinUI ホストを何回起こしたかで効く。**T5 に `EditorScenario` を使う
+  テストを 2 件足した (`EnterKeyTests`) 前は 11 件で緑だった。件数を増やすとここが出やすくなる。
+
+あの待ちは既に「WinUI ではレイアウトが動いた直後に既に在る要素が一時的に UIA から消える」
+ことへの対処として入っているもので (`OpenAndAwaitPlacement` のコメント)、
+症状は**その窓が 10 秒より長い**という形である。
+
+**製品のコードは疑わなくてよい** — 落ちるのはピッカーもオーバーレイも作られる前、
+ホストの窓がまだ出そろっていない時点である。手を入れるなら待ち時間であって製品ではない。
+ただし**待ちを伸ばす前に、掃除を先に疑うこと** (§6 の残った窓)。
+
+伸ばすなら、動かすのは `RequireByIdEventually` の 10 秒ではない — あれはハーネス全体の
+既定値で、触ると無関係な待ちがすべて緩む。**`OpenAndAwaitPlacement` のこの 1 か所だけを
+`WindowTimeout` (30 秒) に揃える**のが筋である (すぐ下の「窓が置かれた」を待つのが既に
+その値で、同じ 1 つの操作の前半と後半にあたる)。**まだ入れていない** — 待ちを伸ばすのは
+「落ちなくなった」と「見えなくなった」を区別できない側の変更なので、
+上の実測だけでは足りないと判断した。
 
 ## §6 ローカル実行の注意
 
