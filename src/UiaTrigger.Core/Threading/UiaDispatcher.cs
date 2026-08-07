@@ -137,6 +137,16 @@ internal sealed class UiaDispatcher : IDisposable
         }
     }
 
+    /// <summary>
+    /// 以後の投入を断り、投入済みを流し切らせる。**スレッドの終了は待たない。**
+    /// </summary>
+    /// <remarks>
+    /// <c>_queue</c> は**意図的に <c>Dispose</c> しない。**消費側は
+    /// <c>GetConsumingEnumerable</c> の中に居るので、ここで解放すると残りを流している最中に
+    /// <c>ObjectDisposedException</c> になる。待機ハンドルを畳みたいなら
+    /// 「スレッドの終了を待ってから解放する」形が要り、それは
+    /// 「Dispose はブロックしない」という現在の契約を変えることになる。
+    /// </remarks>
     public void Dispose()
     {
         if (!_queue.IsAddingCompleted)
