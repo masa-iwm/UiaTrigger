@@ -71,8 +71,19 @@ internal static class ClauseEvaluator
     /// 句リストを結合して評価する。
     /// 句が 0 個なら「条件なし」= 成立とする (出現・削除だけを見るトリガーで使う)。
     /// </summary>
+    /// <param name="combine">句の結合方法。</param>
+    /// <param name="clauses">評価する句。</param>
+    /// <param name="read">
+    /// **句の添字**を受け取り、その句が読む値を返す。
+    /// <para>
+    /// 句そのものを渡さないのは、呼び出し先が位置を復元できなければならないためである。
+    /// 同じ <see cref="PropertyClause"/> インスタンスが 2 度並んだ定義は作れる
+    /// (<c>TriggerDefinition.Clauses</c> は公開の可変リストである) ので、参照同値で引き直すと
+    /// **2 つめが常に 1 つめの位置に解決される**。位置はここで分かっているのだから渡す。
+    /// </para>
+    /// </param>
     public static bool Matches(
-        ClauseCombinator combine, IReadOnlyList<CompiledClause> clauses, Func<PropertyClause, ClauseValue> read)
+        ClauseCombinator combine, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read)
     {
         ArgumentNullException.ThrowIfNull(clauses);
         ArgumentNullException.ThrowIfNull(read);
@@ -81,9 +92,9 @@ internal static class ClauseEvaluator
             return true;
         }
 
-        foreach (CompiledClause clause in clauses)
+        for (int i = 0; i < clauses.Count; i++)
         {
-            bool matched = MatchesClause(clause, read(clause.Clause));
+            bool matched = MatchesClause(clauses[i], read(i));
             if (combine == ClauseCombinator.All)
             {
                 if (!matched)
@@ -103,15 +114,18 @@ internal static class ClauseEvaluator
     /// 解析済みの式で評価する (docs/DESIGN.md §4)。
     /// 木は <see cref="ClauseExpression"/> が組み、葉は句の添字である。
     /// </summary>
+    /// <param name="expression">解析済みの式。</param>
+    /// <param name="clauses">評価する句。</param>
+    /// <param name="read"><inheritdoc cref="Matches(ClauseCombinator, IReadOnlyList{CompiledClause}, Func{int, ClauseValue})" path="/param[@name='read']"/></param>
     public static bool Matches(
-        ClauseExpressionNode expression, IReadOnlyList<CompiledClause> clauses, Func<PropertyClause, ClauseValue> read)
+        ClauseExpressionNode expression, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read)
     {
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(clauses);
         ArgumentNullException.ThrowIfNull(read);
         // 短絡は木の側にある。ここで全句を先に評価してはならない —
         // Custom は 1 句あたりクロスプロセス呼び出しが 1 回かかる
-        return expression.Evaluate(i => MatchesClause(clauses[i], read(clauses[i].Clause)));
+        return expression.Evaluate(i => MatchesClause(clauses[i], read(i)));
     }
 
     /// <summary>

@@ -1759,38 +1759,29 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         ResetReadings(rt);
 
-        // 句の添字が要る。ClauseEvaluator には句そのものが渡るので、位置で引き直す
-        ClauseValue Read(PropertyClause clause)
+        // ClauseEvaluator は**句の添字**を渡してくる。参照同値で引き直してはいけない —
+        // 同じ PropertyClause インスタンスが 2 度並んだ定義は作れるので、
+        // 2 つめが常に 1 つめの位置に解決され、その句の読み取りが記録されないままになる
+        ClauseValue Read(int index)
         {
-            ElementSlot? slot = null;
-            int index = -1;
-            for (int i = 0; i < rt.Clauses.Count; i++)
-            {
-                if (ReferenceEquals(rt.Clauses[i].Clause, clause))
-                {
-                    slot = rt.SlotOf(i);
-                    index = i;
-                    break;
-                }
-            }
+            ElementSlot slot = rt.SlotOf(index);
+            PropertyClause clause = rt.Clauses[index].Clause;
+
             // 読んだ句をここで記録する。**ここが「評価された句」の唯一の定義である** —
             // 短絡は木の側 (ClauseExpression.Evaluate) にあり、読まれなかった句は
             // この閉包に来ない。ClauseEvaluator を触らずに短絡を観測できるのはそのためである
             ClauseValue Record(ClauseValue value)
             {
-                if (index >= 0)
-                {
-                    rt.LastValues[index] = value;
-                    rt.LastEvaluated[index] = true;
-                }
+                rt.LastValues[index] = value;
+                rt.LastEvaluated[index] = true;
                 return value;
             }
 
-            if (slot?.LastSnapshot is not { } snapshot)
+            if (slot.LastSnapshot is not { } snapshot)
             {
                 // 一度も解決していないスロット。値は無く、要素も居ない (Absent) —
                 // 在否は Always (presence) の成否を決める (ClauseValue.IsAbsent)
-                return Record(slot is { Element: null }
+                return Record(slot.Element is null
                     ? ClauseValue.Unsupported.AsAbsent()
                     : ClauseValue.Unsupported);
             }
