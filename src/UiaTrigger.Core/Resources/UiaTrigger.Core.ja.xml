@@ -338,7 +338,10 @@
       <param name="unwatchedNames">
         「絞るだけ」にする元トリガーの id。その条件は必要とはされるが購読されず、
         その変化だけでは何も発火しない。照合は入力どおりの id に対して行われる —
-        式が使う <c>-1</c>/<c>-2</c> の展開より前の名前である。
+        式が使う <c>-1</c>/<c>-2</c> の展開より前の名前である。ただし条件名として使えない id
+        (<see cref="M:UiaTrigger.Models.TriggerDraftValidator.IsValidClauseName(System.String)" />)
+        は位置由来の名前 (<c>c1</c>、<c>c2</c>…) に置き換わり、ここも式もその名前で指す —
+        その id はもう何も指していない。
       </param>
       <param name="existingIds">使用中の id。複合の id はこの中に無い最初の <c>composite-N</c> になる。</param>
       <param name="pollInterval">

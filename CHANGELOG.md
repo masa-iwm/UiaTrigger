@@ -6,6 +6,38 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
+## Unreleased
+
+### Fixed
+
+- **Enter in the picker's search box no longer commits and closes the window.** A picker opened to
+  edit a recorded trigger puts "commit" on Enter, and that was beating the search box's own use of
+  it: on WPF and WinUI the tree was searched *and* the window closed, and on Windows Forms the
+  search never ran at all — a single-line text box hands Enter to the dialog before its `KeyDown`
+  handler ever sees it. Enter now finds the next match and stops there, whichever button is the
+  default.
+- **Enter in the trigger-list editor's combine fields now combines instead of accepting.** The
+  expression, the "only narrow" list and the poll interval take effect when you press *Combine the
+  selected* / *Update the composite*; sending Enter to OK discarded whatever was half-typed and
+  closed the dialog. Enter in those three fields now does what the button does. Enter anywhere else
+  in the editor — the list, OK, Cancel — still means OK.
+- **A composite whose clause names collide is now refused when it is built,** not when monitoring
+  starts. `TriggerComposer.Compose` skipped the clause-name check whenever the expression was blank
+  ("require them all"), so a colliding pair could be saved to the trigger file and only fail later,
+  from `TriggerMonitor.AddAsync`. Names are checked either way now. (Collisions are reachable: a
+  trigger whose id cannot be a clause name contributes a positional name, `c1`/`c2`, which another
+  trigger may already be called.)
+- **A regular expression that could not be evaluated no longer satisfies `RegexNotMatch`.** A
+  pattern that ran out of its time limit was treated as "did not match", which the negated operator
+  then read as a match — so the trigger fired every time the value could not be tested. Both
+  directions now treat "could not evaluate" as not satisfied, matching what an unsupported property
+  already did.
+- **`TriggerFiredEventArgs.Clauses` no longer reports a clause as unevaluated** when a definition
+  happens to hold the same `PropertyClause` instance in two positions.
+- **The overlay no longer leaks its low-level keyboard hook** when its windows could not be created.
+  Disposing the picker in that state never reached the overlay thread, which then kept the
+  desktop-wide hook until the process ended.
+
 ## 0.1.0-preview.5
 
 ### Added

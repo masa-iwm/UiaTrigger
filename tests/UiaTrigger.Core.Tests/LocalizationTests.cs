@@ -9,7 +9,7 @@ namespace UiaTrigger.Tests;
 /// ローカライズの回帰テスト (docs/LOCALIZATION.md §1 / L1-L8)。
 /// 翻訳漏れとサテライトの解決失敗を自動検出する。
 /// </summary>
-public sealed class LocalizationTests
+public sealed partial class LocalizationTests
 {
     private const string NeutralResx = "src/UiaTrigger.Core/Resources/Strings.resx";
     private const string JapaneseResx = "src/UiaTrigger.Core/Resources/Strings.ja.resx";
@@ -90,4 +90,69 @@ public sealed class LocalizationTests
 
         Assert.Equal(en, zh);
     }
+
+    /// <summary>
+    /// <c>throw new …</c> に日本語の文面を直書きしないこと (台帳 L2)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 例外メッセージは分類 2 (ユーザー向け表示) であり、出すならリソース経由である
+    /// (docs/LOCALIZATION.md §3)。利用者に出ないプログラマ向けの契約は
+    /// <c>TriggerComposer</c> のように**英語で直書き**する。日本語の直書きはどちらでもない。
+    /// </para>
+    /// <para>
+    /// **行単位で見ないこと。**`throw new X("...");  // 日本語のコメント` は正当であり
+    /// (実装内部のコメントは日本語が規律 — L1)、行で照合すると必ず偽陽性になる。
+    /// ここが見るのは <c>throw new</c> から最初の <c>;</c> までに現れる**文字列リテラルの中身**
+    /// だけである。行コメントは `;` の後ろに来るので入らない。
+    /// </para>
+    /// <para>
+    /// ユーザー向けリテラルの検査 (<c>NoSourceAssignsAUserFacingLiteral</c>) はコントロールへの
+    /// 代入を見るので、この形は拾わない。**別の網である。**
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void NoThrowStatementCarriesAJapaneseMessage()
+    {
+        var offenders = new List<string>();
+        foreach (string file in Directory.EnumerateFiles(
+            RepoPaths.Combine("src"), "*.cs", SearchOption.AllDirectories))
+        {
+            if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal) ||
+                file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            {
+                continue; // 生成物 (XAML の分割クラス等) は対象外
+            }
+            string text = File.ReadAllText(file);
+            foreach (System.Text.RegularExpressions.Match statement in ThrowStatement().Matches(text))
+            {
+                foreach (System.Text.RegularExpressions.Match literal in StringLiteral().Matches(statement.Value))
+                {
+                    if (literal.Value.Any(IsJapanese))
+                    {
+                        offenders.Add(
+                            $"{Path.GetRelativePath(RepoPaths.Root.FullName, file)}: {literal.Value}");
+                    }
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "例外メッセージに日本語が直書きされています (台帳 L2)。" +
+            "利用者に出るならリソース経由、出ないなら英語で書くこと:" +
+            Environment.NewLine + string.Join(Environment.NewLine, offenders));
+    }
+
+    /// <summary>ひらがな・カタカナ・CJK 統合漢字。</summary>
+    private static bool IsJapanese(char c) =>
+        c is (>= '぀' and <= 'ヿ') or (>= '一' and <= '鿿');
+
+    /// <summary><c>throw new</c> から最初の <c>;</c> まで (行コメントは入らない)。</summary>
+    [System.Text.RegularExpressions.GeneratedRegex(@"throw new [^;]*;")]
+    private static partial System.Text.RegularExpressions.Regex ThrowStatement();
+
+    /// <summary>単純な文字列リテラル (逐語 <c>@""</c> と生リテラルは使っていない)。</summary>
+    [System.Text.RegularExpressions.GeneratedRegex("\"(?:[^\"\\\\]|\\\\.)*\"")]
+    private static partial System.Text.RegularExpressions.Regex StringLiteral();
 }

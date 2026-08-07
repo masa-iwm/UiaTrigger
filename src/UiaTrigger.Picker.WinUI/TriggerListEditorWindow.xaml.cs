@@ -99,7 +99,8 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
         // Enter = [OK] / Esc = [キャンセル]。**この変種にだけ配線が要る** — WPF は
         // IsDefault / IsCancel、Windows Forms は AcceptButton / CancelButton を持つが、
         // WinUI3 には相当するものが無い。**バブリングの KeyDown で受けること**:
-        // 先取りすると、コンボの一覧が開いている最中の Esc まで奪って窓ごと閉じてしまう
+        // 先取りすると、コンボの一覧が開いている最中の Esc まで奪って窓ごと閉じてしまう。
+        // 下段の入力欄はここへ来る前に Enter を取る (OnCombineFieldKeyDown — A25)
         if (Content is UIElement root)
         {
             root.KeyDown += OnKeyDown;
