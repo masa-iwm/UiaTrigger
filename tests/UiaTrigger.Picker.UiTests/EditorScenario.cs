@@ -78,6 +78,32 @@ internal sealed class EditorScenario : IDisposable
     /// <summary>エディタの窓へフォーカスを移す (キーがどちらの窓へ行くかを決めるため)。</summary>
     public void FocusEditor() => Editor().SetFocus();
 
+    /// <summary>エディタの窓 (T5 が中のコントロールへフォーカスを移すために使う)。</summary>
+    public AutomationElement EditorWindow() => Editor();
+
+    /// <summary>下段の式欄へ書く。</summary>
+    public void SetExpression(string text) =>
+        Editor().RequireByIdEventually("ExpressionBox", Diagnostics).SetText(text);
+
+    /// <summary>
+    /// その要素がキーボードフォーカスを持つまで待つ。
+    /// </summary>
+    /// <remarks>
+    /// **合成入力を撃つ前の検算である** (docs/TESTING.md §3 の解禁条件 1)。
+    /// <c>SetFocus</c> の直後に撃つと、届かなかったのか狙いが外れていたのかを分けられない。
+    /// UIA が答える <c>HasKeyboardFocus</c> は入力の配送とは別の情報源である。
+    /// </remarks>
+    public void RequireKeyboardFocus(AutomationElement element, string what)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        element.SetFocus();
+        _ = Ui.Until(
+            () => element.Current.HasKeyboardFocus ? "ok" : null,
+            Settle,
+            $"{what} がキーボードフォーカスを持つこと (撃つ前の狙いの検算)",
+            Diagnostics);
+    }
+
     /// <summary>先頭行の中心の画面座標 (合成マウスで押すため)。</summary>
     /// <remarks>
     /// 呼び出し側が <c>CursorGuard.MoveTo</c> で置いてから押す。座標と押下を 1 つに

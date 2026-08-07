@@ -323,6 +323,53 @@ public sealed class TriggerListEditorViewTests
         });
     }
 
+    /// <summary>
+    /// 下段の入力欄に居るあいだの Enter は [まとめる/更新] で止まり、[OK] へ渡らないこと
+    /// (docs/DESIGN.md A25 / §4)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 下段の 3 欄は押して初めて効く — <c>Snapshot</c> は式を読まない。既定ボタンに流すと
+    /// **打ちかけの式を捨てて窓が閉じる**。しかもこの変種では単一行 <c>TextBox</c> の Enter が
+    /// <c>KeyDown</c> より先に <c>ProcessDialogKey</c> を通るので、<c>KeyDown</c> ハンドラーでは
+    /// そもそも受けられない (ピッカーの検索欄と同じ形)。
+    /// </para>
+    /// <para>
+    /// 見るのは 3 つ: 止まったこと (返り値) / presenter まで届いたこと (状態行が書かれた) /
+    /// 確定していないこと (<c>Result</c> が null のまま)。3 つ目が無いと、
+    /// 「まとめてから閉じる」形の退行を見逃す。
+    /// </para>
+    /// <para>
+    /// 退行: <c>HandleDialogKey</c> の <c>combineFieldHasFocus</c> の判定を外して常に false にする。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheWinFormsEditor_TakesEnterInACombineField_ForCombineNotAccept()
+    {
+        Sta.Run(() =>
+        {
+            using var form = new TriggerListEditorForm(
+                new ResxPickerStrings(), [Simple("a"), Simple("b")],
+                createPresenter: null, FakeWinFormsPicker);
+            Control[] all = [.. form.Controls.Cast<Control>().SelectMany(Descendants)];
+            var status = (Label)Assert.Single(all, c => c.Name == "EditorStatus");
+            var accept = (Button)Assert.Single(all, c => c.Name == "AcceptButton");
+
+            // 既定ボタンは立っている (この検査に検出力があることを示す)
+            Assert.Same(accept, form.AcceptButton);
+
+            status.Text = string.Empty;
+            Assert.True(form.HandleDialogKey(Keys.Enter, combineFieldHasFocus: true));
+            // 何も選ばずに押したので「2 件以上要る」で断られる。文言はどうあれ、
+            // 状態行が書かれたことが presenter まで届いた証拠である
+            Assert.NotEqual(string.Empty, status.Text);
+            Assert.Null(form.Result);
+
+            // 欄の外なら既定ボタンへ渡す
+            Assert.False(form.HandleDialogKey(Keys.Enter, combineFieldHasFocus: false));
+        });
+    }
+
     [Fact]
     public void TheWinFormsViewShowsARowPerTriggerAndReportsTheSelection()
     {

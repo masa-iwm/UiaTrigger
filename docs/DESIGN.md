@@ -268,6 +268,7 @@ public sealed class TriggerDefinition
 - **行のダブルクリック = [条件を編集]** (`NotifyEditRequested` に写像する)。編集できない選択 (複合・複数選択) はボタンと同じ理由をステータスへ出す。一覧の空白部分は無視する — でないと、選択済みの行が空白のダブルクリックで編集され始める。空白の判定はフレームワーク固有で View が持つ (WinUI は `DataContext`、WPF は `ContainerFromElement`、Windows Forms は `IndexFromPoint`)
 - **ダブルクリックのハンドラの中で子ピッカーを直接開かない** — 入力が掃けた後にディスパッチャで回す。二打目の入力系列が残ったまま `Activate` すると、残りの入力処理がエディタを前面へ戻す。実測: WinUI は所有関係が無いと**ピッカーが窓ごと後ろに出る** (picker BEHIND editor / foreground=editor)。WPF / Windows Forms は所有関係が重なりを保つが、フォーカスはエディタへ戻る — 3 変種とも同じ形で遅らせる
 - **所有関係が固定するのは重なりだけで、フォーカスは別に押さえる** (WinUI)。子ピッカーは前面に出るが、開いた直後の入力処理がエディタを活性化し直すと**フォーカスだけがエディタへ戻る** (実測: 要素選択の窓が active で出た後、表示が済んだあたりでフォーカスが移る)。**見えている前面の窓に打っているのにキーが効かない**という形になり、重なりを見ているだけでは気づけない。エディタは自分が活性化されたとき、子ピッカーが開いていれば活性化をあちらへ返す (ピンポンにはならない — 返した時点でこちらは非活性になり `Deactivated` では何もしないため)。WPF の `Owner` / Windows Forms の `Show(owner)` は活性化まで面倒を見るので、これが要るのはこの変種だけである
+- **下段の入力欄では Enter は [まとめる/更新] であり、[OK] ではない** (A25)。3 欄 (`ExpressionBox` / `UnwatchedBox` / `CombinePollIntervalBox`) は押して初めて効く — `Snapshot` は式を読まないので、既定ボタンに流すと**打ちかけの式を捨てて窓が閉じる**。掛けるのは 3 欄だけで、**一覧や [OK] / [キャンセル] に居るときの Enter は [OK] のまま**である (そちらは入力が済んでいる場面)。WinUI の `CombinePollIntervalBox` は `NumberBox` で Enter を自分で使う (値の確定) ため、あそこだけ `handledEventsToo` 付きで足す — 欄が Enter を使うこと自体は正しく、**そのうえで**まとめたいからである。Windows Forms は単一行 `TextBox` の Enter が `KeyDown` より先に `ProcessDialogKey` を通るので、あちらだけは `KeyDown` では受けられない (ピッカーの検索欄と同じ形)
 - **子ピッカーが開いている間、Enter / Esc は子のものである** (WinUI)。エディタでそのまま拾うと、子を閉じたつもりでエディタごと閉じる (閉じたエディタは `OnClosed` で子も閉じるので、**1 回の Esc で両方消える**)。かといって**握り潰すとどちらも動かない** — 行のダブルクリックで開いたときはフォーカスが一覧に残るので、キーは子へ届かずここで捨てられて終わる。**子へ回す**のが正しい: Esc はあれを閉じ、Enter はあれに任せる
 - **WinUI の子ピッカーには Win32 の所有関係を付ける** (`WindowOwnership` — `GWLP_HWNDPARENT`。WPF の `Owner` / Windows Forms の `Show(this)` と同じ意味)。遅延だけでは活性化の競争に環境によって負ける (実機で再発した)。所有関係は重なりを**構造で**決める — エディタを強制的に前面化しても、所有された窓は上に居続ける (実測)。副作用も Win32 の規則のとおり: タスクバーに独立のボタンを出さず、所有者と一緒に最小化され、**UIA の木ではデスクトップ直下ではなく所有者の子に出る** (T4 ハーネスの `TopLevelWindows` / `PickerWindows` はそれを織り込んで探す)
 - **WinUI の一覧は横スクロールを自分で有効にする** (実測 175%: 既定は `H-scrollable=False` で複合の長い行が右で黙って切れる。WPF / Windows Forms は元から出る)。`ListView` は自分に付いた `ScrollViewer.*` 添付プロパティをテンプレートへ中継するので、ピッカーの `TreeView` (`OnElementTreeLoaded`) のような迂回は要らない
@@ -290,6 +291,7 @@ public sealed class TriggerDefinition
 | ピッカーで編集できるのは単純トリガーのみ | ピッカーは「条件 1 件」の編集器である。複合は分解してから編集する |
 | **編集セッションは確定 1 回で閉じる** | `LoadDefinition(definition, editSession: true)` は確定ボタンの文言を `CommitButtonUpdate` に差し替え、確定が成立したら `IPickerView.Close` を呼ぶ — 条件の編集時に追加でトリガーを設定することはない。新規追加の「開いたまま何件でもコミット」は変えない (App ホストの明文化されたワークフロー)。検証失敗では閉じない |
 | `Close` は View への**全書き込みの後** | WinForms の `Form.Close` は Show で出した Form を **Dispose する**。presenter は `TriggerCommitted` → `CommitStatus` の後にしか `Close` を呼ばず、以後 View に触らない。親エディタも `Close` を呼ばない — 既存の `Closed` → `NotifyPickerClosed` 経路だけが動く |
+| **検索欄の Enter は検索で止める** (A25) | 編集セッションでは確定が既定ボタンなので、放っておくと検索欄の Enter が確定になる。WPF / WinUI は `KeyDown` で `Handled` を立てる (WPF はこれで WM_CHAR ごと止まり `AccessKeyManager` へ届かない)。**WinForms は `KeyDown` では受けられない** — 単一行 `TextBox` の Enter は `IsInputKey` が false で、`ProcessDialogKey` が先に走って `AcceptButton` を押すため、ハンドラーが一度も呼ばれない。あちらは `ProcessDialogKey` で受ける (判断は `HandleDialogKey` に分けてあり、T1 が窓を出さずに叩ける) |
 
 `TriggerDraftValidator` は第三者のピッカーが同じ検証規則を得るために public であり、式を入力させるピッカーのために `ValidateExpression` / `IsValidClauseName` も持つ。**`Apply` は新しい形で意味を失った値を残さない** — 句を作り直すとき `Expression` を落とし、ポーリングできない `On` では `PollInterval` も落とす。個別規則の検査に加えて「確定できた下書きから作った定義は必ず監視開始まで通る」(`Apply_AlwaysProducesADefinitionTheMonitorAccepts`) という**規則が増えても腐らない形**の検査がある — 実行時検証 (`CreateRuntime`) に拒否理由を足して `Apply` 側を忘れると、ホストの録り直し (`RemoveAsync` → `AddAsync` の投げっぱなし) では画面に何も出ないままトリガーが消えるからである。
 
@@ -625,6 +627,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | A22 | (欠番 — この ID の所見は定義されていない) | — |
 | A23 | 自アセンブリ外の WinRT 値型は AOT で vtable が生成されず、例外なく動かなくなる。`GeneratedWinRTExposedExternalType` はライブラリ (`Picker.WinUI`) 側に置く | §12 |
 | A24 | 自プロセスの点は UIA へ訊く**前**に `WindowFromPoint` のプロセス ID で打ち切る。後で戻り値を捨てる形では問い合わせが自分のプロバイダーへ届き、ホストの窓が活性化されてピッカーが背面へ回る | §9 |
+| A25 | **Enter を自分の仕事に使う欄は、その欄で `Handled` にする。**既定ボタン (WPF `IsDefault` / WinForms `AcceptButton` / WinUI の自前 `OnKeyDown`) は欄の宣言より強く、放っておくと欄の仕事を奪う。WinForms は単一行 `TextBox` の Enter が `IsInputKey` = false なので `ProcessDialogKey` が `KeyDown` より**先に**走り、ハンドラーが呼ばれることすら無い。どの欄がそうかは §12 (ピッカーの検索欄) と §4 (エディタ下段の 3 欄) が正 | §12 |
 | A26 | 読めなかったものは**否定形も含めて**不成立。要素がプロパティを持たない場合だけでなく、**演算子の内部で評価に失敗した場合** (正規表現の制限時間切れ・未コンパイル) も同じ。`false` に潰すと `!` を掛けた側で「読めなかった」が「成立」へ化け、`RegexNotMatch` が常時発火する | §3 |
 | B1 | プロパティ読取は `CacheRequest` でまとめる。段あたり 1 往復・スナップショット 1 往復 | §3 |
 | B2 | `WindowOpened` は `Children`。`WindowClosed` は `Subtree` でなければ 1 件も届かない | §6 |

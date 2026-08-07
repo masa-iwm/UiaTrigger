@@ -301,10 +301,19 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
             _ => TreeViewMode.Control,
         });
 
+    /// <summary>
+    /// 検索欄の Enter は「次を検索」。**必ず <c>Handled</c> を立てること**
+    /// (docs/DESIGN.md A25)。
+    /// </summary>
+    /// <remarks>
+    /// 立てないと KeyDown がルートまでバブルし、編集セッションでは
+    /// <see cref="OnKeyDown"/> の <c>Enter</c> が確定を積む — **検索したうえで窓が閉じる**。
+    /// </remarks>
     private void OnSearchKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
+            e.Handled = true;
             OnSearchNext(sender, e);
         }
     }

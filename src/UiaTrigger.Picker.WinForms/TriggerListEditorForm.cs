@@ -215,6 +215,51 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         _list.AccessibleName = _strings.GetString(EditorStringKeys.TriggerListAutomationName);
     }
 
+    /// <summary>
+    /// <c>ProcessDialogKey</c> の判断そのもの。窓を出さずに叩けるよう、
+    /// 「下段の入力欄にフォーカスが在るか」だけを引数で受ける。
+    /// </summary>
+    /// <param name="keyData">押されたキー。</param>
+    /// <param name="combineFieldHasFocus">下段の入力欄 3 つのどれかがフォーカスを持っているか。</param>
+    /// <returns>引き受けたら true (= 既定ボタンへは渡さない)。</returns>
+    /// <remarks>
+    /// <para>
+    /// 下段の 3 欄は [まとめる/更新] を押して初めて効く — <c>Snapshot</c> は式を読まないので、
+    /// Enter を <c>AcceptButton</c> に流すと**打ちかけの式を捨てて窓が閉じる**
+    /// (docs/DESIGN.md A25 / §4)。
+    /// </para>
+    /// <para>
+    /// <c>KeyDown</c> では受けられない。単一行 <c>TextBox</c> の Enter は <c>IsInputKey</c> が
+    /// false なので、Windows Forms は <c>KeyDown</c> を配る**前に** <c>ProcessDialogKey</c> を
+    /// 通し、そこで <c>AcceptButton</c> が押される (ピッカーの <c>HandleDialogKey</c> と同じ形)。
+    /// </para>
+    /// <para>
+    /// 掛けるのは 3 欄だけである。一覧や [OK] / [キャンセル] に居るときの Enter は
+    /// 既定ボタンのままにする — そちらは「もう入力は済んでいる」場面である。
+    /// </para>
+    /// </remarks>
+    internal bool HandleDialogKey(Keys keyData, bool combineFieldHasFocus)
+    {
+        if (keyData != Keys.Enter || !combineFieldHasFocus)
+        {
+            return false;
+        }
+        _presenter.NotifyCombineRequested();
+        return true;
+    }
+
+    /// <summary>Takes Enter in the combine fields; everything else keeps the dialog's defaults.</summary>
+    /// <param name="keyData">The key that was pressed.</param>
+    /// <returns>True when the key was handled here.</returns>
+    /// <remarks>
+    /// The decision lives in an internal method so a test can drive it without putting a window on
+    /// screen; what stays here is the Windows Forms fact it needs — which control has the focus.
+    /// </remarks>
+    protected override bool ProcessDialogKey(Keys keyData)
+        => HandleDialogKey(
+               keyData, _expression.Focused || _unwatched.Focused || _combinePollInterval.Focused)
+           || base.ProcessDialogKey(keyData);
+
     /// <summary>編集結果を確定する。テストは <c>ShowDialog</c> を使えないのでここを直に呼ぶ。</summary>
     internal void Accept() => _result = _presenter.Snapshot();
 

@@ -64,8 +64,11 @@
                 <!-- まとめる / ほどく -->
                 <StackPanel Spacing="4">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBox x:Name="ExpressionBox" x:Uid="ExpressionBox" Width="300" />
-                        <TextBox x:Name="UnwatchedBox" x:Uid="UnwatchedBox" Width="240" />
+                        <TextBox x:Name="ExpressionBox" x:Uid="ExpressionBox" Width="300"
+                                 KeyDown="OnCombineFieldKeyDown" />
+                        <TextBox x:Name="UnwatchedBox" x:Uid="UnwatchedBox" Width="240"
+                                 KeyDown="OnCombineFieldKeyDown" />
+                        <!-- NumberBox の Enter はコード側で AddHandler する (OnCombineFieldKeyDown の remarks) -->
                         <NumberBox x:Name="CombinePollIntervalBox" x:Uid="CombinePollIntervalBox" Width="140" />
                         <CheckBox x:Name="CombineStoppedMatchingCheck" x:Uid="CombineStoppedMatchingCheck"
                                   VerticalAlignment="Bottom" />
