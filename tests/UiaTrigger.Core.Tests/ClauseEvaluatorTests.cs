@@ -243,6 +243,38 @@ public sealed class ClauseEvaluatorTests
         Assert.False(Match(Snapshot(value: null), Clause(TriggerProperty.Value, op, text: "x")));
     }
 
+    /// <summary>
+    /// 演算子の内部で評価に失敗した場合も、**否定形を含めて**不成立であること
+    /// (docs/DESIGN.md A26)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「読めなかった」を <c>false</c> に潰すと、呼び出し側が <c>!</c> を掛けた瞬間に
+    /// <see cref="ComparisonOp.RegexNotMatch"/> が**成立**へ化ける。上の
+    /// <see cref="UnsupportedProperty_NeverMatches"/> と同じ規則が、
+    /// 非対応プロパティだけでなく演算子の内部にも要る。
+    /// </para>
+    /// <para>
+    /// 失敗の作り方は 2 つあるが、制限時間切れは <c>NonBacktracking</c> が線形時間なので
+    /// 決定的に起こせない。**未コンパイル (<c>Regex = null</c>) は同じ道を通り、
+    /// しかも決定的である** — 製品側では <c>CompileClause</c> が到達不能にしているが、
+    /// 規則を固定するのに使えるのはこちらである。
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(ComparisonOp.RegexMatch)]
+    [InlineData(ComparisonOp.RegexNotMatch)]
+    public void AnUnevaluablePattern_NeverMatches(ComparisonOp op)
+    {
+        var uncompiled = new CompiledClause
+        {
+            Clause = new PropertyClause { Property = TriggerProperty.Name, Op = op, Text = "hel+o" },
+            Regex = null,
+        };
+
+        Assert.False(Match(Snapshot(name: "hello"), uncompiled));
+    }
+
     /// <summary>Always だけは「値を見ない」ので、プロパティを購読する意図として常に成立すること。</summary>
     [Fact]
     public void Always_IsSatisfiedEvenForAnUnsupportedProperty()
