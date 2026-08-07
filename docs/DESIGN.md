@@ -246,6 +246,7 @@ public sealed class TriggerDefinition
 | `Update` が断るもの | 複合でない / `On` が `WhileMatching` でない定義は `ArgumentException` (`Decompose` と同じ線)。`On` を見るのは、句が 2 つあるだけの `PropertyChanged` トリガーも「複合」の形には合致するが、そこへ立ち下がり通知を書くと**監視が追加時に弾く定義**ができるためである。黙って `On` を書き換えるほうが悪い。負のポーリング間隔と未知の名前は `Compose` と同じ理由文字列で断る |
 | 複合の `NotifyOnStoppedMatching` | まとめる時にも指定できる (`Compose` の `notifyOnStoppedMatching`)。複合は常に `WhileMatching` = あの旗が効く唯一のライフサイクルであり、かつ複合はピッカーで編集できない (`CanEdit`) ので、**エディタの下段が複合にこの旗を立てる唯一の口**である (C14)。**元トリガーの旗は引き継がない** — 旗は「この条件が成立しなくなったら知らせる」であって、まとめた後の「この条件」は元のどれとも違うものだからである。**引き継ぐと読まれやすい**ので、下段のチェックが唯一の入力であることを明示しておく |
 | `Update` だけが**破壊的** | その場で上書きするので、式を消して押せば元の式は戻らない。`Compose` / `Decompose` を足すだけにしてある理由 (取り消し機能なしで取り消せる) から外れる唯一の操作であり、外す代わりに「id も句も動かさない」を契約にして影響範囲を 4 つの設定に閉じてある |
+| 句名の検査 (C18) | **式の有無に関わらず走る。**`TriggerDraftValidator.ValidateExpression` は空式で早期に返るが、**その手前で**名前の妥当性と一意性を見る。名前の重複は式についての誤りではなく句についての誤りであり、「全部まとめる」でも起きる — 位置由来の名前 (`cN`) は、`cN` という綴りの id と衝突しうる (id `c2` の 1 件目 + 名前に使えない id の 2 件目 → どちらも `c2`)。ここを式の中に閉じ込めると、複合は保存できてエディタにも並ぶのに `TriggerMonitor.AddAsync` だけが弾く = **確定できたのに開始できない定義**になる |
 
 検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName` / `Compose_PollIntervalNegative`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone` / `UpdateFailed` / `UpdateDone`)。
 
@@ -647,6 +648,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | C15 | `ElementRemoved` の条件は消滅直前の値で評価する。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ (発火源にはしない) | §4 |
 | C16 | 在否 (`IsAbsent`) と値は別の軸。`Op=Always` は「要素が在ること」(presence) で成立し、値の述語は消えた要素でも最後に見えた値で評価され続ける | §4 |
 | C17 | 「絞るだけ」の語彙は非対称。`Compose` は元トリガーの id で照合し、`Update` と `UnwatchedNames` は句の実効名 (`login-1`) で照合する — まとめ終えた複合に元トリガーの id は残っていない。`UnwatchedNames` → `Update` は恒等 | §4 |
+| C18 | 句名の妥当性・一意性は**式の有無に関わらず**検査する。位置由来の名前 (`cN`) は同じ綴りの id と衝突しうるので、「全部まとめる」でも重複は起きる — 検査を式の中に閉じ込めると、保存はできるのに `AddAsync` だけが弾く複合が作れる | §4 |
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 |
 | D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — |

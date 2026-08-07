@@ -191,6 +191,43 @@ public sealed class TriggerComposerTests
         Assert.Equal(["c1", "b"], composite.Clauses.Select(c => c.Name));
     }
 
+    /// <summary>
+    /// 位置由来の名前は、その綴りの id と衝突しうる (docs/DESIGN.md C18)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 検査を式の中に閉じ込めると**式なしのときだけ**素通りする。すると「まとめる」は成功し、
+    /// 複合は JSON に保存できてエディタにも並ぶのに、<c>TriggerMonitor.AddAsync</c> が
+    /// <c>Error_DuplicateClauseName</c> で弾く — 「確定できたのに開始できない定義」である。
+    /// </para>
+    /// <para>
+    /// 到達経路は作り物ではない: ピッカーの Key 欄に <c>c2</c> と打つのは通り
+    /// (<c>TriggerDraftValidator.Validate</c> は id の中身を見ない)、空白入りの id も通る。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Compose_WhenAPositionalNameCollidesWithAnId_IsRefusedEvenWithoutAnExpression()
+    {
+        // 1 件目の名前は id そのまま (c2)。2 件目は id が名前に使えないので "c" + 2 に落ちる
+        TriggerDefinition first = Simple("c2");
+        TriggerDefinition second = Simple("my trigger");
+
+        TriggerCompositionResult result = Compose([first, second]);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("c2", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>同じ id を 2 度渡す第三者ホストも同じ形で断る (式の有無に関わらず)。</summary>
+    [Fact]
+    public void Compose_WithTwoSourcesSharingAnId_IsRefusedEvenWithoutAnExpression()
+    {
+        TriggerCompositionResult result = Compose([Simple("a"), Simple("a")], existingIds: ["a"]);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("a", result.Error, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void Compose_ASourceWithSeveralClauses_ExpandsTheNameWithASuffix()
     {
