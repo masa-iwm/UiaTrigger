@@ -40,11 +40,21 @@ string file = GetOption("--file") ?? TriggerFilePath.Default;
 // (CI では AOT 発行後のバイナリでサテライトが解決されることをこれで確認する)。
 if (GetOption("--culture") is { Length: > 0 } cultureName)
 {
-    var culture = new CultureInfo(cultureName);
-    CultureInfo.DefaultThreadCurrentCulture = culture;
-    CultureInfo.DefaultThreadCurrentUICulture = culture;
-    CultureInfo.CurrentCulture = culture;
-    CultureInfo.CurrentUICulture = culture;
+    // 綴りミスを生のスタックトレースにしない。共有側 (App.Shared の HostOptions) と
+    // 同じ規律 — **黙って通常動作に落ちない**が、落とし方は利用ミスとして言う
+    try
+    {
+        var culture = new CultureInfo(cultureName);
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+    }
+    catch (CultureNotFoundException)
+    {
+        Console.Error.WriteLine($"--culture: '{cultureName}' は既知のカルチャ名ではありません。");
+        return 1;
+    }
 }
 
 // DPI の診断メッセージはローカライズされるので、カルチャを決めた後に出す
@@ -158,9 +168,20 @@ async Task<int> RecordAsync()
         def.PollInterval = TimeSpan.FromSeconds(pollSeconds);
     }
 
-    List<TriggerDefinition> triggers =
-        [.. TriggerStore.Load(file).Where(t => !string.Equals(t.Id, id, StringComparison.Ordinal)), def];
-    TriggerStore.Save(file, triggers);
+    List<TriggerDefinition> existing;
+    try
+    {
+        existing = [.. TriggerStore.Load(file).Where(t => !string.Equals(t.Id, id, StringComparison.Ordinal))];
+    }
+    catch (Exception ex) when (ex is JsonException or NotSupportedException
+        or IOException or UnauthorizedAccessException)
+    {
+        // **既存を読めないまま保存しない。**上書きすると、読めなかっただけの定義が消える
+        Console.Error.WriteLine($"既存のトリガー定義を読めないので保存しません ({file}): {ex.Message}");
+        return 1;
+    }
+    existing.Add(def);
+    TriggerStore.Save(file, existing);
 
     Console.WriteLine($"記録しました: id='{id}' → {file}");
     Console.WriteLine(JsonSerializer.Serialize(def, TriggerJsonContext.Default.TriggerDefinition));
@@ -169,7 +190,20 @@ async Task<int> RecordAsync()
 
 async Task<int> MonitorAsync()
 {
-    IReadOnlyList<TriggerDefinition> triggers = TriggerStore.Load(file);
+    // 壊れた / 新しい形式のファイルを生のスタックトレースにしない。TriggerStore.Load が
+    // 文書化している例外 (JsonException / NotSupportedException) を理由として言う —
+    // 後者は「このビルドより新しい形式」であり、利用者が取れる行動が違う
+    IReadOnlyList<TriggerDefinition> triggers;
+    try
+    {
+        triggers = TriggerStore.Load(file);
+    }
+    catch (Exception ex) when (ex is JsonException or NotSupportedException
+        or IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"トリガー定義を読めません ({file}): {ex.Message}");
+        return 1;
+    }
     if (triggers.Count == 0)
     {
         Console.Error.WriteLine($"トリガー定義がありません: {file}");

@@ -64,6 +64,11 @@ internal static unsafe class HostWindowPlacer
     private static readonly Dictionary<nint, int> _placements = [];
     private static readonly Dictionary<nint, long> _lastPlacedAt = [];
 
+    /// <summary>
+    /// クールダウンで落とした置き直し要求。次のイベントで拾い直す (<see cref="RetryPending"/>)。
+    /// </summary>
+    private static readonly HashSet<nint> _pendingPlacement = [];
+
     /// <summary>同期的な再入の防止。</summary>
     /// <remarks>
     /// **置き合いを止めているのはこれではなく、下の「既にその場所に在れば触らない」である。**
@@ -105,12 +110,23 @@ internal static unsafe class HostWindowPlacer
             &OnWindowEvent);
 
         // **黙って通常動作に落ちない。**張れなければ窓は退かず、T4 からは
-        // 「pick 点が覆われている」という別の顔で見えることになるので、理由を残す
+        // 「pick 点が覆われている」という別の顔で見えることになるので、理由を残す。
+        // 片方だけ張れた場合は「退きません」が嘘になる (SHOW だけなら出た瞬間には退く) ので、
+        // 実態どおりに言い分ける。成功した側は残す — 片方でも動くほうが、両方捨てるより良い
         if (show == 0 || moved == 0)
         {
+            string effect = (show, moved) switch
+            {
+                (0, 0) => "窓は退きません。",
+                (0, _) => "出現時には退きません (移動には追随します)。",
+                _ => "移動には追随しません (出現時には退きます)。",
+            };
             _log(FormattableString.Invariant(
-                $"--place-windows: SetWinEventHook に失敗しました (show={show} moved={moved})。窓は退きません。"));
-            return;
+                $"--place-windows: SetWinEventHook に失敗しました (show={show} moved={moved})。{effect}"));
+            if (show == 0 && moved == 0)
+            {
+                return;
+            }
         }
 
         _log(FormattableString.Invariant(
@@ -141,6 +157,10 @@ internal static unsafe class HostWindowPlacer
         try
         {
             _placing = true;
+            // クールダウンで落とした窓を先に拾い直す (下の Place の remarks)。
+            // 死んだ窓の分はここで台帳ごと落とす — 残すと T4 の 1 実行で
+            // 開いては閉じる窓のぶん、辞書が増える一方になる
+            RetryPending();
             Place(hwnd);
         }
         catch (Exception ex)
@@ -184,8 +204,14 @@ internal static unsafe class HostWindowPlacer
         long now = Environment.TickCount64;
         if (_lastPlacedAt.TryGetValue(hwnd, out long last) && now - last < PlacementCooldownMs)
         {
+            // **落とした要求を覚えておく。**クールダウン中の最後の 1 通を捨て切りにすると、
+            // そこで当て直しが止まったときに窓が目標から外れたまま残る (T4 では
+            // 「pick 点が覆われている」という名指し失敗として現れる)。次にイベントが
+            // 来たときに拾い直す — 窓のイベントはこの経路に頻繁に飛ぶ
+            _pendingPlacement.Add(hwnd);
             return;
         }
+        _ = _pendingPlacement.Remove(hwnd);
 
         if (_placements.TryGetValue(hwnd, out int count) && count >= MaxPlacementsPerWindow)
         {
@@ -206,6 +232,34 @@ internal static unsafe class HostWindowPlacer
         }
 
         _ = NativeWindowPlacement.MoveTo(hwnd, _target.Left, _target.Top, _target.Width, _target.Height);
+    }
+
+    /// <summary>
+    /// クールダウンで落とした窓を拾い直し、ついでに死んだ窓の台帳を捨てる。
+    /// </summary>
+    /// <remarks>
+    /// 窓のイベントと同じスレッド (ホストの UI スレッド) からしか呼ばれないので、
+    /// 辞書に排他は要らない。**別スレッドから呼ぶ形に変えないこと** — タイマーで
+    /// 遅延再試行する形にすると、この 3 つの辞書が競合し、しかも T4 専用経路なので
+    /// 壊れたことに気づく網が無い
+    /// </remarks>
+    private static void RetryPending()
+    {
+        if (_pendingPlacement.Count == 0)
+        {
+            return;
+        }
+        foreach (nint pending in _pendingPlacement.ToArray())
+        {
+            if (!NativeWindowPlacement.IsWindow(pending))
+            {
+                _ = _pendingPlacement.Remove(pending);
+                _ = _placements.Remove(pending);
+                _ = _lastPlacedAt.Remove(pending);
+                continue;
+            }
+            Place(pending);
+        }
     }
 
     /// <summary>その窓が既に目標の矩形に在るか。</summary>

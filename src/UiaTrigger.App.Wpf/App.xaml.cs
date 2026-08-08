@@ -28,17 +28,9 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += (_, e) => Log($"UnobservedTask: {e.Exception}");
     }
 
-    internal static void Log(string message)
-    {
-        try
-        {
-            File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    /// <summary>
+    /// 診断ログ。時刻の書式は App.Shared が invariant で握る (docs/DESIGN.md L7) —
+    /// 3 変種で書くと必ずずれ、ログを突き合わせる側が困る。
+    /// </summary>
+    internal static void Log(string message) => HostLog.Append(LogPath, message);
 }

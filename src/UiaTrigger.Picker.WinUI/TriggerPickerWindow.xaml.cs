@@ -100,6 +100,20 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
             root.KeyDown += OnKeyDown;
         }
 
+        // **NumberBox は Enter を自分で使う** (値の確定) ので Handled にする。素の KeyDown
+        // 購読では呼ばれず、編集セッションの Enter = 更新 (下の OnKeyDown) がしきい値の欄では
+        // 一度も効かない — 編集セッションの主用途がまさにその欄なので、WPF (IsDefault) /
+        // WinForms (AcceptButton) と挙動が割れる (docs/DESIGN.md A25)。
+        // エディタの CombinePollIntervalBox と同じ解決形を使う: 処理済みでも受け取る形で足すと、
+        // クラスハンドラーが先に走るのでこちらが読む値は確定済みになる
+        foreach (NumberBox box in new[]
+        {
+            ValueOperand, LowOperand, HighOperand, ToleranceOperand, MinIntervalOperand, PollIntervalOperand,
+        })
+        {
+            box.AddHandler(UIElement.KeyDownEvent, new KeyEventHandler(OnKeyDown), handledEventsToo: true);
+        }
+
         // マウス自動選択は既定で ON
         AutoSelectToggle.IsOn = true;
     }

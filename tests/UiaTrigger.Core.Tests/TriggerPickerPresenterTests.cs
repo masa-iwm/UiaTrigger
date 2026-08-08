@@ -1298,13 +1298,22 @@ public sealed class TriggerPickerPresenterTests
         Assert.Equal(TriggerOn.ElementAppeared, draft.On);
     }
 
-    /// <summary>読み込んだあと確定すると、同じ定義の実体へ書き戻されること。</summary>
+    /// <summary>
+    /// 読み込んだあと確定すると、読み込んだ定義の内容が書き戻されること。
+    ///
+    /// <para>
+    /// 渡されるのは**写し**である (docs/DESIGN.md C19)。ピッカーは確定後も自分の定義を
+    /// 持ち続ける (§4 の「開いたまま何件でもコミット」) ので、同じ実体を渡すと
+    /// 次のコミットで 1 件目が書き換わる — <see cref="Commit_Twice_DoesNotRewriteTheFirstDefinition"/>
+    /// がその形を固定している。ここで見たいのは「記録済みの要素を保ったまま書き戻る」
+    /// ことなので、実体同値ではなく値で確かめる。
+    /// </para>
+    /// </summary>
     [Fact]
-    public void LoadDefinition_ThenCommit_WritesBackIntoTheSameDefinition()
+    public void LoadDefinition_ThenCommit_WritesBackTheLoadedDefinition()
     {
         using var h = new Harness();
         TriggerDefinition def = Recorded();
-        WindowIdentity window = def.Window;
         h.Presenter.LoadDefinition(def);
         // View は読み込んだ下書きをそのまま読み返す (本物の View と同じ)
         h.View.Draft!.Text = "Saved";
@@ -1313,10 +1322,51 @@ public sealed class TriggerPickerPresenterTests
         h.Presenter.TriggerCommitted += (_, e) => committed = e.Definition;
         h.Presenter.Commit();
 
-        Assert.Same(def, committed);
+        Assert.NotNull(committed);
+        Assert.NotSame(def, committed);
+        Assert.Equal(def.Id, committed.Id);
         // 記録済みの要素はそのまま。しきい値を変えるために捕まえ直さなくてよいのが要点である
-        Assert.Same(window, committed!.Window);
+        Assert.Equal(def.Window.ProcessName, committed.Window.ProcessName);
+        Assert.Equal(def.Locator.Steps.Count, committed.Locator.Steps.Count);
         Assert.Equal("Saved", Assert.Single(committed.Clauses).Text);
+    }
+
+    /// <summary>
+    /// **開いたまま 2 件コミットしても、1 件目としてホストへ渡した定義が書き換わらないこと**
+    /// (docs/DESIGN.md C19)。
+    ///
+    /// <para>
+    /// §4 は「要素を確定し直さずに条件だけ変えて何件でもコミットできる」を明文化している。
+    /// 渡すのが写しでないと、2 件目の <c>Apply</c> が同じインスタンスを in-place で書き換え、
+    /// **ホストのメモリ上から 1 件目が消える** — 同梱ホストは受け取った定義を一覧に保持して
+    /// id で照合するので、症状は「保存したはずの 1 件目がファイルに無い」という
+    /// 無警告のデータ消失になる。例外もログも出ない。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Commit_Twice_DoesNotRewriteTheFirstDefinition()
+    {
+        using var h = new Harness();
+        h.Presenter.LoadDefinition(Recorded());
+
+        var committed = new List<TriggerDefinition>();
+        h.Presenter.TriggerCommitted += (_, e) => committed.Add(e.Definition);
+
+        h.View.Draft!.Id = "first";
+        h.View.Draft!.Text = "one";
+        h.Presenter.Commit();
+
+        // 要素を確定し直さずに、id と条件だけ変えて 2 件目
+        h.View.Draft!.Id = "second";
+        h.View.Draft!.Text = "two";
+        h.Presenter.Commit();
+
+        Assert.Equal(2, committed.Count);
+        Assert.NotSame(committed[0], committed[1]);
+        Assert.Equal("first", committed[0].Id);
+        Assert.Equal("second", committed[1].Id);
+        Assert.Equal("one", Assert.Single(committed[0].Clauses).Text);
+        Assert.Equal("two", Assert.Single(committed[1].Clauses).Text);
     }
 
     // ---------- 編集セッション (editSession) ----------
@@ -2068,7 +2118,7 @@ public sealed class TriggerPickerPresenterTests
         Assert.NotEmpty(h.View.PropertyRows);
         PickerTreeNode current = h.Presenter.Roots[0].Children[0].Children[0];
 
-        h.Services.SnapshotException = OperationTimedOut();
+        h.Services.SnapshotFails = true;
         await h.Presenter.RefreshPropsAsync(current);
 
         Assert.Empty(h.View.PropertyRows);
@@ -2086,11 +2136,11 @@ public sealed class TriggerPickerPresenterTests
         h.Services.NextSnapshot = new ElementPropertySnapshot();
         await h.CaptureOnceAtAsync(100, 100);
         PickerTreeNode current = h.Presenter.Roots[0].Children[0].Children[0];
-        h.Services.SnapshotException = OperationTimedOut();
+        h.Services.SnapshotFails = true;
         await h.Presenter.RefreshPropsAsync(current);
         Assert.Empty(h.View.PropertyRows);
 
-        h.Services.SnapshotException = null;
+        h.Services.SnapshotFails = false;
         await h.Presenter.RefreshPropsAsync(current);
 
         Assert.NotEmpty(h.View.PropertyRows);
@@ -2114,7 +2164,7 @@ public sealed class TriggerPickerPresenterTests
         h.Presenter.NotifyTreeSelectionChanged(h.Presenter.Roots[0].Children[0]);
         Assert.NotEmpty(h.View.PropertyRows);
 
-        h.Services.SnapshotException = OperationTimedOut();
+        h.Services.SnapshotFails = true;
         await h.Presenter.RefreshPropsAsync(stale);
 
         Assert.NotEmpty(h.View.PropertyRows);
@@ -2144,11 +2194,6 @@ public sealed class TriggerPickerPresenterTests
     }
 
     // ---------- 補助 ----------
-
-    /// <summary>塞がれたアプリへの読み取りが返す失敗 (実測 — docs/DESIGN.md §3 の B5)。</summary>
-    [SuppressMessage("Usage", "CA2201:Do not raise reserved exception types",
-        Justification = "判別対象そのものを演じるテストのため、実物の COMException が必要。")]
-    private static COMException OperationTimedOut() => new("Operation timed out", ComErrors.Timeout);
 
     private static HoverCapture Capture(params IPickerElement[] chain)
         => Capture("notepad.exe (PID 7)", chain);

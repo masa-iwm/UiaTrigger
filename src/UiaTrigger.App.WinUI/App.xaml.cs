@@ -55,16 +55,10 @@ public partial class App : Application
         }
     }
 
-    internal static void Log(string message)
-    {
-        try
-        {
-            File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-        }
-        catch
-        {
-        }
-    }
+    /// <summary>
+    /// 診断ログ。時刻の書式は App.Shared が invariant で握る (docs/DESIGN.md L7)。
+    /// </summary>
+    internal static void Log(string message) => HostLog.Append(LogPath, message);
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
