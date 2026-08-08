@@ -1403,12 +1403,16 @@
       <remarks>
         したがって値が入らないのは次の場合である:
         <see cref="F:UiaTrigger.Models.TriggerOn.ElementAppeared" /> (変化前の値が存在しない)、
-        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> と
-        <see cref="F:UiaTrigger.Models.TriggerOn.StoppedMatching" /> (どちらのエッジも
-        条件全体の真偽が変わったことで鳴るので、1 つの値の変化ではない)、そして
-        <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
+        そして <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
         **最初以外の条件**の変化で鳴ったとき (その条件が変わったことは、
         最初の条件が何だったかを何も語らない)。
+        <para>
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> と
+          <see cref="F:UiaTrigger.Models.TriggerOn.StoppedMatching" /> は、
+          そのエッジを何が動かしたかによる。プロパティの変化が動かしたなら変化前の値が入り、
+          遷移がそのまま読める。要素の解決・消滅が動かしたエッジには値が入らない —
+          変わった値が無いからである。
+        </para>
       </remarks>
     </member>
     <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.On">

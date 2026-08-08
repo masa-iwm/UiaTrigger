@@ -70,9 +70,15 @@ public sealed class EventDeliveryTests
         // 形の順序逆転を、後続を一切見ないまま緑にする — 崩れているときだけ検出できない
         // という、いちばん悪い形の穴になる。配送は 1 本のワーカーなので、詰まりが
         // 明けたぶんの残りは短い猶予で出切る
-        while (harness.Next(DrainGrace) is TriggerFiredEventArgs extra)
+        // **型で受けずに時間で切ること。**Next は種類を問わず次の 1 件を返すので、
+        // 猶予の中に解決通知が 1 つ混じっただけでパターンが外れ、そこから先の発火を
+        // 読まずに終わる — 塞ぎたかった穴と同じ形が、この読み方の中に再現する
+        while (harness.Next(DrainGrace) is { } extra)
         {
-            received.Add(extra.NewValue.Value);
+            if (extra is TriggerFiredEventArgs fired)
+            {
+                received.Add(fired.NewValue.Value);
+            }
         }
 
         Assert.True(

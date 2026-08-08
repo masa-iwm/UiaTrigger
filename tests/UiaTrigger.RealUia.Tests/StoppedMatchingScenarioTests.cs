@@ -68,12 +68,14 @@ public sealed class StoppedMatchingScenarioTests
         Assert.Equal(definition.Id, falling.TriggerId);
         Assert.Equal("off", falling.NewValue.Value);
 
-        // **OldValue は両エッジとも absent であること** (`TriggerFiredEventArgs.OldValue` の doc)。
-        // WhileMatching が鳴るのは「条件が全体として成立した / しなくなった」瞬間であって、
-        // 1 つの値が変わった瞬間ではない — 前回値を載せると、条件が複数の要素にまたがるとき
-        // 「変わったのはこの値だ」という嘘になる。doc がそう書いてあるだけで網が無かった
-        Assert.Equal(ComparisonString.None, rising.OldValue);
-        Assert.Equal(ComparisonString.None, falling.OldValue);
+        // **両エッジとも「その値が変わった」ときは前回値を載せること**
+        // (`TriggerFiredEventArgs.OldValue` の doc)。ここでのエッジはどちらも Name の変化が
+        // 起こしたものなので、遷移の前後が揃って読める。前回値を落とすと、受け手は
+        // 「いま何になったか」しか分からず、何から変わったかを別に覚えておく必要が出る。
+        // 解決・消滅が起こしたエッジでは値の変化が無いので absent になる — そちらは
+        // ElementDisappearsScenario 側の経路である
+        Assert.Equal("btnTarget", rising.OldValue.Value);
+        Assert.Equal("on", falling.OldValue.Value);
     }
 
     /// <summary>

@@ -223,10 +223,15 @@ public sealed class TriggerFiredEventArgs : EventArgs
     /// </summary>
     /// <remarks>
     /// So it is absent for <see cref="TriggerOn.ElementAppeared"/> (there was no previous value),
-    /// for <see cref="TriggerOn.WhileMatching"/> and <see cref="TriggerOn.StoppedMatching"/> (both
-    /// edges fire on the condition as a whole changing truth, not on one value changing), and for a
-    /// <see cref="TriggerOn.PropertyChanged"/> trigger whose firing came from a condition other than
-    /// the first — that condition changing says nothing about what the first one was.
+    /// and for a <see cref="TriggerOn.PropertyChanged"/> trigger whose firing came from a condition
+    /// other than the first — that condition changing says nothing about what the first one was.
+    ///
+    /// <para>
+    /// For <see cref="TriggerOn.WhileMatching"/> and <see cref="TriggerOn.StoppedMatching"/> it
+    /// depends on what moved the edge. A property changing carries the value it held before, so the
+    /// transition reads whole; an edge that came from the element resolving or disappearing carries
+    /// nothing, because no value changed.
+    /// </para>
     /// </remarks>
     public ComparisonString OldValue { get; init; }
 

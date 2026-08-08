@@ -44,6 +44,10 @@ public sealed class LedgerNetTests
         return [.. Directory.EnumerateFiles(RepoPaths.Combine("tests"), "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                      && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            // **対象アプリは網ではない。**TestTarget / TestTarget.Wpf は T3 が駆動する
+            // 相手であって、何も assert しない。あれの中の引用だけで「網が在る」と数えると、
+            // 「不変条件を再現する道具が在る」を「不変条件が守られている」と読み替えることになる
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}UiaTrigger.TestTarget", StringComparison.Ordinal))
             // この検査自身は台帳を読むだけで、どの不変条件も縛らない
             .Where(f => !string.Equals(Path.GetFileName(f), "LedgerNetTests.cs", StringComparison.Ordinal))
             .Where(f => regex.IsMatch(File.ReadAllText(f)))

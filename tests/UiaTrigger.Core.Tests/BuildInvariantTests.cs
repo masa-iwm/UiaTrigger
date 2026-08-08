@@ -77,6 +77,13 @@ public sealed class BuildInvariantTests
     /// 診断の出口を <c>ILogger</c> にしてあるのは、**実装ではなく抽象**だけに依存するためである。
     /// ここに 1 つ足すと、このライブラリを取り込むすべてのアプリの依存グラフに乗る —
     /// ビルドは通り、テストも通り、気づくのは配ったあとになる。
+    ///
+    /// <para>
+    /// **全プロジェクト共通の <c>PackageReference</c> が居ないことも一緒に見る。**
+    /// csproj だけを読む形にすると、`Directory.Build.props` 側に 1 行足された依存を
+    /// 「Core は 1 件だけ」と言いながら見逃す。版の集中管理 (`Directory.Packages.props`) は
+    /// <c>PackageVersion</c> なので依存そのものではない — 混同しないこと。
+    /// </para>
     /// </remarks>
     [Fact]
     public void TheLibraryHasExactlyOneRuntimeDependency()
@@ -85,10 +92,10 @@ public sealed class BuildInvariantTests
         string[] packages = [.. XDocument.Load(path)
             .Descendants("PackageReference")
             .Select(e => (string?)e.Attribute("Include") ?? string.Empty)
-            // アナライザーと build-only は配布物の依存にならない
             .Where(name => name.Length > 0)];
 
         Assert.Equal(["Microsoft.Extensions.Logging.Abstractions"], packages);
+        Assert.Empty(BuildProps().Descendants("PackageReference"));
     }
 
     /// <summary>
