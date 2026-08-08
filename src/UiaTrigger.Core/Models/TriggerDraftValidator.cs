@@ -198,6 +198,15 @@ public static class TriggerDraftValidator
         {
             return new TriggerDraftResult(Strings.Draft_IdRequired, null, null, null);
         }
+        // Custom は下書きから作れない。TriggerDraft は CustomPropertyId を持たないので、
+        // Apply が作る句は必ず CustomPropertyId=0 になり、その定義は TriggerMonitor が
+        // 必ず拒否する (Error_CustomPropertyIdRequired) — 「確定できたのに開始できない定義」を
+        // 作らない、というこの型の不変条件 (冒頭 doc) が破れる。同梱ピッカーは Custom を
+        // 選択肢に出さないので到達しないが、公開 API として第三者ピッカーからは到達する
+        if (draft.Property == TriggerProperty.Custom && NeedsClause(draft.On, draft.Op))
+        {
+            return new TriggerDraftResult(Strings.Draft_CustomNotSupported, null, null, null);
+        }
         if (IsOrderingOp(draft.Op) && !IsNumericProperty(draft.Property))
         {
             return new TriggerDraftResult(Strings.Draft_OrderingNeedsNumericProperty, null, null, null);
@@ -302,7 +311,7 @@ public static class TriggerDraftValidator
 
     /// <summary>Whether a string can be used as a <see cref="PropertyClause.Name"/>.</summary>
     /// <remarks>
-    /// A name cannot be empty, and cannot contain whitespace or any of <c>( ) ! &amp; |</c>, because
+    /// A name cannot be empty, and cannot contain whitespace or any of <c>( ) ! &amp; | ,</c>, because
     /// <see cref="TriggerDefinition.Expression"/> would otherwise read it as two things. Offer this
     /// while the user types rather than after: a name is chosen once and referred to from every
     /// expression that follows.

@@ -117,7 +117,7 @@
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
   </data>
   <data name="Error_InvalidClauseName" xml:space="preserve">
-    <value>Trigger '{0}': '{1}' cannot be used as a clause name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>
+    <value>Trigger '{0}': '{1}' cannot be used as a clause name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; | ,.</value>
     <comment>{0} = trigger id, {1} = the offending clause name</comment>
   </data>
   <data name="Error_DuplicateClauseName" xml:space="preserve">
@@ -256,6 +256,9 @@
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>The tolerance must not be negative.</value>
   </data>
+  <data name="Draft_CustomNotSupported" xml:space="preserve">
+    <value>A custom property needs its UI Automation property id, which this form does not collect. Build the clause directly to watch one.</value>
+  </data>
   <data name="Draft_UndefinedEnumValue" xml:space="preserve">
     <value>The condition uses a value this library does not define. Reselect the lifecycle, property and comparison.</value>
   </data>
@@ -266,7 +269,7 @@
     <value>The polling interval is too large to represent. Enter a smaller number of seconds.</value>
   </data>
   <data name="Draft_InvalidClauseName" xml:space="preserve">
-    <value>'{0}' cannot be used as a condition name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>
+    <value>'{0}' cannot be used as a condition name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; | ,.</value>
     <comment>{0} = the offending clause name</comment>
   </data>
   <data name="Draft_DuplicateClauseName" xml:space="preserve">

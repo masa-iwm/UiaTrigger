@@ -63,6 +63,15 @@ internal static class PropertyReader
         {
             return ClauseValue.Unsupported;
         }
+        // **Custom もパスワードの伏字化を通す** (docs/DESIGN.md C12/C21)。Custom は
+        // スナップショット (RedactIfPassword) を通らない第二の読み取り経路なので、
+        // ここが素通しだと「Value/Name を Custom として読む句」で平文が復活し、
+        // 発火イベントの ClauseReading としてホストへ渡る。伏せるのは伏字化の対象と
+        // 同じ 2 プロパティだけ — 他の Custom 読みまで潰す必要はない
+        if (IsRedactedProperty(propertyId) && IsPasswordElement(element))
+        {
+            return ClauseValue.FromText(ComparisonString.FromText(ElementPropertySnapshot.RedactedMarker));
+        }
         ComVariant variant;
         try
         {
@@ -78,6 +87,27 @@ internal static class PropertyReader
         using (variant)
         {
             return FromVariant(variant);
+        }
+    }
+
+    /// <summary>スナップショットが伏せるのと同じプロパティか (Value / Name)。</summary>
+    private static bool IsRedactedProperty(int propertyId) =>
+        propertyId is UiaIds.ValueValueProperty or UiaIds.NameProperty;
+
+    /// <summary>
+    /// パスワード欄か。読めなければ「パスワードではない」ではなく**伏せる側**に倒す —
+    /// 秘匿の判定を読めなかったときに平文を出すのは、失敗の方向として逆である。
+    /// </summary>
+    private static bool IsPasswordElement(IUIAutomationElement element)
+    {
+        try
+        {
+            element.get_CurrentIsPassword(out bool isPassword);
+            return isPassword;
+        }
+        catch (COMException)
+        {
+            return true;
         }
     }
 

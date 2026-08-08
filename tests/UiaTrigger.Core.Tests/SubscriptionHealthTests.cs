@@ -49,7 +49,7 @@ public sealed class SubscriptionHealthTests
             true, 2, 2, SomeWindow, true, true, true, (int)SlotSubscriptionState.Resolved),
         ("解決済み・対象がウィンドウ自身 (経路 0 段。購読 0 が正常)",
             true, 0, 0, 0, false, false, false, (int)SlotSubscriptionState.ResolvedWindowSelf),
-        ("解決済み・未解決期の Subtree 購読のまま (機能はする — 掃引時に張り替え)",
+        ("解決済み・未解決期の Subtree 購読のまま (購読はあり機能する — 修復対象ではない)",
             true, 2, 1, SomeWindow, false, false, false, (int)SlotSubscriptionState.ResolvedSubtreeFallback),
         ("解決済み・構造購読を失った (復旧経路が要る)",
             true, 2, 0, SomeWindow, true, false, false, (int)SlotSubscriptionState.ResolvedOrphaned),
@@ -76,7 +76,9 @@ public sealed class SubscriptionHealthTests
     /// <summary>
     /// 修復対象は Orphaned の 2 状態だけであること。
     /// <see cref="SlotSubscriptionState.ResolvedSubtreeFallback"/> を含めると、
-    /// 張り替えに失敗し続ける相手に復旧タイマーが回りっぱなしになる (= 事実上のポーリング)。
+    /// 経路購読に失敗し続ける相手に対して復旧タイマーと掃引の再解決が恒久的に回り続ける —
+    /// ビーム探索 1 回とプロパティ購読の解除・再張りが毎回走り、張り替えの窓で変化まで落とす。
+    /// あの状態は**購読があってイベントが来る**ので閉路ではない (経路購読 B3 の外に居るだけ)。
     /// <see cref="SlotSubscriptionState.Unresolved"/> を含めると、アプリ未起動のトリガーが
     /// 常に「壊れている」になる — どちらも設計の売りを消す壊れ方である。
     /// </summary>

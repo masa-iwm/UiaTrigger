@@ -204,8 +204,12 @@ internal static class ElementResolver
                 {
                     break; // ウィンドウに行き着く前にビューの最上位へ出た
                 }
+                // **先に在庫へ入れてから比較する。**AreSame は投げうるので、比較してから
+                // 積む形だと「取ったばかりの parent」だけが下の後始末から漏れる
+                ancestors.Add(parent);
                 if (tree.AreSame(parent, windowNode))
                 {
+                    ancestors.RemoveAt(ancestors.Count - 1);
                     tree.Release(parent);
                     var chain = new List<IElementNode>(ancestors.Count + 2) { windowNode };
                     ancestors.Reverse();
@@ -213,7 +217,6 @@ internal static class ElementResolver
                     chain.Add(target);
                     return (chain, options.StepAutomationIdScore);
                 }
-                ancestors.Add(parent);
                 current = parent;
             }
         }

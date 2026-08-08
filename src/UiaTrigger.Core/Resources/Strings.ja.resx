@@ -118,7 +118,7 @@
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
   </data>
   <data name="Error_InvalidClauseName" xml:space="preserve">
-    <value>トリガー '{0}': '{1}' は句の名前として使えません。空にはできず、空白と ( ) ! &amp; | は含められません。</value>
+    <value>トリガー '{0}': '{1}' は句の名前として使えません。空にはできず、空白と ( ) ! &amp; | , は含められません。</value>
     <comment>{0} = trigger id, {1} = the offending clause name</comment>
   </data>
   <data name="Error_DuplicateClauseName" xml:space="preserve">
@@ -257,6 +257,9 @@
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>許容差に負の値は指定できません。</value>
   </data>
+  <data name="Draft_CustomNotSupported" xml:space="preserve">
+    <value>カスタムプロパティには UI Automation のプロパティ ID が必要ですが、この入力欄は ID を受け取りません。監視するには句を直接組み立ててください。</value>
+  </data>
   <data name="Draft_UndefinedEnumValue" xml:space="preserve">
     <value>条件にこのライブラリで定義されていない値が使われています。ライフサイクル・プロパティ・比較を選び直してください。</value>
   </data>
@@ -267,7 +270,7 @@
     <value>ポーリング間隔が大きすぎて表現できません。より小さい秒数を入力してください。</value>
   </data>
   <data name="Draft_InvalidClauseName" xml:space="preserve">
-    <value>'{0}' は条件の名前として使えません。空にはできず、空白と ( ) ! &amp; | は含められません。</value>
+    <value>'{0}' は条件の名前として使えません。空にはできず、空白と ( ) ! &amp; | , は含められません。</value>
     <comment>{0} = the offending clause name</comment>
   </data>
   <data name="Draft_DuplicateClauseName" xml:space="preserve">

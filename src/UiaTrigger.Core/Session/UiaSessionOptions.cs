@@ -75,6 +75,18 @@ public sealed class UiaSessionOptions
     /// </remarks>
     public bool SkipOwnProcessElements { get; set; } = true;
 
+    /// <summary>
+    /// The bounds recording shares with resolution: how many siblings a step is looked for among,
+    /// and how deep the walk up to the top-level window goes.
+    /// </summary>
+    /// <remarks>
+    /// The same settings the monitor resolves with (<see cref="Monitoring.TriggerMonitorOptions.Resolver"/>).
+    /// Recording past what resolution will consider produces a definition that records cleanly and
+    /// then resolves to a different element without any error, so the two sides share one policy
+    /// (docs/DESIGN.md A30). Scores are not used while recording; the limits are.
+    /// </remarks>
+    public Resolution.ResolverOptions Resolver { get; set; } = new();
+
     /// <summary>呼び出し上限時間として妥当か (UIA が受け付けるのは正のミリ秒)。</summary>
     internal static bool IsValidTimeout(TimeSpan value) => value.TotalMilliseconds is > 0 and <= uint.MaxValue;
 

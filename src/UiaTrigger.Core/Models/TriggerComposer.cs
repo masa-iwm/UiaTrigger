@@ -69,10 +69,25 @@ public static class TriggerComposer
     /// </param>
     /// <returns>A result carrying either a localized reason, or the composite definition.</returns>
     /// <remarks>
+    /// <para>
     /// The sources are left untouched; the composite carries copies of their clauses, each clause
     /// naming its own window and locator, which is what lets one trigger span several applications.
     /// A source with no clause of its own contributes "the element is there". The composite fires
     /// on <see cref="TriggerOn.WhileMatching"/>: once, when the combined condition becomes true.
+    /// </para>
+    /// <para>
+    /// The clauses are copies, but each copy's <see cref="PropertyClause.Window"/> and
+    /// <see cref="PropertyClause.Locator"/> are the **same objects** the sources hold — mutating
+    /// one afterwards changes both. Add the composite to a monitor and it takes its own copy
+    /// (see <see cref="Monitoring.TriggerMonitor.AddAsync"/>); pass it anywhere else and the
+    /// sharing is yours to keep in mind.
+    /// </para>
+    /// <para>
+    /// A source that is itself a composite — one carrying an expression, or several clauses
+    /// combined with <see cref="ClauseCombinator.Any"/> — is refused. Its expression is not
+    /// carried over, so combining it again would silently turn an "or" into an "and". Take it
+    /// apart with <see cref="Decompose"/> first and combine the pieces.
+    /// </para>
     /// </remarks>
     public static TriggerCompositionResult Compose(
         IReadOnlyList<TriggerDefinition> sources,

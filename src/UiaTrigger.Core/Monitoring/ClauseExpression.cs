@@ -84,8 +84,15 @@ internal static class ClauseExpression
     /// 式の中で名前として書ける文字か。
     /// 演算子・括弧・空白を名前に許すと、式が名前の途中で切れて別の意味に読めてしまう。
     /// </summary>
+    /// <remarks>
+    /// カンマも許さない。式の文法には要らないが、**名前の一覧はカンマ区切りで受け渡される**
+    /// (エディタの「絞るだけ」欄。<see cref="Models.TriggerComposer.UnwatchedNames"/> が返す
+    /// 一覧をそのまま <see cref="Models.TriggerComposer.Update"/> へ戻す経路 — C17 の恒等)。
+    /// 名前にカンマが入ると、一覧が別の 2 つの名前として読み直され、恒等が UI 経由で静かに
+    /// 破れる。区切りに使う文字は名前に許さない、が唯一ずれない解き方である。
+    /// </remarks>
     public static bool IsNameChar(char c) =>
-        !char.IsWhiteSpace(c) && c is not ('(' or ')' or '!' or '&' or '|');
+        !char.IsWhiteSpace(c) && c is not ('(' or ')' or '!' or '&' or '|' or ',');
 
     /// <summary>句の名前として使えるか。</summary>
     public static bool IsValidName(string? name)

@@ -333,4 +333,54 @@ public sealed class BeamSearchTests
     {
         Assert.True(Options.StepAutomationIdScore + Options.StepControlTypeMismatchPenalty >= Options.StepAcceptScore);
     }
+
+    /// <summary>
+    /// **ControlType 一致は ClassName 不一致を上回ること** (A4 を段レベルでも成立させる重み関係)。
+    ///
+    /// <para>
+    /// WinForms のクラス名は起動ごとに変わる token を含む (A4 の実測)。AutomationId も Name も
+    /// 無い段 (実行時生成の Pane / Group) で ClassName の減点が ControlType の加点を上回ると、
+    /// 再起動後に**その段の全候補が足切りされ経路が恒久的に解決不能**になる — A4 が
+    /// ウィンドウレベルで取り除いたのと同じ失敗である。例外もログも出ない。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void ScoreStep_AControlTypeMatchOutweighsAClassNameMismatch()
+    {
+        Assert.True(Options.StepControlTypeScore + Options.StepClassNameMismatchPenalty >= Options.StepAcceptScore);
+    }
+
+    /// <summary>
+    /// 上の不等式を、実際の解決で確かめる対 (重みを直接見るテストの検出力の裏付け)。
+    /// クラス名が起動ごとに変わった段でも、型と経路の形で追えること。
+    /// </summary>
+    [Fact]
+    public void Resolve_AfterAClassNameTokenChanged_StillFindsTheStep()
+    {
+        // 記録時のクラス名は WindowsForms10.Window.8.app.0.34f5582_r6_ad1 のような形。
+        // 再起動でこの token が変わる
+        var window = Node("window", WindowType).WithChildren(
+            Node("pane", Pane, className: "WindowsForms10.Window.8.app.0.NEWTOKEN"));
+
+        string? tag = Resolve(window, Definition(
+            new ElementPathStep
+            {
+                ControlType = Pane,
+                ClassName = "WindowsForms10.Window.8.app.0.OLDTOKEN",
+                SiblingIndex = 0,
+            }));
+
+        Assert.Equal("pane", tag);
+    }
+
+    /// <summary>
+    /// **記録側の走査上限は解決側の候補上限を超えないこと** (docs/DESIGN.md A30)。
+    /// 超えると「記録できたのに解決側の候補集合に入らない」段ができ、その定義は
+    /// エラーを出さずに別の要素へ解決される (兄弟インデックスの手掛かりが効かないため)。
+    /// </summary>
+    [Fact]
+    public void RecordingScansNoFurtherThanResolutionLooks()
+    {
+        Assert.True(Options.RecordingSiblingScan <= Options.MaxChildrenPerLevel);
+    }
 }

@@ -1267,17 +1267,33 @@ public sealed class TriggerMonitor : IAsyncDisposable
                         TryResolve(rt, slot, windows, initial: false);
                         break;
                     case SlotSubscriptionState.ResolvedOrphaned:
-                    case SlotSubscriptionState.ResolvedSubtreeFallback:
                         // 修復 = 再解決による張り替え。TryResolve は解決済みスロットへ
-                        // 再入でき、成功すれば要素を差し替えて購読を張り直す
+                        // 再入でき、同一要素を引き直せたときだけ購読を張り直す
                         TryResolve(rt, slot, windows, initial: false);
                         break;
                     // Resolved / ResolvedWindowSelf: 触らない (健全なスロットまで
-                    // 再解決すると張り替え嵐になる)
+                    // 再解決すると張り替え嵐になる)。
+                    //
+                    // ResolvedSubtreeFallback も触らない。**購読はあり、イベントは来る**ので
+                    // 閉路ではない — 経路購読 (B3) の外に居るだけである。毎掃引で再解決すると、
+                    // 経路購読に失敗し続ける相手に対してビーム探索 1 回 + プロパティ購読の
+                    // 解除と再張りが恒久的に走り続け、しかも張り替えの窓で変化を落とす。
+                    // この状態は次の構造変化 (Subtree 購読が拾う) が解決を回すときに、
+                    // 通常の経路で自然に張り替わる
                 }
             }
         }
         UpdateDiagnostics();
+    }
+
+    /// <summary>採らなかった解決結果を丸ごと手放す (対象と経路の全段)。</summary>
+    private static void ReleaseTarget(IElementTree tree, ResolvedTarget target)
+    {
+        tree.Release(target.Element);
+        foreach (IElementNode ancestor in target.Ancestors)
+        {
+            tree.Release(ancestor);
+        }
     }
 
     /// <summary>解決を試み、できなければ理由付きで「未解決」を通知する。</summary>
@@ -1398,6 +1414,20 @@ public sealed class TriggerMonitor : IAsyncDisposable
             return;
         }
 
+        // **修復は「同じ要素を引き直せたとき」しか続行しない** (docs/DESIGN.md A8/A9)。
+        // 別の候補が最良として返る形 (兄弟が増えてスコアが動いた等) で黙って乗り換えると、
+        // 通知ゼロで監視対象が入れ替わり、Identity も新しい要素のもので上書きされるので
+        // 以後 CheckAlive も気づけない — A8 が防ぐために在る壊れ方そのものである。
+        // 別物なら何も触らずに帰る (購読の張り替えより**前**に判断すること — 張り替えてから
+        // 帰ると、購読は新しい経路・要素は古いまま、というずれが残る)。本当に消えていれば
+        // 次の掃引の CheckAlive が HandleRemoved へ落とし、通常の再解決
+        // (ResolutionChanged が上がる側) が引き直す
+        if (repairing && !IsSameElement(slot.Element, target.Element))
+        {
+            ReleaseTarget(tree, target);
+            return;
+        }
+
         IUIAutomationElement element = UiaElementNode.Unwrap(target.Element);
         ElementPropertySnapshot snapshot;
         try
@@ -1407,11 +1437,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         catch (COMException)
         {
             // 解決直後に消えた。次のイベントで再解決
-            tree.Release(target.Element);
-            foreach (IElementNode ancestor in target.Ancestors)
-            {
-                tree.Release(ancestor);
-            }
+            ReleaseTarget(tree, target);
             return;
         }
 
@@ -1431,10 +1457,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
         if (repairing)
         {
-            // 修復: 旧要素と旧プロパティ購読を手放してから差し替える (構造購読は上の
-            // EnsureStructureSubscription が「新を先に・旧を後で」の規律で張り替え済み)。
-            // ResolutionChanged は上げない — 解決済み → 解決済みであり、
-            // 利用者から見た状態は変わっていない
+            // 同一要素であることは上で確認済み。旧要素と旧プロパティ購読を手放してから
+            // 差し替える (構造購読は上の EnsureStructureSubscription が
+            // 「新を先に・旧を後で」の規律で張り替え済み)。ResolutionChanged は上げない —
+            // 解決済み → 解決済みであり、利用者から見た状態は変わっていない
             RemovePropertySubscription(slot);
             tree.Release(slot.Element);
             slot.Element = null;

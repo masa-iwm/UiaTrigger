@@ -369,11 +369,28 @@
       </param>
       <returns>ローカライズ済みの理由か、複合の定義のどちらかを運ぶ結果。</returns>
       <remarks>
-        元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
-        経路を名指す — これが 1 つのトリガーを複数のアプリケーションにまたがらせる。
-        自分の条件を持たない元トリガーは「その要素が在ること」を持ち込む。複合は
-        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する:
-        まとめた条件が成立した瞬間に 1 回である。
+        <para>
+          元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
+          経路を名指す — これが 1 つのトリガーを複数のアプリケーションにまたがらせる。
+          自分の条件を持たない元トリガーは「その要素が在ること」を持ち込む。複合は
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する:
+          まとめた条件が成立した瞬間に 1 回である。
+        </para>
+        <para>
+          条件は写しだが、写しの <see cref="P:UiaTrigger.Models.PropertyClause.Window" /> と
+          <see cref="P:UiaTrigger.Models.PropertyClause.Locator" /> は元トリガーが持つ
+          **同じオブジェクト**である — 後から一方を書き換えると両方が変わる。複合を監視へ
+          追加すればモニターが自分の写しを取る
+          (<see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />)
+          が、それ以外へ渡すときは共有していることを承知しておくこと。
+        </para>
+        <para>
+          元トリガー自身が複合 (式を持つ、または <see cref="F:UiaTrigger.Models.ClauseCombinator.Any" />
+          で結合された複数条件) の場合は断る。式は持ち込まれないので、まとめ直すと
+          「または」が黙って「かつ」に変わるためである。先に
+          <see cref="M:UiaTrigger.Models.TriggerComposer.Decompose(UiaTrigger.Models.TriggerDefinition,System.Collections.Generic.IEnumerable{System.String})" />
+          でほどいてから、部品をまとめ直すこと。
+        </para>
       </remarks>
     </member>
     <member name="M:UiaTrigger.Models.TriggerComposer.Update(UiaTrigger.Models.TriggerDefinition,System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Nullable{System.TimeSpan},System.Boolean)">
@@ -489,7 +506,7 @@
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.IsValidClauseName(System.String)">
       <summary>その文字列を <see cref="P:UiaTrigger.Models.PropertyClause.Name" /> に使えるか。</summary>
       <remarks>
-        名前は空にできず、空白と <c>( ) ! &amp; |</c> も含められない。含められると
+        名前は空にできず、空白と <c>( ) ! &amp; | ,</c> も含められない。含められると
         <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> がそこで
         2 つのものとして読んでしまうためである。入力し終えてからではなく入力中に示すこと —
         名前は一度決めると、以後のすべての式がそれを指す。
@@ -1053,7 +1070,7 @@
         まとめるトリガーが句を指すことはないためである。式が指すようになったら名前を付けること —
         位置由来の名前は、句を並べ替えても削っても構文としては通ってしまい、黙って別の意味になる。
         名前ならそうはならない。1 つのトリガーの中で一意であること。空白と
-        <c>( ) ! &amp; |</c> は名前に使えない。
+        <c>( ) ! &amp; | ,</c> は名前に使えない。
       </remarks>
     </member>
     <member name="P:UiaTrigger.Models.PropertyClause.Op">
@@ -1577,6 +1594,22 @@
     </member>
     <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxChildrenPerLevel">
       <summary>1 つの段で調べる子要素の最大数。</summary>
+      <remarks>
+        記録側が兄弟を走査する上限でもある。解決が見ることのない位置の兄弟インデックスを
+        記録すると、記録はできるのに解決できない定義が出来上がる
+        (<see cref="P:UiaTrigger.Resolution.ResolverOptions.RecordingSiblingScan" /> を参照)。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.RecordingSiblingScan">
+      <summary>記録側が、段の兄弟インデックスを決めるために走査する兄弟の数。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.Resolution.ResolverOptions.MaxChildrenPerLevel" /> を超えない。
+        解決側の候補上限を超えた位置に記録された段は、解決側が決して採れないので、
+        その定義はエラーを出さずに別の要素へ解決される (docs/DESIGN.md A30)。
+        数えられなかった兄弟は
+        <see cref="F:UiaTrigger.Models.ElementPathStep.UnknownSiblingIndex" /> として記録される —
+        誤った index ではなく、明示的な「不明」である (A7)。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxSearchDepth">
       <summary>
@@ -1789,6 +1822,19 @@
         既定で有効なのは、呼び出し元が通常ピッカーだからである。無効だと、
         ピッカーの上にカーソルを乗せたときにピッカー自身が選択されてしまう。
         自分のウィンドウを調べたいときは無効にすること。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.Resolver">
+      <summary>
+        記録が解決と共有する上限: 段の兄弟をどこまで探すか、トップレベルウィンドウまで
+        何段遡るか。
+      </summary>
+      <remarks>
+        モニターが解決に使うのと同じ設定である
+        (<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Resolver" />)。
+        解決が見る範囲を超えて記録すると、記録は綺麗に通るのに別の要素へエラーなく
+        解決される定義ができるので、両側で 1 つのポリシーを共有する (docs/DESIGN.md A30)。
+        記録中にスコアは使わない。使うのは上限だけである。
       </remarks>
     </member>
     <member name="P:UiaTrigger.UiaSessionOptions.ThreadName">

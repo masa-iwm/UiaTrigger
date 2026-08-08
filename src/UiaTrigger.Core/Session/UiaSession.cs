@@ -328,7 +328,7 @@ public sealed class UiaSession : IAsyncDisposable
         return LookupAsync<TriggerDefinition?>(nameof(BuildDefinitionAsync), null, () =>
         {
             using UiaElement.Borrowed borrowed = element.Borrow();
-            return DefinitionBuilder.Build(Context, borrowed.Element, view);
+            return DefinitionBuilder.Build(Context, borrowed.Element, view, _options.Resolver);
         });
     }
 
@@ -566,7 +566,7 @@ public sealed class UiaSession : IAsyncDisposable
                 {
                     throw new InvalidOperationException(Message.Format(Strings.Error_NoElementAtPoint, x, y));
                 }
-                return DefinitionBuilder.Build(Context, element, view);
+                return DefinitionBuilder.Build(Context, element, view, _options.Resolver);
             }
             finally
             {
