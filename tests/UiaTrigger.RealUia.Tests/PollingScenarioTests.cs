@@ -259,7 +259,7 @@ public sealed class PollingScenarioTests
     /// ポーリングが新しく作る唯一の失敗形である。
     /// </para>
     /// <para>
-    /// 埋め合わせが <c>ElementSlot.CustomValues</c> の直前値であり、それが効いていることを
+    /// 埋め合わせが <c>SlotObservations</c> の直前値であり、それが効いていることを
     /// ここで固定する。<c>ClassName</c> を Custom として読む — 名前付きでも読める値だが、
     /// **通るのは Custom の経路**であり、しかも実 UIA で安定している。
     /// </para>
@@ -293,6 +293,53 @@ public sealed class PollingScenarioTests
             diagnostics.PolledReadCount >= 2,
             $"読み直しが起きていないので、静かだったことに意味がありません " +
             $"(PolledReadCount={diagnostics.PolledReadCount}): {harness.History()}");
+    }
+
+    /// <summary>
+    /// **式の短絡で一度も読まれない Custom 句が、ポーリングの発火源にならないこと。**
+    ///
+    /// <para>
+    /// 式 <c>a || c</c> で a (presence) が成立し続ける構成では、c (Custom) は毎周
+    /// 短絡されて読まれず、ストアに直前値を持てない。「片方でも欠けていれば通す」の
+    /// 既定に毎周落ちると、**matched の間ポーリングのたびに鳴る** — 変化判定は
+    /// 「この周に実際に評価された句」だけを理由にできる (LastEvaluated)。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task WithPolling_AShortCircuitedCustomClause_DoesNotFireEveryRound()
+    {
+        using var target = TestTargetProcess.Start();
+        target.Send("add-button btnTarget");
+
+        TriggerDefinition definition = (await Recording.RecordAsync(target, "btnTarget")).PinToWindow(target);
+        definition.On = TriggerOn.PropertyChanged;
+        definition.PollInterval = PollInterval;
+        definition.Clauses.Clear();
+        definition.Clauses.Add(new PropertyClause
+        {
+            Name = "a", Property = TriggerProperty.Name, Op = ComparisonOp.Always,
+        });
+        definition.Clauses.Add(new PropertyClause
+        {
+            Name = "c",
+            Property = TriggerProperty.Custom,
+            CustomPropertyId = UiaTrigger.Interop.UiaIds.ClassNameProperty,
+            Op = ComparisonOp.Always,
+        });
+        definition.Expression = "a || c";
+
+        await using var harness = new MonitorHarness();
+        await harness.StartAsync(definition);
+        harness.WaitForResolution(resolved: true);
+
+        // 何も変わらない。a が成立し続け c は常に短絡される — 1 件も来てはいけない
+        harness.AssertNoFire(NoFireWindow);
+
+        TriggerMonitorDiagnostics diagnostics = harness.Monitor.GetDiagnostics();
+        Assert.True(
+            diagnostics.PollCount >= 2,
+            $"観測窓の間にポーリングが 2 周も回っていないので、静かだったことに意味がありません " +
+            $"(PollCount={diagnostics.PollCount}): {harness.History()}");
     }
 
     /// <summary>

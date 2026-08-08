@@ -74,6 +74,46 @@ public sealed class LifecycleConditionScenarioTests
     }
 
     /// <summary>
+    /// **C15 は <see cref="TriggerProperty.Custom"/> の句にも適用されること。**
+    ///
+    /// <para>
+    /// Custom はキャッシュ済みスナップショットを通らない第二の読み取り経路である。
+    /// 消滅時の評価がここだけ生読みに落ちると、死んだ要素への読みは COMException →
+    /// Unsupported に潰れ、**Custom で絞った ElementRemoved は例外もログも無く
+    /// 一度も鳴らない** — Name (上のテスト) と Custom で意味論が割れる。
+    /// 評価はストアの最終値 (購読が最新に保っている) を読む。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task ElementRemoved_WithACustomClause_ComparesTheValueJustBeforeRemoval()
+    {
+        using var target = TestTargetProcess.Start();
+        target.Send("add-button btnTarget");
+        TriggerDefinition definition = (await Recording.RecordAsync(target, "btnTarget")).PinToWindow(target);
+        definition.On = TriggerOn.ElementRemoved;
+        definition.Clauses.Clear();
+        definition.Clauses.Add(new PropertyClause
+        {
+            Property = TriggerProperty.Custom,
+            CustomPropertyId = UiaTrigger.Interop.UiaIds.NameProperty,
+            Op = ComparisonOp.Equals,
+            Text = "ready",
+        });
+
+        await using var harness = new MonitorHarness();
+        await harness.StartAsync(definition);
+        harness.WaitForResolution(resolved: true);
+
+        target.Send("set-text btnTarget ready");
+        harness.AssertNoFire(NoFireWindow);
+
+        target.Send("remove btnTarget");
+        TriggerFiredEventArgs fired = harness.WaitForFire();
+
+        Assert.Equal(TriggerOn.ElementRemoved, fired.On);
+    }
+
+    /// <summary>
     /// **ネガティブコントロール: 消滅直前に条件から外れていたら鳴らないこと。**
     /// <c>matched &amp;&amp;</c> の絞り込みそのものの網である — 絞り込みを消すとここが落ちる。
     /// 逆向きの鮮度も同時に言えている: 解決時の値と比較する退行では

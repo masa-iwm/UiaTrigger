@@ -213,23 +213,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         public nint StructureHandlerHwnd;
         /// <summary>true = 解決済みの経路購読 / false = ウィンドウ全体の Subtree 購読。</summary>
         public bool StructureIsPathScoped;
-        public ElementPropertySnapshot? LastSnapshot;
 
         /// <summary>
-        /// <see cref="TriggerProperty.Custom"/> の直前値 (鍵は <see cref="PropertyClause.CustomPropertyId"/>)。
-        ///
-        /// <para>
-        /// Custom はスナップショットに入らないので、<see cref="WatchedValuesChanged"/> は
-        /// 「変わったか」を答えられず**無条件に true** を返している。イベント経路ではそれでよい
-        /// (UIA が何かの変化を伝えてきている) が、**ポーリング経路では誰も何も言っていない**ため、
-        /// そのままだと毎周期鳴る。ここに前回値を残しておくのがその埋め合わせである。
-        /// </para>
-        /// <para>
-        /// 鍵が句ではなく**プロパティ ID** なのは、同じスロットの 2 つの句が同じ ID を
-        /// 指しうるからである (値は同じなので 1 つ持てば足りる)。
-        /// </para>
+        /// 評価が読む観測値 (スナップショット + Custom の最終値)。
+        /// **評価は必ずここ経由で読む** — 生読みは購読・ポーリング・解決の「ストア更新側」
+        /// だけに置く (docs/DESIGN.md C15/C16。<see cref="SlotObservations"/> のヘッダを参照)。
         /// </summary>
-        public Dictionary<int, ClauseValue>? CustomValues;
+        public readonly SlotObservations Observations = new();
 
         public bool IsResolved => Element is not null;
     }
@@ -272,6 +262,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         public required bool[] LastEvaluated { get; init; }
 
         /// <summary>
+        /// その周の句ごとの成否。**評価がその場で記録したもの**であり、発火時に述語を
+        /// 当て直さない — 当て直すと正規表現の制限時間切れが評価時と別の答えになりうる。
+        /// 0 (<see cref="ClauseOutcome.NotEvaluated"/>) が「読まれていない」。
+        /// </summary>
+        public required ClauseOutcome[] LastOutcomes { get; init; }
+
+        /// <summary>
         /// 解析済みの <see cref="TriggerDefinition.Expression"/>。
         /// null なら <see cref="TriggerDefinition.Combine"/> で平坦に結合する。
         /// </summary>
@@ -311,7 +308,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         /// <summary>このスロットのプロパティ変化を購読する必要があるか。</summary>
         /// <remarks>
         /// ElementRemoved も Watch な句があれば購読する。発火源にするためではなく
-        /// (OnPropertyChanged は ElementRemoved では鳴らさない)、LastSnapshot を最新に
+        /// (OnPropertyChanged は ElementRemoved では鳴らさない)、ストアのスナップショットを最新に
         /// 保つためである — 購読しないと HandleRemoved の「最後に見えていた状態」が
         /// 実際には**解決時の状態**になり、条件が古い値と比較される (docs/DESIGN.md C15)。
         /// ElementAppeared は対象外 — 発火は解決の瞬間だけで、以後の鮮度に意味が無い
@@ -597,6 +594,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
             ClauseNames = names,
             LastValues = new ClauseValue[compiled.Count],
             LastEvaluated = new bool[compiled.Count],
+            LastOutcomes = new ClauseOutcome[compiled.Count],
             Expression = ParseExpression(id, definition.Expression, names),
             Gate = new MinIntervalGate(definition.MinInterval, _timeProvider),
         };
@@ -1221,7 +1219,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         slot.Element = target.Element;
         slot.Identity = ElementIdentity.Of(target.Element);
         slot.WindowHandle = target.WindowHandle;
-        slot.LastSnapshot = snapshot;
+        slot.Observations.UpdateSnapshot(snapshot);
 
         if (rt.WatchesProperties(slot))
         {
@@ -1543,7 +1541,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void HandleRemoved(TriggerRuntime rt, ElementSlot slot, string reason)
     {
-        ElementPropertySnapshot? lastSnapshot = slot.LastSnapshot;
+        ElementPropertySnapshot? lastSnapshot = slot.Observations.Snapshot;
 
         RemovePropertySubscription(slot);
 
@@ -1551,6 +1549,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // 要素はもう無いので読み直しようがなく、これが唯一意味のある解釈である。
         // **要素を手放す前に評価すること** — 手放した後の評価は在否 (IsAbsent) が変わり、
         // 「消えた瞬間の状態を絞る」ではなく「消えた後の水準」になってしまう。
+        // **読むのはストアの最終値だけ (CustomReadMode.Stored)** — 消えかけの要素への
+        // 生読みは COMException → Unsupported に潰れ、Custom で絞った ElementRemoved が
+        // 例外もログも無く一度も鳴らなくなる (C15 が snapshot 系に約束している意味論を
+        // Custom にも適用する)
         //
         // **評価を飛ばす側では記録を戻すこと。**下の ElementRemoved は lastSnapshot が
         // null でも鳴るので、戻さないと**前の周の句の値が載る** (docs/DESIGN.md §4)
@@ -1563,7 +1565,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
             }
             else
             {
-                matchedLastSeen = Evaluate(rt);
+                matchedLastSeen = Evaluate(rt, CustomReadMode.Stored);
             }
         }
 
@@ -1593,8 +1595,9 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // 値の述語は最後に見えた値で評価され続ける (成立したまま要素が入れ替わっただけで
         // 水準が揺れないため — docs/DESIGN.md C16) が、「在ること」(Op=Always の presence 句)
         // はもう成立しない。水準は代入ではなく評価から求める。false を入れてしまうと、
-        // !presence で「b が消えたら成立」が表せなくなる (立ち上がりが起きた瞬間に潰される)
-        bool matched = Evaluate(rt);
+        // !presence で「b が消えたら成立」が表せなくなる (立ち上がりが起きた瞬間に潰される)。
+        // Custom もストアの最終値で評価する (Stored) — 上と同じ C16 の適用である
+        bool matched = Evaluate(rt, CustomReadMode.Stored);
         bool wasMatching = rt.LastMatch;
         rt.LastMatch = matched;
 
@@ -1623,7 +1626,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// 利用者が頼んだポーリングから来たか。**UIA からの通知と違い、この経路には
     /// 「何かが変わった」という手掛かりが一切無い**ので、
     /// <see cref="TriggerProperty.Custom"/> の扱いだけが変わる
-    /// (<see cref="ElementSlot.CustomValues"/> を参照)。それ以外は完全に同じ道を通る。
+    /// (<see cref="SlotObservations"/> を参照)。それ以外は完全に同じ道を通る。
     /// </param>
     private void OnPropertyChanged(TriggerRuntime rt, ElementSlot slot, bool polled = false)
     {
@@ -1657,15 +1660,14 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // **1 つのイベントの中で 2 つの要素を指す**形になる。
         // oldValue が空になりうるのはそのためである (報告したのが先頭の句のスロットでなければ、
         // 先頭の句の「変化前の値」というものが存在しない)
-        ElementPropertySnapshot? previous = slot.LastSnapshot;
+        ElementPropertySnapshot? previous = slot.Observations.Snapshot;
         ComparisonString oldValue = LastValueOf(rt, slot, previous);
-        slot.LastSnapshot = snapshot;
+        slot.Observations.UpdateSnapshot(snapshot);
         ComparisonString newValue = LastValueOf(rt);
 
-        // Custom はスナップショットに入らないので、Evaluate が読んだ値でキャッシュが上書きされる。
+        // Custom はスナップショットに入らないので、Evaluate が読んだ値でストアが上書きされる。
         // 比較には「この周が始まる前」の写しが要る (ポーリング経路だけ)
-        Dictionary<int, ClauseValue>? customBefore =
-            polled && slot.CustomValues is { Count: > 0 } ? new Dictionary<int, ClauseValue>(slot.CustomValues) : null;
+        Dictionary<int, ClauseValue>? customBefore = polled ? slot.Observations.SnapshotCustomValues() : null;
 
         // 未解決スロットが残っていても評価する。その句は不成立になるだけで、
         // a && !b の !b はまさにそれを条件にしている (TryResolve と同じ理由)
@@ -1735,6 +1737,17 @@ public sealed class TriggerMonitor : IAsyncDisposable
             TriggerProperty property = compiled.Clause.Property;
             if (property == TriggerProperty.Custom)
             {
+                // 短絡で読まれなかった句は、この周について何も分かっていない —
+                // 発火の理由にしない。ここを外すと、式が安定して短絡する構成
+                // (a || custom で a が成立し続ける等) の Custom 句がストアに値を持てず、
+                // 「片方でも欠けていれば通す」の既定に毎周期落ちて、matched の間
+                // ポーリングのたびに鳴る。named 句は snapshot 比較で常に答えられるので対象外。
+                // この判定は Evaluate が LastEvaluated を書いた後に呼ばれることに依存する
+                // (OnPropertyChanged の順序: Evaluate → WatchedValuesChanged)
+                if (!rt.LastEvaluated[i])
+                {
+                    continue;
+                }
                 if (CustomValueChanged(compiled.Clause, slot, polled, customBefore))
                 {
                     return true;
@@ -1762,7 +1775,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </para>
     /// <para>
     /// **ポーリング経路には、その手掛かりすら無い。**タイマーで起きただけなので、
-    /// ここで通すと毎周期鳴る。<see cref="ElementSlot.CustomValues"/> に残した直前値と
+    /// ここで通すと毎周期鳴る。<see cref="SlotObservations"/> に残した直前値と
     /// 突き合わせて、本当に変わった周だけを通す。
     /// </para>
     /// </summary>
@@ -1782,16 +1795,35 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
         int id = clause.CustomPropertyId;
         // 片方でも欠けていれば判断できない。通す側に倒す。
-        // 欠けるのは (a) 初回の周 (b) 式が短絡してこの句を読まなかった周 である
+        // 欠けるのは初回の周である (短絡で読まれなかった周は呼び出し元が先に落とす —
+        // WatchedValuesChanged の LastEvaluated 判定)
         return customBefore is null ||
                !customBefore.TryGetValue(id, out ClauseValue before) ||
-               slot.CustomValues is null ||
-               !slot.CustomValues.TryGetValue(id, out ClauseValue after) ||
+               !slot.Observations.TryGetCustom(id, out ClauseValue after) ||
                before != after;
     }
 
     /// <summary>
-    /// 句を評価する。<see cref="TriggerProperty.Custom"/> だけはその場で読む。
+    /// <see cref="TriggerProperty.Custom"/> の読み方 (docs/DESIGN.md C15/C16)。
+    /// named プロパティは常にストア (スナップショット) 経由なのでモードが要らない —
+    /// Custom だけが評価のたびにクロスプロセスの生読みを起こすため、
+    /// 「読み直してよい評価」と「最終値で評価する評価」を呼び出し側が宣言する。
+    /// </summary>
+    private enum CustomReadMode
+    {
+        /// <summary>生きた要素から読み直し、ストアを更新する (購読・ポーリング・解決 = 更新側)。</summary>
+        Live,
+
+        /// <summary>
+        /// ストアの最終値のみ (<see cref="HandleRemoved"/> — 要素はもう信用できない)。
+        /// 消えかけの要素への生読みは COMException → Unsupported に潰れ、
+        /// C15/C16 の「最後に見えた値」の約束が Custom だけ破れる。
+        /// </summary>
+        Stored,
+    }
+
+    /// <summary>
+    /// 句を評価する。<see cref="TriggerProperty.Custom"/> だけは (Live なら) その場で読む。
     ///
     /// **各スロットの最新スナップショットに対して評価するのであって、同時に読むわけではない。**
     /// 別プロセスを原子的にスナップショットする方法は無く、イベントごとに全スロットを読み直せば
@@ -1799,7 +1831,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// 未解決スロットの句は読めない = 不成立なので、<c>!b</c> は
     /// **b のアプリが起動していない間ずっと成立する**。回避は <c>a &amp;&amp; !b</c>。
     /// </summary>
-    private static bool Evaluate(TriggerRuntime rt)
+    private static bool Evaluate(TriggerRuntime rt, CustomReadMode mode = CustomReadMode.Live)
     {
         ResetReadings(rt);
 
@@ -1821,7 +1853,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 return value;
             }
 
-            if (slot.LastSnapshot is not { } snapshot)
+            if (slot.Observations.Snapshot is not { } snapshot)
             {
                 // 一度も解決していないスロット。値は無く、要素も居ない (Absent) —
                 // 在否は Always (presence) の成否を決める (ClauseValue.IsAbsent)
@@ -1837,23 +1869,37 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 // 「在ること」はもう言えない
                 return Record(slot.Element is null ? value.AsAbsent() : value);
             }
-            if (slot.Element is null)
+            if (slot.Element is null || mode == CustomReadMode.Stored)
             {
-                return Record(ClauseValue.Unsupported.AsAbsent());
+                // Custom も named と同じ意味論 (C15/C16): 値の述語はストアの最終値で
+                // 評価され続け、在否だけが変わる。ここで生読みに落ちると、消えた要素の
+                // Custom 述語だけが Unsupported に潰れて水準が揺れる
+                ClauseValue last = slot.Observations.TryGetCustom(clause.CustomPropertyId, out ClauseValue stored)
+                    ? stored
+                    : ClauseValue.Unsupported;
+                return Record(slot.Element is null ? last.AsAbsent() : last);
             }
             ClauseValue custom = PropertyReader.ReadCustom(
                 UiaElementNode.Unwrap(slot.Element), clause.CustomPropertyId);
-            // 読んだ値は残しておく。ポーリング経路が「本当に変わったか」を言える唯一の手掛かりで、
-            // それが無いと Custom 句を持つトリガーは毎周期鳴る (CustomValueChanged を参照)。
-            // **イベント経路もここを通るが、あちらはこの値を読まない** — 書いておくのは、
-            // 最初の周が比べる相手を持てるようにするためである
-            (slot.CustomValues ??= [])[clause.CustomPropertyId] = custom;
+            // 読んだ値は残しておく。ポーリング経路が「本当に変わったか」を言える手掛かりであり、
+            // 消滅後の評価 (Stored) の「最後に見えた値」でもある
+            slot.Observations.UpdateCustom(clause.CustomPropertyId, custom);
             return Record(custom);
         }
 
+        // 成立したかどうかは**評価したその場**で記録する (onClauseMatched)。
+        // 発火時に述語を当て直す形だと、正規表現の制限時間切れが評価時と発火時で
+        // 別の答えになりうる — イベントは「そのとき何がどう評価されたか」を語るものである
+        void RecordOutcome(int index, bool matched) =>
+            rt.LastOutcomes[index] = matched
+                ? ClauseOutcome.Matched
+                : !rt.LastValues[index].IsSupported
+                    ? ClauseOutcome.Unreadable
+                    : ClauseOutcome.NotMatched;
+
         return rt.Expression is { } expression
-            ? ClauseEvaluator.Matches(expression, rt.Clauses, Read)
-            : ClauseEvaluator.Matches(rt.Definition.Combine, rt.Clauses, Read);
+            ? ClauseEvaluator.Matches(expression, rt.Clauses, Read, RecordOutcome)
+            : ClauseEvaluator.Matches(rt.Definition.Combine, rt.Clauses, Read, RecordOutcome);
     }
 
     /// <summary>
@@ -1869,6 +1915,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         Array.Clear(rt.LastValues);
         Array.Clear(rt.LastEvaluated);
+        Array.Clear(rt.LastOutcomes); // 0 = ClauseOutcome.NotEvaluated
     }
 
     /// <summary>
@@ -1877,8 +1924,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// <remarks>
     /// **ここで固めるのが要点である。**作業領域は次の評価で上書きされ、配送は別スレッドで
     /// 起きるので、渡す時点で写しておかないと「配られたときには別の値」になる。
-    /// 成立したかどうかはここで計算する — 短絡を観測するために評価器を触らない代わりに、
-    /// 記録した値へ同じ述語をもう一度当てる (どちらも純粋なので結果は変わらない)。
+    /// 成否は**評価がその場で記録したもの** (LastOutcomes) を写すだけで、述語を当て直さない —
+    /// 当て直すと、正規表現の制限時間切れが評価時と発火時で別の答えになりうるし、
+    /// 在否で成立した Op=Always (パターン非対応でも要素が居れば成立する) が
+    /// 「発火を決めたのに Unreadable」と報告される。
     /// </remarks>
     private static ClauseReading[] ReadingsOf(TriggerRuntime rt)
     {
@@ -1895,13 +1944,8 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 continue;
             }
             ClauseValue value = rt.LastValues[i];
-            ClauseOutcome outcome = !value.IsSupported
-                ? ClauseOutcome.Unreadable
-                : ClauseEvaluator.MatchesClause(rt.Clauses[i], value)
-                    ? ClauseOutcome.Matched
-                    : ClauseOutcome.NotMatched;
             readings[i] = new ClauseReading(
-                rt.ClauseNames[i], value.IsSupported ? value.Text : ComparisonString.None, outcome);
+                rt.ClauseNames[i], value.IsSupported ? value.Text : ComparisonString.None, rt.LastOutcomes[i]);
         }
         return readings;
     }
@@ -1913,7 +1957,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// 比較用文字列であり、表示用に整形したものではない (docs/DESIGN.md L4)。
     /// </summary>
     private static ComparisonString LastValueOf(TriggerRuntime rt) =>
-        rt.Clauses.Count == 0 ? ComparisonString.None : LastValueOf(rt, rt.SlotOf(0), rt.SlotOf(0).LastSnapshot);
+        rt.Clauses.Count == 0 ? ComparisonString.None : LastValueOf(rt, rt.SlotOf(0), rt.SlotOf(0).Observations.Snapshot);
 
     private static ComparisonString LastValueOf(TriggerRuntime rt, ElementSlot slot, ElementPropertySnapshot? snapshot)
     {
@@ -1926,7 +1970,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     /// <summary>イベントに載せるスナップショット。最初の句が属するスロットのもの。</summary>
     private static ElementPropertySnapshot? CurrentSnapshot(TriggerRuntime rt) =>
-        rt.Clauses.Count == 0 ? rt.Slots[0].LastSnapshot : rt.SlotOf(0).LastSnapshot;
+        rt.Clauses.Count == 0 ? rt.Slots[0].Observations.Snapshot : rt.SlotOf(0).Observations.Snapshot;
 
     private void Fire(
         TriggerRuntime rt, TriggerOn on, ComparisonString oldValue, ComparisonString newValue,
