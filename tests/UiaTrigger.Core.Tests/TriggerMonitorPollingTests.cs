@@ -121,6 +121,39 @@ public sealed class TriggerMonitorPollingTests
         }
     }
 
+    /// <summary>
+    /// **共有セッションが先に破棄されても、モニターの破棄がポーラーを畳むこと。**
+    ///
+    /// <para>
+    /// doc は「モニターを先に破棄すること」と定めるが、型では守られていない。逆順のとき
+    /// StopCore はディスパッチャ上で走れない (ObjectDisposedException) — その経路で
+    /// ポーラーを畳み残すと、タイマーが生きたまま誰にも止められなくなる。
+    /// 登録簿 (_pollers) はこの経路のためだけにある。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task DisposingTheMonitorAfterItsSharedSession_StillDisposesThePollers()
+    {
+        var time = new FakeTimeProvider();
+        var session = new UiaSession(new UiaSessionOptions { TimeProvider = time });
+        TriggerMonitor monitor = session.CreateMonitor();
+        await monitor.StartAsync([Definition("t", Interval)], Ct);
+
+        SlotPoller poller = Assert.Single(PollersOf(monitor));
+
+        // doc の順序を破ってセッションを先に破棄する
+        await session.DisposeAsync();
+        await monitor.DisposeAsync();
+
+        Assert.Empty(PollersOf(monitor));
+        Assert.False(poller.IsScheduled);
+
+        static IReadOnlyCollection<SlotPoller> PollersOf(TriggerMonitor monitor) =>
+            (HashSet<SlotPoller>)typeof(TriggerMonitor)
+                .GetField("_pollers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .GetValue(monitor)!;
+    }
+
     /// <summary>頼めば、指定した間隔で回ること。</summary>
     [Fact]
     public async Task WhenAsked_ItPollsOnTheGivenInterval()

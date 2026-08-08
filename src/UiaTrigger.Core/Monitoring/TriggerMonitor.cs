@@ -55,8 +55,37 @@ public sealed class TriggerMonitor : IAsyncDisposable
     private AutomationEventHandler? _windowClosedHandler;
     // 監視状態は診断 API から任意のスレッドで読まれるので volatile。
     // 書き込むのは常に UiaDispatcher スレッド 1 本だけである
-    private volatile bool _started;
-    private volatile bool _disposed;
+    /// <summary>
+    /// 生涯状態 (docs/DESIGN.md §3 / A29)。値は <see cref="MonitorState"/>。
+    /// **Created ↔ Running の遷移はディスパッチャスレッド上でのみ行う** — 検証は呼び出し元
+    /// スレッドで前倒しする二相構造 (§2) のまま、状態の確定だけを単一の直列点に閉じる。
+    /// check-then-act が 2 スレッドに割れると、Dispose 完了後に StartCore が走って
+    /// 「購読を張ったのに誰も畳まない」ゾンビ監視ができる。診断は任意スレッドから Volatile 読み。
+    /// </summary>
+    private int _state;
+
+    /// <summary>
+    /// DisposeAsync の冪等ゲート (呼び出しスレッドで CAS)。「予約」であって状態遷移ではない —
+    /// 状態の確定 (Disposed) は DisposeCore (ディスパッチャ上) が行う。公開 API の
+    /// 呼び出し元スレッド側の早期 ODE 検査もこれを見る。
+    /// </summary>
+    private int _disposeRequested;
+
+    private enum MonitorState
+    {
+        Created = 0,
+        Running = 1,
+        Disposed = 2,
+    }
+
+    private bool IsRunningOnDispatcher => Volatile.Read(ref _state) == (int)MonitorState.Running;
+
+    /// <summary>
+    /// 生きている SlotPoller の登録簿 (R-014)。共有セッションが先に破棄されて StopCore が
+    /// 走れない経路 (<see cref="DisposeAllPollers"/>) のためだけにある。
+    /// </summary>
+    private readonly object _pollersGate = new();
+    private readonly HashSet<SlotPoller> _pollers = [];
     private int _sweepCount;
     private int _structureEventCount;
     private int _structureSubscriptionCount;
@@ -168,8 +197,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// exceptions thrown by <see cref="TriggerFired"/> / <see cref="ResolutionChanged"/> handlers.
     /// </summary>
     /// <remarks>
-    /// Exceptions thrown by a handler of this event are swallowed — it is the last resort, and
-    /// letting them escape would take the process down with nothing left to report to.
+    /// The two sources run on different threads (the automation thread and the delivery worker), so
+    /// this event can be raised concurrently — a handler must be thread-safe. Exceptions thrown by
+    /// a handler of this event are swallowed — it is the last resort, and letting them escape would
+    /// take the process down with nothing left to report to.
     /// </remarks>
     public event Action<Exception>? UnhandledException;
 
@@ -354,7 +385,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </param>
     public Task StartAsync(IEnumerable<TriggerDefinition>? triggers = null, CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposeRequested();
 
         var runtimes = new List<TriggerRuntime>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -390,7 +421,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     public Task AddAsync(TriggerDefinition definition, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposeRequested();
         if (string.IsNullOrEmpty(definition.Id))
         {
             throw new ArgumentException(Strings.Error_TriggerIdRequired, nameof(definition));
@@ -406,17 +437,33 @@ public sealed class TriggerMonitor : IAsyncDisposable
     public Task<bool> RemoveAsync(string triggerId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(triggerId);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposeRequested();
         return _dispatcher.InvokeAsync(() => RemoveCore(triggerId), cancellationToken);
     }
 
     /// <summary>The ids of the triggers currently being monitored.</summary>
-    public Task<IReadOnlyList<string>> GetTriggerIdsAsync(CancellationToken cancellationToken = default) =>
-        _dispatcher.InvokeAsync<IReadOnlyList<string>>(() => _runtimes.Keys.ToArray(), cancellationToken);
+    public Task<IReadOnlyList<string>> GetTriggerIdsAsync(CancellationToken cancellationToken = default)
+    {
+        // 破棄後の挙動を他の公開 API と揃える (ObjectDisposedException)。ガード無しだと
+        // ディスパッチャの生死次第で「完了する / internal 型名を晒す faulted Task になる」に割れる
+        ThrowIfDisposeRequested();
+        return _dispatcher.InvokeAsync<IReadOnlyList<string>>(() => _runtimes.Keys.ToArray(), cancellationToken);
+    }
 
     /// <summary>Stops monitoring and releases every UIA subscription.</summary>
-    public Task StopAsync(CancellationToken cancellationToken = default) =>
-        _dispatcher.InvokeAsync(StopCore, cancellationToken);
+    /// <remarks>
+    /// Every trigger is discarded, including ones added with <see cref="AddAsync"/> before
+    /// monitoring started — pass the definitions again when restarting.
+    /// </remarks>
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposeRequested();
+        return _dispatcher.InvokeAsync(StopCore, cancellationToken);
+    }
+
+    /// <summary>公開 API の呼び出し元スレッド側の早期 ODE 検査 (破棄後の挙動を 1 通りに揃える)。</summary>
+    private void ThrowIfDisposeRequested() =>
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposeRequested) != 0, this);
 
     /// <summary>
     /// A snapshot of what the monitor is currently doing.
@@ -429,7 +476,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </remarks>
     public TriggerMonitorDiagnostics GetDiagnostics() => new()
     {
-        IsRunning = _started,
+        IsRunning = Volatile.Read(ref _state) == (int)MonitorState.Running,
         TriggerCount = Volatile.Read(ref _triggerCount),
         ResolvedTriggerCount = Volatile.Read(ref _resolvedCount),
         SweepCount = Volatile.Read(ref _sweepCount),
@@ -455,17 +502,27 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        // 冪等ゲート。予約が立った瞬間から公開 API は ODE を返し始めるが、
+        // 状態の確定 (Disposed) はディスパッチャ上の DisposeCore が行う (A29 —
+        // 遷移は単一の直列点で)。これで「_disposed 検査と post の間に Dispose が完走し、
+        // 破棄済みモニターの上で StartCore が購読を張る」TOCTOU が閉じる:
+        // DisposeCore はキュー上で StartCore と直列に並び、後から走る側の冒頭再検査が捕まえる
+        if (Interlocked.Exchange(ref _disposeRequested, 1) != 0)
         {
             return;
         }
-        _disposed = true;
         try
         {
-            await _dispatcher.InvokeAsync(StopCore).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(DisposeCore).ConfigureAwait(false);
         }
         catch (ObjectDisposedException)
         {
+            // 共有セッションが先に破棄された (doc は「モニターを先に」と定めるが、型では
+            // 守られていない)。COM にはもう触れないが、タイマーはディスパッチャ無しで畳める —
+            // ここで畳まないと SlotPoller が生きたまま誰にも止められなくなる。
+            // 状態の確定もこの経路だけは呼び出しスレッドで行う (ディスパッチャはもう居ない)
+            Volatile.Write(ref _state, (int)MonitorState.Disposed);
+            DisposeAllPollers();
         }
         _dispatcher.UnhandledException -= RaiseUnhandledException;
         _sweep.Dispose();
@@ -476,6 +533,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
         // 投入済みの発火をハンドラへ流し切ってから戻る
         await _events.DisposeAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>ディスパッチャ上の破棄 (停止 + 状態の確定)。</summary>
+    private void DisposeCore()
+    {
+        StopCore();
+        Volatile.Write(ref _state, (int)MonitorState.Disposed);
     }
 
     /// <summary>通知先が投げてもここで止める (通知先の例外でプロセスを落とさない)。</summary>
@@ -835,27 +899,49 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private UiaContext Ctx => _session.Context;
 
+    /// <summary>
+    /// work item 冒頭の状態再検査 (docs/DESIGN.md A29 / R-019)。呼び出し元スレッドの
+    /// 早期検査 (<see cref="ThrowIfDisposeRequested"/>) と post の間に DisposeAsync が
+    /// 完走する窓があるため、ディスパッチャ上でもう一度確かめる — DisposeCore はこの
+    /// キューで直列に並ぶので、後から走る側は必ずここで捕まる。
+    /// </summary>
+    private void ThrowIfDisposedOnDispatcher() =>
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _state) == (int)MonitorState.Disposed ||
+            Volatile.Read(ref _disposeRequested) != 0,
+            this);
+
+    /// <summary>
+    /// 監視の開始。**失敗した work item は状態を開始前と完全に同一へ巻き戻してから fault する**
+    /// (docs/DESIGN.md A29) — 「純検査 → 失敗しうる副作用 (巻き戻し付き) → 以降投げない」の
+    /// 3 段に並べてある。半開始 (IsRunning=true・購読 0 本) で固着すると、復旧は
+    /// StopAsync のみで、気づく手掛かりが無い。
+    /// </summary>
     private void StartCore(List<TriggerRuntime> runtimes)
     {
-        if (_started)
+        ThrowIfDisposedOnDispatcher();
+        if (IsRunningOnDispatcher)
         {
             throw new InvalidOperationException(Strings.Error_AlreadyStarted);
         }
-        _started = true;
-        if (!Ctx.SupportsTimeouts)
-        {
-            Log.TimeoutsUnsupported(_logger);
-        }
 
+        // ---- 1) 純検査: 何も変えずに弾く。開始前に AddAsync で足された分と衝突しうる
+        //      (呼び出し元スレッドの seen は引数内の重複しか見ない)
         foreach (TriggerRuntime rt in runtimes)
         {
-            // 開始前に AddAsync で足された分と衝突しうる
-            if (!_runtimes.TryAdd(rt.Id, rt))
+            if (_runtimes.ContainsKey(rt.Id))
             {
                 throw new ArgumentException(Message.Format(Strings.Error_DuplicateTriggerId, rt.Id));
             }
         }
 
+        if (!Ctx.SupportsTimeouts)
+        {
+            Log.TimeoutsUnsupported(_logger);
+        }
+
+        // ---- 2) 失敗しうる副作用: ルート購読 2 本。2 本目の失敗は 1 本目を外して rethrow
+        //
         // ウィンドウの出現・消滅をルートで一括購読し、デバウンス付きで再解決を回す。
         //
         // WindowOpened はトップレベルウィンドウがルートの直接の子なので Children で足りる
@@ -868,10 +954,36 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // System.Windows.Automation は同じ制約を明示的に例外にしている:
         //   "WindowClosed event is only applicable to RootElement and TreeScope.Subtree"
         // 手書き interop には検証が無いので、黙って何も来なくなる形で壊れる。
-        _windowOpenedHandler = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
-        _windowClosedHandler = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
-        Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowOpenedEvent, Ctx.Root, TreeScope.Children, null, _windowOpenedHandler);
-        Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowClosedEvent, Ctx.Root, TreeScope.Subtree, null, _windowClosedHandler);
+        var opened = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
+        var closed = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
+        Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowOpenedEvent, Ctx.Root, TreeScope.Children, null, opened);
+        try
+        {
+            Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowClosedEvent, Ctx.Root, TreeScope.Subtree, null, closed);
+        }
+        catch (COMException)
+        {
+            // WindowClosed 側が張れなかった (WinForms 系の削除検知が黙って死ぬ) まま
+            // 進んではいけない。1 本目を外して開始前と同一状態に戻す
+            try
+            {
+                Ctx.Automation.RemoveAutomationEventHandler(UiaIds.WindowOpenedEvent, Ctx.Root, opened);
+            }
+            catch (COMException)
+            {
+            }
+            throw;
+        }
+        _windowOpenedHandler = opened;
+        _windowClosedHandler = closed;
+
+        // ---- 3) 以降は投げない: 登録 → 状態の確定 → 解決 → ポーリング。
+        //      解決 (ResolveOrWait → TryResolve) は COMException を内側で握る
+        foreach (TriggerRuntime rt in runtimes)
+        {
+            _runtimes.Add(rt.Id, rt);
+        }
+        Volatile.Write(ref _state, (int)MonitorState.Running);
 
         var windows = NewCandidateCache();
         foreach (TriggerRuntime rt in _runtimes.Values)
@@ -886,13 +998,14 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void AddCore(TriggerRuntime runtime)
     {
+        ThrowIfDisposedOnDispatcher();
         if (_runtimes.ContainsKey(runtime.Id))
         {
             throw new ArgumentException(Message.Format(Strings.Error_DuplicateTriggerId, runtime.Id));
         }
         _runtimes.Add(runtime.Id, runtime);
         Log.TriggerAdded(_logger, runtime.Id);
-        if (_started)
+        if (IsRunningOnDispatcher)
         {
             // 1 件だけ足すのに全体を止める必要は無い。この 1 件だけを解決する
             ResolveOrWait(runtime, NewCandidateCache(), initial: true);
@@ -903,6 +1016,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private bool RemoveCore(string triggerId)
     {
+        ThrowIfDisposedOnDispatcher();
         if (!_runtimes.Remove(triggerId, out TriggerRuntime? rt))
         {
             return false;
@@ -922,7 +1036,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void StopCore()
     {
-        bool wasStarted = _started;
+        bool wasStarted = IsRunningOnDispatcher;
         if (wasStarted)
         {
             // RemoveAllEventHandlers は使わない。セッションを共有している場合、
@@ -934,14 +1048,18 @@ public sealed class TriggerMonitor : IAsyncDisposable
             foreach (TriggerRuntime rt in _runtimes.Values)
             {
                 ReleaseTrigger(rt);
-                // 停止をまたいでレート制限を持ち越さない (再開直後の 1 回目は必ず通す)
-                rt.Gate.Reset();
+                // レート制限 (Gate) には触らない。runtime は直後の Clear で捨てられ、
+                // 再開時は CreateRuntime が新しい Gate を作るので、停止をまたいだ持ち越しは
+                // 構造的に起きない — ここでの Reset は捨てるオブジェクトへの無効操作である
             }
         }
         // 開始前に AddAsync された分もここで捨てる (残すと次の StartAsync が重複で落ちる)。
         // 購読は張っていないので UiaContext には触らない
         _runtimes.Clear();
-        _started = false;
+        if (Volatile.Read(ref _state) != (int)MonitorState.Disposed)
+        {
+            Volatile.Write(ref _state, (int)MonitorState.Created);
+        }
         // これを忘れると、停止時に残っていたデバウンス予約のせいで
         // 再開後の最初の sweep 要求が黙って捨てられる (docs/DESIGN.md A14)
         _sweep.Reset();
@@ -1010,7 +1128,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void ScheduleSweep()
     {
-        if (_started)
+        if (IsRunningOnDispatcher)
         {
             _sweep.Schedule();
         }
@@ -1027,6 +1145,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
         rt.Poller = new SlotPoller(
             rt.Definition.PollInterval!.Value, () => _dispatcher.Post(() => PollRound(rt)), _timeProvider);
+        lock (_pollersGate)
+        {
+            _pollers.Add(rt.Poller);
+        }
         rt.Poller.Schedule();
         Log.PollingStarted(_logger, rt.Id, rt.Poller.Interval.TotalMilliseconds);
     }
@@ -1034,10 +1156,38 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// <summary>
     /// ポーリングを止める。停止をまたいで持ち越さない (<c>_sweep.Reset()</c> と同じ理由 — A14)。
     /// </summary>
-    private static void StopPolling(TriggerRuntime rt)
+    private void StopPolling(TriggerRuntime rt)
     {
-        rt.Poller?.Dispose();
+        if (rt.Poller is null)
+        {
+            return;
+        }
+        lock (_pollersGate)
+        {
+            _pollers.Remove(rt.Poller);
+        }
+        rt.Poller.Dispose();
         rt.Poller = null;
+    }
+
+    /// <summary>
+    /// 全ポーラーを畳む。**共有セッションが先に破棄された経路 (DisposeAsync の ODE) 専用。**
+    /// StopCore が走れないとき、_runtimes をディスパッチャ外から列挙するのは危険なので、
+    /// ポーラーだけの登録簿を別に持つ。SlotPoller.Dispose は冪等なので、通常経路の
+    /// StopPolling と重なっても安全である。lock の中で COM には触らない (デッドロックの形が無い)。
+    /// </summary>
+    private void DisposeAllPollers()
+    {
+        SlotPoller[] pollers;
+        lock (_pollersGate)
+        {
+            pollers = [.. _pollers];
+            _pollers.Clear();
+        }
+        foreach (SlotPoller poller in pollers)
+        {
+            poller.Dispose();
+        }
     }
 
     /// <summary>
@@ -1061,7 +1211,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         // 次の予約を受け付けられるようにしてから走る (SweepDebouncer と同じ約束)
         rt.Poller?.Reset();
-        if (!_started || !_runtimes.ContainsKey(rt.Id))
+        if (!IsRunningOnDispatcher || !_runtimes.ContainsKey(rt.Id))
         {
             return;
         }
@@ -1091,7 +1241,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         Interlocked.Increment(ref _sweepCount);
         _sweep.Reset();
-        if (!_started)
+        if (!IsRunningOnDispatcher)
         {
             return;
         }
@@ -1548,7 +1698,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // 壊れている間だけ再試行を予約する。戻ったら間隔も最初へ戻す。
         // **ここが「ポーリングしない」を保つ唯一の場所である** —
         // 判定 (SubscriptionHealth) が緩いと、アプリ未起動のトリガーで回りっぱなしになる
-        if (orphaned > 0 && _started)
+        if (orphaned > 0 && IsRunningOnDispatcher)
         {
             _repair.Schedule();
         }
@@ -1748,7 +1898,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </param>
     private void OnPropertyChanged(TriggerRuntime rt, ElementSlot slot, bool polled = false)
     {
-        if (slot.Element is null || !_started)
+        if (slot.Element is null || !IsRunningOnDispatcher)
         {
             return;
         }

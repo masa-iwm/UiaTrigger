@@ -81,6 +81,60 @@ public sealed class TriggerMonitorLifecycleTests
         Assert.Equal(0, diagnostics.OrphanedTriggerCount);
     }
 
+    /// <summary>
+    /// **StartAsync の失敗は監視を開始前と完全に同一の状態へ戻すこと** (docs/DESIGN.md A29)。
+    ///
+    /// <para>
+    /// 開始前に AddAsync した id と StartAsync の引数が衝突する形は、呼び出し元スレッドの
+    /// 検証 (引数内の重複しか見ない) を通過して StartCore まで届く。ここで
+    /// 「_started=true を確定してから登録が落ちる」実装だと、IsRunning=true・
+    /// ルート購読 0 本・一部トリガーだけ登録の**半開始状態に固着**し、
+    /// 再 StartAsync は AlreadyStarted で拒否される — 稼働中を名乗る死体である。
+    /// 公開 doc の「cancellation never leaves monitoring half-started」の精神は
+    /// 例外経路にも適用される。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task StartAsync_WhenItCollidesWithAPreAddedId_RollsBackToNotStarted()
+    {
+        await using var monitor = new TriggerMonitor();
+        await monitor.AddAsync(Definition("t1"), Ct);
+
+        // 同じ id での開始は失敗する (呼び出し元検証は引数内重複しか見ないので StartCore まで届く)
+        Exception? error = await Record.ExceptionAsync(() => monitor.StartAsync([Definition("t1")], Ct));
+        Assert.IsType<ArgumentException>(error);
+
+        // 失敗した work item は状態を巻き戻している — IsRunning は false のまま
+        Assert.False(monitor.GetDiagnostics().IsRunning);
+
+        // そして**再開始できる** (半開始で固着した実装では AlreadyStarted になる)
+        await monitor.StartAsync([Definition("t2")], Ct);
+        Assert.True(monitor.GetDiagnostics().IsRunning);
+        Assert.Equal(["t1", "t2"], (await monitor.GetTriggerIdsAsync(Ct)).Order(StringComparer.Ordinal));
+    }
+
+    /// <summary>
+    /// 破棄後の公開 API の挙動が 1 通り (ObjectDisposedException) に揃っていること。
+    /// ガードの顔ぶれが割れていると、破棄後の挙動がディスパッチャの生死次第で
+    /// 「完了する / internal 型名を晒す faulted Task になる」に分かれる。
+    /// **共有セッションで見る** — ディスパッチャが生き残る構成でだけ、ガード無しの
+    /// StopAsync / GetTriggerIdsAsync が「普通に完了する」側へ割れる (所有セッションでは
+    /// ディスパッチャごと死ぬので、ガードが無くても偶然 ODE になる)。
+    /// </summary>
+    [Fact]
+    public async Task AfterDispose_EveryPublicCallReportsObjectDisposed()
+    {
+        await using var session = new UiaSession();
+        TriggerMonitor monitor = session.CreateMonitor();
+        await monitor.DisposeAsync();
+
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => monitor.StartAsync(null, Ct));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => monitor.AddAsync(Definition("a"), Ct));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => monitor.RemoveAsync("a", Ct));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => monitor.StopAsync(Ct));
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => monitor.GetTriggerIdsAsync(Ct));
+    }
+
     [Fact]
     public async Task AddAsync_WithADuplicateId_Throws()
     {

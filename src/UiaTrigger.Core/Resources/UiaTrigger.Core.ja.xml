@@ -49,6 +49,8 @@
         のハンドラーが投げた例外の 2 つ。
       </summary>
       <remarks>
+        2 つの発生源は別のスレッド (オートメーションスレッドと配送ワーカー) で走るので、
+        このイベントは並行に発生しうる — ハンドラーはスレッドセーフであること。
         このイベントのハンドラー自身が投げた例外は握り潰される — ここは最後の通知先であり、
         漏らすと報告先の無いままプロセスが落ちるためである。
       </remarks>
@@ -648,6 +650,10 @@
     </member>
     <member name="M:UiaTrigger.Monitoring.TriggerMonitor.StopAsync(System.Threading.CancellationToken)">
       <summary>監視を停止し、UIA の購読をすべて解放する。</summary>
+      <remarks>
+        すべてのトリガーが破棄される。監視開始前に <see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />
+        で足した分も含む — 再開時は定義を渡し直すこと。
+      </remarks>
     </member>
     <member name="M:UiaTrigger.Persistence.AtomicFile.Write(System.String,System.Action{System.IO.Stream})">
       <summary>
