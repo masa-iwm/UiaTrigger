@@ -204,6 +204,11 @@ public sealed class TriggerMonitorPollingTests
     /// 基準線を取る前に**1 周空回しする**のが要点である。2 つの購読を張る時刻はわずかにずれ、
     /// その隙に来た変化は片方しか拾わない — 空回しでその予約を消化させてから数え始める。
     /// </para>
+    /// <para>
+    /// **終わりにも掃き出しを 1 度入れる。**最終周の直前に来た変化は、片方の掃引だけが
+    /// 予約済みのまま数えられて増分がずれる。時計は進めない — 進めるとポーリングの周が
+    /// 1 つ増え、検出力を示す側の数え (5 周) と食い違う。
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Polling_DoesNotDriveResolution()
@@ -227,6 +232,10 @@ public sealed class TriggerMonitorPollingTests
             await AdvanceBoth(polled, control, time);
         }
 
+        // 時計は進めずに掃き出しだけ (上の remarks)。最終周の直前に来た変化を
+        // 両方に消化させてから数える
+        await DrainBoth(polled, control);
+
         TriggerMonitorDiagnostics after = polled.GetDiagnostics();
         TriggerMonitorDiagnostics reference = control.GetDiagnostics();
 
@@ -242,7 +251,15 @@ public sealed class TriggerMonitorPollingTests
     private static async Task AdvanceBoth(TriggerMonitor a, TriggerMonitor b, FakeTimeProvider time)
     {
         time.Advance(Interval);
-        // 掃き出しは 2 つとも要る。ディスパッチャは監視ごとに別で、FIFO はその中でしか効かない
+        await DrainBoth(a, b);
+    }
+
+    /// <summary>時計を進めずに、予約済みの work item だけを両方から掃き出す。</summary>
+    /// <remarks>
+    /// 掃き出しは 2 つとも要る。ディスパッチャは監視ごとに別で、FIFO はその中でしか効かない。
+    /// </remarks>
+    private static async Task DrainBoth(TriggerMonitor a, TriggerMonitor b)
+    {
         await a.GetTriggerIdsAsync(Ct);
         await b.GetTriggerIdsAsync(Ct);
     }

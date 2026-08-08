@@ -58,13 +58,9 @@ public sealed class ResolutionDiagnosticsTests
     [Fact]
     public void DescribeUnresolved_MentionsTheSkippedProcesses()
     {
-        CultureInfo original = CultureInfo.CurrentUICulture;
-        try
+        // 文面そのものを見るので、実行環境の表示言語に左右されないよう neutral に固定する
+        using (CultureScope.Enter("en-US"))
         {
-            // 文面そのものを見るので、実行環境の表示言語に左右されないよう neutral に固定する
-            CultureInfo.CurrentUICulture = new CultureInfo("en-US");
-            CultureInfo.CurrentCulture = new CultureInfo("en-US");
-
             string plain = ResolutionDiagnostics.DescribeUnresolved(0);
             string withElevated = ResolutionDiagnostics.DescribeUnresolved(3);
 
@@ -73,35 +69,25 @@ public sealed class ResolutionDiagnosticsTests
             Assert.Contains("3", withElevated, StringComparison.Ordinal);
             Assert.Contains("elevated", withElevated, StringComparison.OrdinalIgnoreCase);
         }
-        finally
-        {
-            CultureInfo.CurrentUICulture = original;
-            CultureInfo.CurrentCulture = original;
-        }
     }
 
     /// <summary>診断メッセージはユーザー向け表示なのでローカライズされること (docs/LOCALIZATION.md §3)。</summary>
     [Fact]
     public void DescribeUnresolved_IsLocalized()
     {
-        CultureInfo original = CultureInfo.CurrentUICulture;
-        try
+        string japanese;
+        using (CultureScope.Enter("ja-JP"))
         {
-            CultureInfo.CurrentUICulture = new CultureInfo("ja-JP");
-            CultureInfo.CurrentCulture = new CultureInfo("ja-JP");
-            string japanese = ResolutionDiagnostics.DescribeUnresolved(2);
-
-            CultureInfo.CurrentUICulture = new CultureInfo("en-US");
-            CultureInfo.CurrentCulture = new CultureInfo("en-US");
-            string english = ResolutionDiagnostics.DescribeUnresolved(2);
-
-            Assert.NotEqual(english, japanese);
-            Assert.Contains("2", japanese, StringComparison.Ordinal);
+            japanese = ResolutionDiagnostics.DescribeUnresolved(2);
         }
-        finally
+
+        string english;
+        using (CultureScope.Enter("en-US"))
         {
-            CultureInfo.CurrentUICulture = original;
-            CultureInfo.CurrentCulture = original;
+            english = ResolutionDiagnostics.DescribeUnresolved(2);
         }
+
+        Assert.NotEqual(english, japanese);
+        Assert.Contains("2", japanese, StringComparison.Ordinal);
     }
 }

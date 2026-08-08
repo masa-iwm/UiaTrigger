@@ -175,10 +175,8 @@ public sealed class PickerStringTests
     [InlineData("ja-JP")]
     public void TheResxRouteResolvesEveryKeyAtRunTime(string culture)
     {
-        CultureInfo original = CultureInfo.CurrentUICulture;
-        try
+        using (CultureScope.Enter(culture))
         {
-            CultureInfo.CurrentUICulture = new CultureInfo(culture);
             var strings = new ResxPickerStrings();
 
             // GetString は引けなければキー名をそのまま返す (無言で空にしない) 契約なので、
@@ -192,10 +190,6 @@ public sealed class PickerStringTests
                 $"{culture}: ResxPickerStrings が解決できないキー: {string.Join(", ", unresolved)}。" +
                 "ResourceManager のベース名か .resx の埋め込みが外れています。");
         }
-        finally
-        {
-            CultureInfo.CurrentUICulture = original;
-        }
     }
 
     /// <summary>
@@ -207,21 +201,21 @@ public sealed class PickerStringTests
     [Fact]
     public void TheJapaneseSatelliteActuallyLoads()
     {
-        CultureInfo original = CultureInfo.CurrentUICulture;
-        try
-        {
-            var strings = new ResxPickerStrings();
-            CultureInfo.CurrentUICulture = new CultureInfo("en-US");
-            string english = strings.GetString(PickerStringKeys.CommitButtonContent);
-            CultureInfo.CurrentUICulture = new CultureInfo("ja-JP");
-            string japanese = strings.GetString(PickerStringKeys.CommitButtonContent);
+        var strings = new ResxPickerStrings();
 
-            Assert.NotEqual(english, japanese);
-            Assert.Equal("トリガーを追加", japanese);
-        }
-        finally
+        string english;
+        using (CultureScope.Enter("en-US"))
         {
-            CultureInfo.CurrentUICulture = original;
+            english = strings.GetString(PickerStringKeys.CommitButtonContent);
         }
+
+        string japanese;
+        using (CultureScope.Enter("ja-JP"))
+        {
+            japanese = strings.GetString(PickerStringKeys.CommitButtonContent);
+        }
+
+        Assert.NotEqual(english, japanese);
+        Assert.Equal("トリガーを追加", japanese);
     }
 }

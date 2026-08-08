@@ -204,7 +204,6 @@ public sealed class EditorShowcaseTests
             scenario.Diagnostics);
     }
 
-    /// <summary>対象アプリ + WinUI ホスト。ピッカーはエディタから開く。</summary>
     /// <summary>
     /// 複合の経路を丸ごと 1 回のホスト起動で見る (docs/MANUAL-CHECKS.md §4.3.5 の自動化)。
     ///

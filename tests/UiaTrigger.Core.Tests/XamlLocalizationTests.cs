@@ -291,9 +291,18 @@ public sealed class XamlLocalizationTests
     [MemberData(nameof(WithScannedSource))]
     public void NoSourceAssignsAUserFacingLiteral(string project)
     {
-        // Text = "…" のような代入。空文字は対象外 (表示するものが無い)
+        // Text = "…" のような代入。空文字は対象外 (表示するものが無い)。
+        //
+        // **語彙は「画面か支援技術に出るもの」で選ぶ。**AccessibleName / SetName は
+        // 目には見えないが読み上げには出るので、直書きすれば同じく英語圏で日本語が読まれる。
+        // Title も同様 (窓の題)。補間文字列 ($"…") まで見るのは、直書きを 1 つ変数に
+        // したくらいで検査を抜けられては意味が無いからである
         var assignment = new Regex(
-            @"\b(Text|Content|Header|ToolTipText|Caption)\s*=\s*""(?<value>[^""]+)""",
+            @"\b(Text|Content|Header|ToolTipText|Caption|Title|AccessibleName|AccessibleDescription)\s*=\s*\$?""(?<value>[^""]+)""",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(5));
+        var accessibilityCall = new Regex(
+            @"AutomationProperties\.Set(?:Name|HelpText)\s*\([^,]+,\s*\$?""(?<value>[^""]+)""",
             RegexOptions.CultureInvariant,
             TimeSpan.FromSeconds(5));
 
@@ -313,10 +322,13 @@ public sealed class XamlLocalizationTests
                 {
                     continue;
                 }
-                Match match = assignment.Match(line);
-                if (match.Success)
+                foreach (Regex pattern in new[] { assignment, accessibilityCall })
                 {
-                    offenders.Add($"{Path.GetFileName(path)}:{i + 1}: {match.Value.Trim()}");
+                    Match match = pattern.Match(line);
+                    if (match.Success)
+                    {
+                        offenders.Add($"{Path.GetFileName(path)}:{i + 1}: {match.Value.Trim()}");
+                    }
                 }
             }
         }

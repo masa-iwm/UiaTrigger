@@ -122,11 +122,25 @@ internal sealed class OverlayScenario : IDisposable
     /// <summary>
     /// 枠とアイコンが <paramref name="count"/> 個ずつになるまで待ち、**枠の**矩形を返す。
     /// </summary>
+    /// <param name="count">枠とアイコンの個数。</param>
+    /// <param name="matches">
+    /// 枠の矩形に対する追加条件。省略すると「潰れていない」だけを見る。
+    /// </param>
     /// <remarks>
+    /// <para>
     /// **両方を待つ。**1 枚のピッカーは窓を 2 つ出す (docs/DESIGN.md §10) ので、片方だけ見て先へ進むと
     /// 「アイコンがまだ出ていない」状態を掴む。どちらが先に UIA に現れるかは決まっていない。
+    /// </para>
+    /// <para>
+    /// **個数を数えたあとに「矩形が期待と一致するか」を判定式に持つこと。**
+    /// 個数だけ見て抜けると、枠が 1 回の選択で 2 度描かれる間の**途中の矩形**を掴む。
+    /// 既定の条件が「幅も高さも正」なのは、置かれる前の潰れた矩形がまさにその途中の姿だからである
+    /// (<c>ArrowKeyTests.WaitForFrame</c> と同じ形)。
+    /// </para>
     /// </remarks>
-    public List<System.Windows.Rect> WaitForOverlays(int count) => Ui.Until(
+    public List<System.Windows.Rect> WaitForOverlays(
+        int count,
+        Func<IReadOnlyList<System.Windows.Rect>, bool>? matches = null) => Ui.Until(
         () =>
         {
             IReadOnlyList<AutomationElement> overlays = Host.Overlays();
@@ -134,13 +148,15 @@ internal sealed class OverlayScenario : IDisposable
             {
                 return null;
             }
-            // 枠は 1 回の選択で 2 度描かれるので、期待と一致するまで待つ。
-            // 1 回だけ見ると途中の矩形を掴む
             List<System.Windows.Rect> rects = [.. overlays.Select(o => o.Current.BoundingRectangle)];
-            return rects.Count == count ? rects : null;
+            if (rects.Any(r => r.Width <= 0 || r.Height <= 0))
+            {
+                return null;
+            }
+            return matches is null || matches(rects) ? rects : null;
         },
         Settle,
-        $"枠とアイコンが {count} 個ずつになること",
+        $"枠とアイコンが {count} 個ずつ、潰れていない矩形で出ること",
         Describe);
 
     /// <summary>ピッカーを 1 枚閉じる。**どちらが閉じるかは決められない**。</summary>

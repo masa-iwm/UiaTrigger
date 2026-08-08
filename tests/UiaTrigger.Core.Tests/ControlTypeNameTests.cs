@@ -54,17 +54,9 @@ public sealed class ControlTypeNameTests
     [InlineData("de-DE")]
     public void GetName_DoesNotFollowTheCurrentCulture(string cultureName)
     {
-        CultureInfo original = CultureInfo.CurrentUICulture;
-        try
+        using (CultureScope.Enter(cultureName))
         {
-            CultureInfo.CurrentUICulture = new CultureInfo(cultureName);
-            CultureInfo.CurrentCulture = new CultureInfo(cultureName);
             Assert.Equal("Button", UiaControlTypeNames.GetName(ButtonControlType));
-        }
-        finally
-        {
-            CultureInfo.CurrentUICulture = original;
-            CultureInfo.CurrentCulture = original;
         }
     }
 

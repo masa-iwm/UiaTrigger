@@ -707,15 +707,9 @@ public sealed class TriggerDraftValidatorTests
 
     private static T WithCulture<T>(string name, Func<T> action)
     {
-        CultureInfo previous = CultureInfo.CurrentUICulture;
-        try
+        using (CultureScope.Enter(name))
         {
-            CultureInfo.CurrentUICulture = new CultureInfo(name);
             return action();
-        }
-        finally
-        {
-            CultureInfo.CurrentUICulture = previous;
         }
     }
 }

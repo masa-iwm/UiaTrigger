@@ -283,15 +283,6 @@ public sealed class TriggerPickerWinFormsTests
     }
 
     /// <summary>
-    /// 編集セッションのコミットで Form が閉じて Dispose されること。
-    ///
-    /// Form.Close は Show で出した Form を Dispose する — これが「Close は View への
-    /// 全書き込みの後」という継ぎ目の契約の理由である。ただし**順序の退行はこのテストでは
-    /// 落ちない** (実測: Dispose 済み Label への Text 代入はハンドルを作り直さず例外に
-    /// ならない)。順序の網は presenter 側の
-    /// <c>Commit_ForAnEditSession_ClosesTheViewLast</c> (Calls の並び) が持つ。
-    /// </summary>
-    /// <summary>
     /// **Enter が確定になるのは編集セッションのときだけ**であること (WPF 側の
     /// <c>OnlyAnEditSession_MakesCommitTheDefaultButton</c> の Windows Forms 対)。
     /// </summary>

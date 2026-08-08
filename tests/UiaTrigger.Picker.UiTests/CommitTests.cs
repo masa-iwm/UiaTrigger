@@ -1,4 +1,4 @@
-// S2: 確定 → 条件設定 → コミットの 1 往復 (docs/TESTING.md §1)。
+﻿// S2: 確定 → 条件設定 → コミットの 1 往復 (docs/TESTING.md §1)。
 //
 // MANUAL-CHECKS §4.3.1 の 4 項目を引き取る。
 //
@@ -410,7 +410,7 @@ public sealed class CommitTests
         {
             AutomationElement row = _host.Tree().SelectedRow()
                 ?? throw new InvalidOperationException("行が選択されていません。");
-            ConfirmButtonOf(row).Invoke();
+            row.ConfirmButtonOf().Invoke();
             WaitUntilCommitIsPossible();
         }
 
@@ -422,7 +422,7 @@ public sealed class CommitTests
                 Settle,
                 $"{automationId} の行",
                 Diagnostics);
-            ConfirmButtonOf(row).Invoke();
+            row.ConfirmButtonOf().Invoke();
             WaitUntilCommitIsPossible();
         }
 
@@ -447,7 +447,7 @@ public sealed class CommitTests
             string before = Read("ConfirmedText");
             AutomationElement row = _host.Tree().SelectedRow()
                 ?? throw new InvalidOperationException("行が選択されていません。");
-            ConfirmButtonOf(row).Invoke();
+            row.ConfirmButtonOf().Invoke();
             return Ui.Until(
                 () => Read("ConfirmedText") is { Length: > 0 } now &&
                       !string.Equals(now, before, StringComparison.Ordinal) ? now : null,
@@ -468,32 +468,6 @@ public sealed class CommitTests
         /// <summary>
         /// 行の確定ボタン。**その行自身のもの**を取る (WPF は行が入れ子)。
         /// </summary>
-        private static AutomationElement ConfirmButtonOf(AutomationElement row)
-        {
-            AutomationElement? nestedRow = row.FindFirst(
-                TreeScope.Children,
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TreeItem));
-            foreach (AutomationElement button in row.FindAll(
-                TreeScope.Descendants,
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
-            {
-                if (!button.TryGetCurrentPattern(InvokePattern.Pattern, out _))
-                {
-                    continue;
-                }
-                // 子の行の中に居るボタンは、その行のものではない
-                if (nestedRow is not null &&
-                    nestedRow.FindFirst(
-                        TreeScope.Descendants,
-                        new PropertyCondition(
-                            AutomationElement.RuntimeIdProperty, button.GetRuntimeId())) is not null)
-                {
-                    continue;
-                }
-                return button;
-            }
-            throw new InvalidOperationException($"行 '{row.NameOf()}' に確定ボタンがありません。");
-        }
 
         /// <summary>捕捉直後はチェーンだけなので、親を開き直して兄弟を実体化させる。</summary>
         public void RevealTheSiblings()

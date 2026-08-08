@@ -34,7 +34,13 @@ public sealed class HostStringTests
     /// </para>
     /// <para>
     /// 差し引くのは **<c>missing</c> 側だけ**である。<c>extra</c> 側 (WinUI に無いのに
-    /// WPF / WinForms に在る) は素通しにしてあり、監視用のキーが片方へ紛れ込めば落ちる。
+    /// WPF / WinForms に在る) は素通しにしてある。
+    /// </para>
+    /// <para>
+    /// **ただし <c>extra</c> はここに載ったキーの紛れ込みを検出できない。**
+    /// これらは WinUI に**在る**ので、WPF 側へ複製されても
+    /// <c>other.Keys.Except(reference.Keys)</c> から消える。紛れ込みは
+    /// <see cref="NoOtherHostCarriesTheShowcaseOnlyKeys"/> が名指しで見る。
     /// </para>
     /// </summary>
     private static readonly string[] ShowcaseOnlyKeys =
@@ -62,6 +68,60 @@ public sealed class HostStringTests
         // 上の 2 群と同じく D9 の非対称から出ている
         "ListSplitter.AutomationProperties.Name",
     ];
+
+    /// <summary>
+    /// T4 のショーケースが「どの行か」を見分けるのに使う札と、その出所のキー。
+    /// </summary>
+    /// <remarks>
+    /// **T4 側はこの文字列を定数として書き写している。**行の書式はリソース側にあるので、
+    /// 文言を直すと札が消え、T4 は「行が出ない」で期限まで待って落ちる — 原因が
+    /// リソースの文言だとは読めない失敗になる。ここで名指しで結び付けておくと、
+    /// リソースを触った時点で**この T1 が**落ちる。
+    /// </remarks>
+    public static TheoryData<string, string> ShowcaseMarkers =>
+    [
+        ("MonitorRowFired", "FIRED"),
+        ("MonitorRowResolved", "resolved"),
+        ("MonitorRowUnresolved", "UNRESOLVED"),
+        ("MonitorRowError", "ERROR"),
+    ];
+
+    /// <summary>
+    /// ショーケースの札が、実際に WinUI ホストのリソース文言に含まれていること。
+    /// </summary>
+    /// <remarks>
+    /// 見るのは en-US 側だけである。T4 のショーケースはホストを <c>--culture en-US</c> で
+    /// 起こすので、札が一致すべき相手はプライマリの文言だけになる。
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(ShowcaseMarkers))]
+    public void EveryShowcaseMarkerComesFromTheHostResource(string key, string marker)
+    {
+        Dictionary<string, string> english = Read($"{WinUi}/Strings/en-us/Resources.resw");
+
+        Assert.True(english.TryGetValue(key, out string? value), $"リソースにキーがありません: {key}");
+        Assert.True(
+            value!.Contains(marker, StringComparison.Ordinal),
+            $"{key} の文言 '{value}' に札 '{marker}' が含まれていません。" +
+            "T4 のショーケース (MonitorShowcaseTests / CompositeShowcaseTests) は" +
+            "この札で行を見分けます — 文言を変えるなら両方を一緒に直してください。");
+    }
+
+    /// <summary>
+    /// 「解決」の札が「未解決」の札に**含まれない**こと。
+    /// </summary>
+    /// <remarks>
+    /// T4 は序数の部分一致で行を選ぶので、片方がもう片方の部分文字列だと
+    /// **未解決の行を解決と読んで先へ進む**。ホストが平常を小文字・注意を大文字で
+    /// 出し分けているのはそのためであり、その出し分けをここで固定する。
+    /// </remarks>
+    [Fact]
+    public void TheResolvedMarkerIsNotASubstringOfTheUnresolvedOne()
+    {
+        Dictionary<string, string> english = Read($"{WinUi}/Strings/en-us/Resources.resw");
+
+        Assert.DoesNotContain("resolved", english["MonitorRowUnresolved"], StringComparison.Ordinal);
+    }
 
     /// <summary>言語 1 つぶんの、3 ホストのリソースファイル。</summary>
     public static TheoryData<string, string, string, string> HostResources =>
@@ -106,6 +166,40 @@ public sealed class HostStringTests
 
             Assert.True(missing.Length == 0, $"{language}/{label}: WinUI にあって無いキー: {string.Join(", ", missing)}");
             Assert.True(extra.Length == 0, $"{language}/{label}: WinUI に無いキー: {string.Join(", ", extra)}");
+        }
+    }
+
+    /// <summary>
+    /// ショーケース専用のキーが、WinUI 以外のホストへ紛れ込んでいないこと。
+    /// </summary>
+    /// <remarks>
+    /// <see cref="EveryHostCarriesTheSameKeys"/> の <c>extra</c> ではこれを検出できない —
+    /// 除外対象のキーは WinUI 側に**在る**ので、WPF / WinForms へ複製されても
+    /// 差集合から消えてしまう。除外表を持つ以上、除外したものが片側だけの決定として
+    /// 保たれていることは別に見る必要がある (docs/TESTING.md §2)。
+    /// </remarks>
+    [Theory]
+    [MemberData(nameof(HostResources))]
+    public void NoOtherHostCarriesTheShowcaseOnlyKeys(string language, string winui, string wpf, string winforms)
+    {
+        // WinUI 側には在ること。無ければ除外表のほうが腐っている
+        Dictionary<string, string> reference = Read(winui);
+        string[] vanished = [.. ShowcaseOnlyKeys.Except(reference.Keys, StringComparer.Ordinal).Order(StringComparer.Ordinal)];
+        Assert.True(
+            vanished.Length == 0,
+            $"{language}: 除外表に在るのに WinUI から消えたキー: {string.Join(", ", vanished)}。" +
+            "除外表のほうを直してください。");
+
+        foreach ((string label, string path) in new[] { ("WPF", wpf), ("WinForms", winforms) })
+        {
+            string[] leaked = [.. Read(path).Keys
+                .Intersect(ShowcaseOnlyKeys, StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)];
+
+            Assert.True(
+                leaked.Length == 0,
+                $"{language}/{label}: ショーケース専用のキーが紛れ込んでいます: {string.Join(", ", leaked)}。" +
+                "ピッカー → 監視の E2E は WinUI ホストだけが持つ決定です (README)。");
         }
     }
 

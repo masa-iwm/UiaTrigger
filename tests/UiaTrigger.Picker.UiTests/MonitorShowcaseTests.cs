@@ -1,4 +1,4 @@
-using System.Windows.Automation;
+﻿using System.Windows.Automation;
 using UiaTrigger.Models;
 using UiaTrigger.RealUia.Tests;
 using Xunit;
@@ -427,7 +427,7 @@ public sealed class MonitorShowcaseTests
         {
             AutomationElement row = _host.Tree().SelectedRow()
                 ?? throw new InvalidOperationException("行が選択されていません。");
-            ConfirmButtonOf(row).Invoke();
+            row.ConfirmButtonOf().Invoke();
             _ = Ui.Until(
                 () => Picker().ById("CommitButton") is { } b && b.Current.IsEnabled ? "ok" : null,
                 Settle,
@@ -486,7 +486,7 @@ public sealed class MonitorShowcaseTests
                 Settle,
                 "2 枚目のピッカーが対象を捕捉すること",
                 Diagnostics);
-            ConfirmButtonOf(row).Invoke();
+            row.ConfirmButtonOf().Invoke();
             _ = Ui.Until(
                 () => picker.ById("CommitButton") is { } b && b.Current.IsEnabled ? "ok" : null,
                 Settle,
@@ -662,31 +662,6 @@ public sealed class MonitorShowcaseTests
             Diagnostics);
 
         /// <summary>行の確定ボタン。その行自身のものを取る。</summary>
-        private static AutomationElement ConfirmButtonOf(AutomationElement row)
-        {
-            AutomationElement? nestedRow = row.FindFirst(
-                TreeScope.Children,
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TreeItem));
-            foreach (AutomationElement button in row.FindAll(
-                TreeScope.Descendants,
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
-            {
-                if (!button.TryGetCurrentPattern(InvokePattern.Pattern, out _))
-                {
-                    continue;
-                }
-                if (nestedRow is not null &&
-                    nestedRow.FindFirst(
-                        TreeScope.Descendants,
-                        new PropertyCondition(
-                            AutomationElement.RuntimeIdProperty, button.GetRuntimeId())) is not null)
-                {
-                    continue;
-                }
-                return button;
-            }
-            throw new InvalidOperationException($"行 '{row.NameOf()}' に確定ボタンがありません。");
-        }
 
         /// <summary>
         /// 冪等。テストが観測のために先に呼び、そのあと <c>using</c> がもう一度呼ぶ形を許す

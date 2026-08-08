@@ -46,6 +46,25 @@ internal static class Ui
     }
 
     /// <summary>
+    /// <paramref name="probe"/> が true になるまで待つ。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「窓が消えた」のように**真偽で言い切れる待ち**のための形である。
+    /// <see cref="Until{T}"/> は非 null を返させる型なので、待つ対象が真偽値だと
+    /// ダミーの戻り値をこしらえることになる。
+    /// </para>
+    /// <para>
+    /// **<see cref="Never"/> をこの用途に使わないこと。**あちらは「期限いっぱい起きない」を
+    /// 確かめる形なので、意味が逆であるうえに、成立していても必ず期限ぶん待つ。
+    /// 実際に「エディタが閉じるまで待つ」がその形で書かれており、成功しても毎回 5 秒を捨て、
+    /// しかも 1 回目の観測で閉じ切っていなければ落ちていた。
+    /// </para>
+    /// </remarks>
+    public static void UntilTrue(Func<bool> probe, TimeSpan timeout, string what, Func<string> diagnose)
+        => Until<string>(() => probe() ? what : null, timeout, what, diagnose);
+
+    /// <summary>
     /// <paramref name="probe"/> が期限いっぱい false のままであることを確かめる。
     /// ネガティブコントロール用 — 「起きないこと」は待ち切らないと言えない。
     /// </summary>
@@ -263,6 +282,50 @@ internal static class Ui
     /// WPF の行には展開用のボタンも居るが、あちらは <c>InvokePattern</c> を持たない (実測)。
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// 行の確定ボタン。**その行自身のもの**を取る。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// AutomationId では探せない — ボタンは <c>DataTemplate</c> の中にあり、
+    /// 行ごとに実体化されるので id を持たない。加えて WinUI の <c>TreeView</c> は
+    /// 行を入れ子にするので、部分木をそのまま辿ると**子の行のボタンを掴みうる**。
+    /// </para>
+    /// <para>
+    /// **この判断はビュー変種にも筋書きにも依らないので 1 か所に置く。**
+    /// 逐語の写しが 4 つに増えており、入れ子の除外を 1 つ直しても残りは古いまま —
+    /// しかも「隣の行のボタンを押した」は例外にならず、別の行が確定するだけである。
+    /// </para>
+    /// </remarks>
+    public static AutomationElement ConfirmButtonOf(this AutomationElement row)
+    {
+        ArgumentNullException.ThrowIfNull(row);
+
+        AutomationElement? nestedRow = row.FindFirst(
+            TreeScope.Children,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TreeItem));
+        foreach (AutomationElement button in row.FindAll(
+            TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
+        {
+            if (!button.TryGetCurrentPattern(InvokePattern.Pattern, out _))
+            {
+                continue;
+            }
+            // 子の行の中に居るボタンは、その行のものではない
+            if (nestedRow is not null &&
+                nestedRow.FindFirst(
+                    TreeScope.Descendants,
+                    new PropertyCondition(
+                        AutomationElement.RuntimeIdProperty, button.GetRuntimeId())) is not null)
+            {
+                continue;
+            }
+            return button;
+        }
+        throw new InvalidOperationException($"行 '{row.NameOf()}' に確定ボタンがありません。");
+    }
+
     public static int ConfirmButtonsOfItsOwn(this AutomationElement row)
     {
         int total = InvokableButtonsIn(row);
