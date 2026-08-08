@@ -31,8 +31,20 @@ namespace UiaTrigger;
 /// </remarks>
 public sealed class UiaElement : IDisposable
 {
+    /// <summary>
+    /// <see cref="_state"/> の解放要求ビット。下位ビットはアクティブな借用数。
+    /// </summary>
+    /// <remarks>
+    /// 解放 (FinalRelease) は「フラグが立っている かつ 借用 0」でしか起きない (docs/DESIGN.md B10)。
+    /// 借用中の明示 Dispose は解放を**借用終了まで遅延**する — 即時に解放すると、
+    /// ディスパッチャスレッドが進行中のクロスプロセス呼び出しの真下で RCW を失い、
+    /// 例外ではなくアクセス違反でプロセスごと落ちる (§7 の use-after-free と同じ壊れ方)。
+    /// </remarks>
+    private const int DisposedFlag = 1 << 30;
+
     private readonly bool _releasable;
     private IUIAutomationElement? _element;
+    private int _state;
 
     private UiaElement(IUIAutomationElement element, bool releasable)
     {
@@ -117,7 +129,7 @@ public sealed class UiaElement : IDisposable
     public bool IsOffscreen { get; }
 
     /// <summary>True once <see cref="Dispose"/> has run; the handle can no longer be used.</summary>
-    public bool IsDisposed => _element is null;
+    public bool IsDisposed => (Volatile.Read(ref _state) & DisposedFlag) != 0;
 
     /// <summary>
     /// A label built from the element's stable attributes, for trees and diagnostics.
@@ -146,6 +158,11 @@ public sealed class UiaElement : IDisposable
     public override string ToString() => Label;
 
     /// <summary>Releases the element's cross-process reference. Safe to call more than once.</summary>
+    /// <remarks>
+    /// Safe to call from any thread: when the session's automation thread is mid-call on this
+    /// element, the release is deferred until that call returns instead of pulling the COM object
+    /// out from under it.
+    /// </remarks>
     public void Dispose()
     {
         Release();
@@ -156,11 +173,50 @@ public sealed class UiaElement : IDisposable
     /// 一意 RCW は ComWrappers の同一性テーブルに載らないため、Dispose 忘れは
     /// RCW 自身のファイナライザ任せになる。ここでも解放しておくと
     /// 「GC まで相手プロセスの provider を掴んだまま」の窓が短くなる。
+    /// 借用中はそもそも到達可能 (Borrowed が持ち主を根に留める) なので、ここへ来た時点で
+    /// 借用数は必ず 0 である。
     /// </summary>
     ~UiaElement() => Release();
 
+    /// <summary>
+    /// 解放を**要求**する。借用が残っていれば実際の解放は最後の借用終了まで遅延する (B10)。
+    /// </summary>
     private void Release()
     {
+        int state = Volatile.Read(ref _state);
+        while (true)
+        {
+            if ((state & DisposedFlag) != 0)
+            {
+                return; // 既に要求済み (Dispose の多重呼び出し / Dispose とファイナライザー)
+            }
+            int seen = Interlocked.CompareExchange(ref _state, state | DisposedFlag, state);
+            if (seen == state)
+            {
+                break;
+            }
+            state = seen;
+        }
+        if (state == 0)
+        {
+            ReleaseNow(); // 借用なしでフラグを確定できたのは自分だけ — 解放も自分の仕事
+        }
+    }
+
+    /// <summary>最後の借用が閉じた。解放が遅延されていたならここで実行する。</summary>
+    private void EndBorrow()
+    {
+        if (Interlocked.Decrement(ref _state) == DisposedFlag)
+        {
+            ReleaseNow();
+        }
+    }
+
+    private void ReleaseNow()
+    {
+        // Exchange は「Release とEndBorrow が同時に条件を満たす」形が現れたときの最後の保険。
+        // 上の遷移規則上は 1 経路しか届かないが、二重 FinalRelease は生きている参照を落とす
+        // 種類の事故なので、ここでも冪等にしておく
         IUIAutomationElement? element = Interlocked.Exchange(ref _element, null);
         if (element is not null && _releasable)
         {
@@ -185,10 +241,28 @@ public sealed class UiaElement : IDisposable
     /// スコープを閉じるときに <see cref="GC.KeepAlive"/> するので、
     /// <c>using</c> の範囲内では解放されないことが保証される。
     /// </para>
+    /// <para>
+    /// 借用の成立は解放と排他である (docs/DESIGN.md B10): フラグ無しの状態で数を増やせたなら
+    /// FinalRelease はまだ走っておらず、この借用が閉じるまで走らない。**別スレッドの明示
+    /// Dispose** (presenter の掃き出しが典型) が進行中の呼び出しを壊さないのはこのためである。
+    /// </para>
     /// </remarks>
-    internal Borrowed Borrow() => new(this);
+    internal Borrowed Borrow()
+    {
+        int state = Volatile.Read(ref _state);
+        while (true)
+        {
+            ObjectDisposedException.ThrowIf((state & DisposedFlag) != 0, this);
+            int seen = Interlocked.CompareExchange(ref _state, state + 1, state);
+            if (seen == state)
+            {
+                return new Borrowed(this);
+            }
+            state = seen;
+        }
+    }
 
-    /// <summary>COM 要素の借用スコープ。閉じるまで持ち主は回収されない。</summary>
+    /// <summary>COM 要素の借用スコープ。閉じるまで持ち主は回収されず、解放も遅延される。</summary>
     internal readonly ref struct Borrowed
     {
         private readonly UiaElement _owner;
@@ -196,20 +270,26 @@ public sealed class UiaElement : IDisposable
         internal Borrowed(UiaElement owner)
         {
             _owner = owner;
-            Element = owner._element ?? throw new ObjectDisposedException(nameof(UiaElement));
+            // Borrow() が借用数を増やしてから来るので、ここで _element が null になる遷移は無い
+            // (解放は「フラグ確定 かつ 借用 0」でしか起きない)
+            Element = owner._element!;
         }
 
         /// <summary>借りている COM 要素。スコープの外へ持ち出さないこと。</summary>
         public IUIAutomationElement Element { get; }
 
         /// <summary>
-        /// 持ち主の生存をここまで引き延ばす。
+        /// 持ち主の生存をここまで引き延ばし、遅延された解放があれば実行する。
         /// </summary>
         /// <remarks>
-        /// これが**この型の存在理由そのもの**である。スタック上の構造体が持ち主への参照を
-        /// 持つので GC のルートになるが、それも「最後に使うまで」でしかない。
+        /// <see cref="GC.KeepAlive"/> が**この型の存在理由そのもの**である。スタック上の構造体が
+        /// 持ち主への参照を持つので GC のルートになるが、それも「最後に使うまで」でしかない。
         /// ここで明示的に触ることで、その最後をスコープの終わりに固定する。
         /// </remarks>
-        public void Dispose() => GC.KeepAlive(_owner);
+        public void Dispose()
+        {
+            _owner.EndBorrow();
+            GC.KeepAlive(_owner);
+        }
     }
 }

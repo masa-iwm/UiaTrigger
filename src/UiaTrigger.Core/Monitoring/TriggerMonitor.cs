@@ -144,6 +144,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// Raised for exceptions that have nowhere else to go: failures on the internal UIA thread and
     /// exceptions thrown by <see cref="TriggerFired"/> / <see cref="ResolutionChanged"/> handlers.
     /// </summary>
+    /// <remarks>
+    /// Exceptions thrown by a handler of this event are swallowed — it is the last resort, and
+    /// letting them escape would take the process down with nothing left to report to.
+    /// </remarks>
     public event Action<Exception>? UnhandledException;
 
     /// <summary>The session whose automation thread this monitor runs on.</summary>

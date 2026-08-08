@@ -157,13 +157,34 @@ internal sealed class PickerServices : IPickerServices
 
     public async Task<ChildrenResult?> GetChildrenAsync(IPickerElement parent, TreeViewMode view, IPickerElement? chainChild)
     {
-        IReadOnlyList<UiaElement> children =
+        IReadOnlyList<UiaElement>? children =
             await _session.GetChildrenAsync(UiaPickerElement.Unwrap(parent), view).ConfigureAwait(true);
-        // 既存のチェーン子が再列挙後の何番目かを 1 往復で調べる
-        // (要素ごとに比較を投げると子の数だけディスパッチャ往復が発生する)
-        int chainIndex = chainChild is null
-            ? -1
-            : await _session.IndexOfAsync(children, UiaPickerElement.Unwrap(chainChild)).ConfigureAwait(true);
+        if (children is null)
+        {
+            // 列挙の失敗。「子 0 件」(空の ChildrenResult) とは別で、presenter は
+            // 今の木を保ったまま再試行できる (docs/DESIGN.md §12 — 静かに間違わない)
+            return null;
+        }
+        int chainIndex = -1;
+        if (chainChild is not null)
+        {
+            try
+            {
+                // 既存のチェーン子が再列挙後の何番目かを 1 往復で調べる
+                // (要素ごとに比較を投げると子の数だけディスパッチャ往復が発生する)
+                chainIndex = await _session.IndexOfAsync(children, UiaPickerElement.Unwrap(chainChild)).ConfigureAwait(true);
+            }
+            catch
+            {
+                // ここで fault すると列挙済みの子 (最大 MaxChildren 個の跨プロセス参照) が
+                // 誰にも配られないまま残る — ファイナライザ任せにせず手放してから伝播する
+                foreach (UiaElement child in children)
+                {
+                    child.Dispose();
+                }
+                throw;
+            }
+        }
         return new ChildrenResult { Children = Wrap(children), ChainChildIndex = chainIndex };
     }
 
@@ -176,14 +197,28 @@ internal sealed class PickerServices : IPickerServices
     /// <summary>指定座標に重なる要素スタックを構築する (別ウィンドウ・別プロセス含む、下 → 上)。</summary>
     public async Task<ElementStack?> GetStackAsync(int x, int y, IPickerElement? current)
     {
-        IReadOnlyList<UiaElement> nodes = await _session.GetOverlapStackAsync(x, y).ConfigureAwait(true);
-        if (nodes.Count == 0)
+        IReadOnlyList<UiaElement>? nodes = await _session.GetOverlapStackAsync(x, y).ConfigureAwait(true);
+        if (nodes is null || nodes.Count == 0)
         {
             return null;
         }
-        int currentIndex = current is null
-            ? -1
-            : await _session.IndexOfAsync(nodes, UiaPickerElement.Unwrap(current)).ConfigureAwait(true);
+        int currentIndex = -1;
+        if (current is not null)
+        {
+            try
+            {
+                currentIndex = await _session.IndexOfAsync(nodes, UiaPickerElement.Unwrap(current)).ConfigureAwait(true);
+            }
+            catch
+            {
+                // GetChildrenAsync と同じ形 — 配る前に fault したら在庫を手放す
+                foreach (UiaElement node in nodes)
+                {
+                    node.Dispose();
+                }
+                throw;
+            }
+        }
         if (currentIndex < 0)
         {
             currentIndex = nodes.Count - 1; // 最前面ウィンドウの最深要素
@@ -193,9 +228,9 @@ internal sealed class PickerServices : IPickerServices
 
     private async Task<HoverCapture?> BuildCaptureAsync(UiaElement element, TreeViewMode view, bool normalize)
     {
-        IReadOnlyList<UiaElement> chain =
+        IReadOnlyList<UiaElement>? chain =
             await _session.GetAncestorChainAsync(element, view, normalize).ConfigureAwait(true);
-        if (chain.Count == 0)
+        if (chain is null || chain.Count == 0)
         {
             return null;
         }

@@ -55,6 +55,22 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static partial bool GetWindowRect(nint hWnd, out UiaRect lpRect);
 
+    [LibraryImport("dwmapi.dll")]
+    private static partial int DwmGetWindowAttribute(nint hwnd, uint dwAttribute, out uint pvAttribute, uint cbAttribute);
+
+    private const uint DWMWA_CLOAKED = 14;
+
+    /// <summary>
+    /// DWM に cloak されたウィンドウか (別仮想デスクトップ・休止 UWP など)。
+    /// </summary>
+    /// <remarks>
+    /// cloaked のウィンドウは <see cref="IsWindowVisible"/> が真のまま画面に存在せず、
+    /// 矩形も点を含み続ける。可視判定とセットで使わないと、見えない窓が
+    /// ヒットテストの答えになる。属性が読めない環境 (DWM 無効) は「cloak されていない」に倒す。
+    /// </remarks>
+    internal static bool IsWindowCloaked(nint hwnd) =>
+        DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, out uint cloaked, sizeof(uint)) == 0 && cloaked != 0;
+
     [LibraryImport("kernel32.dll")]
     internal static partial nint OpenProcess(uint dwDesiredAccess, [MarshalAs(UnmanagedType.Bool)] bool bInheritHandle, uint dwProcessId);
 
@@ -125,8 +141,17 @@ internal static partial class NativeMethods
     [UnmanagedCallersOnly(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvStdcall)])]
     private static int EnumWindowsCallback(nint hwnd, nint lParam)
     {
-        var list = (List<nint>)GCHandle.FromIntPtr(lParam).Target!;
-        list.Add(hwnd);
-        return 1; // continue
+        // コールバックから例外を投げない。アンマネージドの呼び出し元へ抜けると
+        // プロセスがその場で落ちる (HostWindowPlacer.OnWindowEvent と同じ規律 / A28 と同族)
+        try
+        {
+            var list = (List<nint>)GCHandle.FromIntPtr(lParam).Target!;
+            list.Add(hwnd);
+            return 1; // continue
+        }
+        catch
+        {
+            return 0; // 列挙を打ち切る (ここまでに集めた分は呼び出し元がそのまま使える)
+        }
     }
 }

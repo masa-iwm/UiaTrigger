@@ -48,9 +48,18 @@
         <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired" /> / <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.ResolutionChanged" />
         のハンドラーが投げた例外の 2 つ。
       </summary>
+      <remarks>
+        このイベントのハンドラー自身が投げた例外は握り潰される — ここは最後の通知先であり、
+        漏らすと報告先の無いままプロセスが落ちるためである。
+      </remarks>
     </member>
     <member name="E:UiaTrigger.UiaSession.UnhandledException">
       <summary>オートメーションスレッド上で発生した、他に行き場のない例外を通知する。</summary>
+      <remarks>
+        ハンドラーが投げた例外は握り潰される。このイベントはオートメーションスレッドの
+        入口から発生し、そこで漏れた例外はプロセスを落とすためである。ハンドラーも
+        そのスレッド上で走る — 速やかに戻り、ハンドラーの中からセッションを呼び返さないこと。
+      </remarks>
     </member>
 
     <!-- ================= 列挙メンバー・定数 ================= -->
@@ -668,6 +677,11 @@
     </member>
     <member name="M:UiaTrigger.UiaElement.Dispose">
       <summary>要素のクロスプロセス参照を解放する。複数回呼んでも安全。</summary>
+      <remarks>
+        どのスレッドから呼んでも安全である。セッションのオートメーションスレッドが
+        この要素への呼び出しの最中なら、解放はその呼び出しが戻るまで遅延される —
+        使用中の COM オブジェクトを足元から引き抜くことはない。
+      </remarks>
     </member>
     <member name="M:UiaTrigger.UiaElement.ToString">
       <summary>
@@ -706,7 +720,10 @@
     </member>
     <member name="M:UiaTrigger.UiaSession.BuildDefinitionFromCursorAsync(UiaTrigger.Models.TreeViewMode)">
       <summary>マウスカーソル下の要素からトリガー定義を記録する。</summary>
-      <exception cref="T:System.InvalidOperationException">カーソル下に要素が見つからなかった。</exception>
+      <exception cref="T:System.InvalidOperationException">
+        カーソル位置を読めなかった、またはその位置での記録に失敗した —
+        <see cref="M:UiaTrigger.UiaSession.BuildDefinitionFromPointAsync(System.Int32,System.Int32,UiaTrigger.Models.TreeViewMode)" /> を参照。
+      </exception>
       <remarks>
         返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
         句は空である。監視にかける前にどちらも埋めること。
@@ -714,7 +731,11 @@
     </member>
     <member name="M:UiaTrigger.UiaSession.BuildDefinitionFromPointAsync(System.Int32,System.Int32,UiaTrigger.Models.TreeViewMode)">
       <summary>物理スクリーン座標にある要素からトリガー定義を記録する。</summary>
-      <exception cref="T:System.InvalidOperationException">その座標に要素が見つからなかった。</exception>
+      <exception cref="T:System.InvalidOperationException">
+        その座標に要素が見つからなかった、<see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" />
+        が有効なまま呼び出し元プロセスの要素を指した、または記録中に UI Automation が失敗した
+        (失敗の内容は内部例外に載る)。
+      </exception>
       <remarks>
         返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
         句は空である。監視にかける前にどちらも埋めること。
@@ -734,10 +755,17 @@
       </remarks>
     </member>
     <member name="M:UiaTrigger.UiaSession.DisposeAsync">
-      <summary>オートメーションスレッドを停止し、セッションの UIA オブジェクトを解放する。</summary>
+      <summary>以後の投入を断る。オートメーションスレッドは投入済みの仕事を流し切って終了する。</summary>
       <remarks>
-        このセッションから作ったモニターを先に破棄すること。モニターは UI Automation の処理を
-        このセッションのスレッド上で行っており、スレッドが無くなると解決も購読解除もできなくなる。
+        <para>
+          このセッションから作ったモニターを先に破棄すること。モニターは UI Automation の処理を
+          このセッションのスレッド上で行っており、スレッドが無くなると解決も購読解除もできなくなる。
+        </para>
+        <para>
+          スレッドの終了は待たず、UIA オブジェクトの解放も自分では行わない — 投入済みの仕事は
+          完走し、セッションの UIA オブジェクトはガベージコレクターが回収する。取得済みの
+          要素ハンドルには影響しない。あちらは個別に破棄すること。
+        </para>
       </remarks>
     </member>
     <member name="M:UiaTrigger.UiaSession.ElementFromCursorAsync">
@@ -766,7 +794,7 @@
         重なり合う要素などのとき — は false にする。
       </param>
       <returns>
-        先頭がトップレベルウィンドウ、末尾が要素となる鎖。辿れなかった場合は空。
+        先頭がトップレベルウィンドウ、末尾が要素となる鎖。辿れなかった場合は null。
       </returns>
     </member>
     <member name="M:UiaTrigger.UiaSession.GetChildrenAsync(UiaTrigger.UiaElement,UiaTrigger.Models.TreeViewMode,System.Nullable{System.Int32})">
@@ -776,16 +804,26 @@
       <param name="max">
         返す最大件数。null なら <see cref="P:UiaTrigger.UiaSessionOptions.MaxChildren" />。
       </param>
-      <returns>子要素。要素が消えている場合や子が無い場合は空のリスト。</returns>
+      <returns>
+        子要素 — 本当に子が無い場合は空のリスト。UI Automation が列挙に失敗した場合
+        (要素が消えた、プロバイダーが応答しない) は null。null と空は意図的に別である —
+        null で木を消す呼び出し元は、一過性の失敗で状態を失うことになる。
+      </returns>
     </member>
     <member name="M:UiaTrigger.UiaSession.GetOverlapStackAsync(System.Int32,System.Int32)">
       <summary>物理スクリーン座標を覆っているすべての要素を、下にあるものから順に返す。</summary>
+      <returns>
+        スタック — どのウィンドウも座標を覆っていない場合は空のリスト。構築中に
+        UI Automation が失敗した場合は null。
+      </returns>
       <remarks>
         <para>
           ウィンドウとプロセスをまたぐ。その座標を含む可視のトップレベルウィンドウごとに、
           ウィンドウを先頭・最も深い要素を末尾としたヒット鎖を連結する。
           <see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" /> が有効なときは
-          呼び出し元プロセスのウィンドウを飛ばす。
+          呼び出し元プロセスのウィンドウを飛ばす。DWM に cloak されたウィンドウ
+          (別の仮想デスクトップ、休止中の UWP シェル) も飛ばす — 画面に何も出ていないのに
+          可視のまま座標を含む矩形を報告するためである。
         </para>
         <para>
           最前面のウィンドウには UI Automation 自身のヒットテストを使う (これが正である)。

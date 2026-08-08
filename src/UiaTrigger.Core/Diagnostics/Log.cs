@@ -120,6 +120,14 @@ internal static partial class Log
         }
     }
 
+    public static void DispatcherError(ILogger? logger, Exception exception)
+    {
+        if (logger is not null)
+        {
+            DispatcherErrorCore(logger, exception);
+        }
+    }
+
     [LoggerMessage(
         EventId = 1, Level = LogLevel.Warning,
         Message = "Screen coordinates are unreliable in this process: {Problem}")]
@@ -179,4 +187,10 @@ internal static partial class Log
         Message = "Trigger '{TriggerId}': polling its resolved elements every {IntervalMs}ms, as requested. " +
                   "This is a cost the caller asked for; monitoring is otherwise event driven.")]
     private static partial void PollingStartedCore(ILogger logger, string triggerId, double intervalMs);
+
+    [LoggerMessage(
+        EventId = 14, Level = LogLevel.Warning,
+        Message = "An exception escaped a posted work item on the automation thread. It was forwarded to " +
+                  "UnhandledException subscribers, but with none subscribed it would otherwise be silent.")]
+    private static partial void DispatcherErrorCore(ILogger logger, Exception exception);
 }

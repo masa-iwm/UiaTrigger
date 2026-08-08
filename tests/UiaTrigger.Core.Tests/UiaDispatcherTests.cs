@@ -110,6 +110,36 @@ public sealed class UiaDispatcherTests
         Assert.Equal(42, await task.WaitAsync(Limit, ct));
     }
 
+    /// <summary>
+    /// A28: UnhandledException の購読者が投げても、ディスパッチャスレッド (= プロセス) は生き残ること。
+    ///
+    /// <para>
+    /// Run はスレッドの生エントリなので、通知先の例外が漏れると CLR の未処理例外になり
+    /// **テストランナーごと落ちる** — このテストの「赤」は failed ではなくホストのクラッシュとして
+    /// 現れる。受け側 2 箇所 (TriggerMonitor.RaiseUnhandledException / SerialEventQueue.Report)
+    /// には同じガードが既にあり、ここだけ欠けると 3 箇所中 1 箇所の穴になる。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task UnhandledException_WhenTheSubscriberThrows_TheDispatcherSurvives()
+    {
+        using var dispatcher = new UiaDispatcher(nameof(UnhandledException_WhenTheSubscriberThrows_TheDispatcherSurvives));
+        CancellationToken ct = TestCt;
+
+        int notified = 0;
+        dispatcher.UnhandledException += _ =>
+        {
+            Interlocked.Increment(ref notified);
+            throw new InvalidOperationException("subscriber boom");
+        };
+
+        dispatcher.Post(() => throw new InvalidOperationException("work boom"));
+
+        // 後続の仕事が普通に完了する = スレッドは死んでいない
+        await dispatcher.InvokeAsync(() => { }, ct).WaitAsync(Limit, ct);
+        Assert.Equal(1, Volatile.Read(ref notified));
+    }
+
     [Fact]
     public async Task InvokeAsync_AfterDispose_ReportsObjectDisposed()
     {

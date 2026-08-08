@@ -37,18 +37,22 @@ public sealed class ElementBorrowTests
     {
         string source = ReadSource("src", "UiaTrigger.Core", "Session", "UiaElement.cs");
 
+        // EndBorrow → KeepAlive の順で両方あること。EndBorrow は遅延解放の解除 (B10) で、
+        // KeepAlive は持ち主の生存固定 — どちらか片方だけでは元の欠陥 (§7 / B10) が戻る
         Match dispose = Regex.Match(
             source,
-            @"public void Dispose\(\)\s*=>\s*GC\.KeepAlive\(_owner\);",
+            @"public void Dispose\(\)\s*\{\s*_owner\.EndBorrow\(\);\s*GC\.KeepAlive\(_owner\);\s*\}",
             RegexOptions.CultureInvariant,
             TimeSpan.FromSeconds(1));
 
         Assert.True(
             dispose.Success,
-            "借用スコープの Dispose が GC.KeepAlive(_owner) をしていません。" +
-            "これが無いと、COM 呼び出しの最中にファイナライザーが要素を解放しえます " +
-            "(アクセス違反でプロセスごと落ちる)。");
+            "借用スコープの Dispose が「_owner.EndBorrow(); GC.KeepAlive(_owner);」の形ではありません。" +
+            "KeepAlive が無いと COM 呼び出しの最中にファイナライザーが要素を解放しえます " +
+            "(アクセス違反でプロセスごと落ちる)。EndBorrow が無いと借用中に要求された解放が " +
+            "永遠に実行されません (docs/DESIGN.md B10)。");
     }
+
 
     /// <summary>
     /// <see cref="UiaElement"/> が、生の COM 要素をスコープ無しで渡す口を持たないこと。

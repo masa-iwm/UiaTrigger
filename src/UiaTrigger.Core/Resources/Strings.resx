@@ -178,6 +178,15 @@
     <comment>{0} = x, {1} = y (screen coordinates)</comment>
   </data>
 
+  <data name="Error_RecordAtPointFailed" xml:space="preserve">
+    <value>Recording a definition at screen point ({0}, {1}) failed: UI Automation could not read the element there.</value>
+    <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_CursorPositionUnavailable" xml:space="preserve">
+    <value>The mouse cursor position could not be read, so there is no point to record at.</value>
+  </data>
+
   <data name="Error_DpiUnaware" xml:space="preserve">
     <value>The process DPI awareness is '{0}'. Screen coordinates are virtualized, so a point passed to UI Automation resolves to the wrong element on a scaled display. Declare dpiAwareness=PerMonitorV2 in the application manifest, or call DpiAwareness.TryEnablePerMonitorV2 before creating any window.</value>
     <comment>{0} = the awareness mode name (Unaware / System / Invalid)</comment>
