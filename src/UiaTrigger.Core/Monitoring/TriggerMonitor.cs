@@ -330,7 +330,8 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </summary>
     /// <param name="triggers">
     /// Trigger definitions, or null to start empty and add them with <see cref="AddAsync"/>. Each
-    /// <see cref="TriggerDefinition.Id"/> must be non-empty and unique.
+    /// <see cref="TriggerDefinition.Id"/> must be non-empty and unique. The monitor takes a deep
+    /// copy of every definition: mutating one after this call has no effect on monitoring.
     /// </param>
     /// <param name="cancellationToken">
     /// Cancels the start request while it is still queued. Once the start has begun on the
@@ -366,7 +367,8 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </summary>
     /// <remarks>
     /// Only this trigger's subscriptions are touched; every other trigger keeps its working
-    /// subscriptions.
+    /// subscriptions. The monitor takes a deep copy of the definition: mutating it after this call
+    /// has no effect on monitoring — remove the trigger and add it again to change it.
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// The definition is invalid, or its <see cref="TriggerDefinition.Id"/> is already monitored.
@@ -480,6 +482,21 @@ public sealed class TriggerMonitor : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(definition.Window);
         ArgumentNullException.ThrowIfNull(definition.Locator);
         ArgumentNullException.ThrowIfNull(definition.Clauses);
+
+        // 呼び出し元の可変 POCO を参照のまま保持しない (docs/DESIGN.md C19)。追加後に
+        // ホストが書き換えた値が UIA スレッドから live に読まれると、データ競合と
+        // 「検証を通らない値が黙って効く」の両方が起きる。以降この関数と runtime が持つのは
+        // すべてこの写しである
+        definition = TriggerDefinitionRules.Clone(definition);
+
+        // 規則の正は TriggerDefinitionRules (docs/DESIGN.md C20)。**新しい規則をこの関数の
+        // 続きに足さないこと** — ここにだけ足すと Composer と TriggerStore.Load の門が
+        // 黙って緩む。続きに残っている検査は構築 (Regex / スロット / 式木) の途中で同じ規則を
+        // 再確認しているだけの重複であり、文言は Rules と一致している
+        if (TriggerDefinitionRules.Validate(definition, _options.RegexTimeout) is { } reason)
+        {
+            throw new ArgumentException(reason);
+        }
 
         // StoppedMatching は TriggerFiredEventArgs.On に載せるためだけの値である。
         // 定義の lifecycle として受けると「立ち下がりだけの WhileMatching」という

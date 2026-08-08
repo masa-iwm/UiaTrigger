@@ -46,6 +46,29 @@ public static class TriggerStore
                 CultureInfo.CurrentCulture,
                 $"'{path}' is version {file.Version}; this build understands up to {TriggerJson.FormatVersion}."));
         }
+        // 形の検査 (docs/DESIGN.md C20)。列挙は文字列コンバーターでも**裸の整数を既定で
+        // 受理する**ため、"Op": 99 の手編集がデシリアライズを素通りし、例外を出さずに
+        // 「鳴らないトリガー / Any 扱い」へ化ける。域外の値は形式の誤りとしてここで弾く。
+        // 意味の検証 (窓の要求・オペランドの有無) は**しない** — 1 件の意味エラーで
+        // ファイル全体が読めなくなると、一覧表示だけしたいホストに対して過剰であり、
+        // 意味の合否は従来どおり AddAsync が言う
+        if (file.Triggers is null)
+        {
+            throw new JsonException(string.Create(CultureInfo.CurrentCulture, $"'{path}': Triggers is null."));
+        }
+        for (int i = 0; i < file.Triggers.Count; i++)
+        {
+            TriggerDefinition? definition = file.Triggers[i];
+            if (definition is null)
+            {
+                throw new JsonException(string.Create(
+                    CultureInfo.CurrentCulture, $"'{path}': trigger [{i}] is null."));
+            }
+            if (TriggerDefinitionRules.CheckShape(definition) is { } reason)
+            {
+                throw new JsonException(reason);
+            }
+        }
         return file.Triggers;
     }
 

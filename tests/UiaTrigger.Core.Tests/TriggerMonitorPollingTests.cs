@@ -98,6 +98,29 @@ public sealed class TriggerMonitorPollingTests
         }
     }
 
+    /// <summary>
+    /// 監視は定義の深い写しを取ること (docs/DESIGN.md C19)。追加後に呼び出し元が POCO を
+    /// 書き換えても監視には反映されない — 反映される形だと、検証を通っていない値が
+    /// UIA スレッドから live に読まれ、「頼んでいないポーリング」のような黙った挙動変化になる。
+    /// </summary>
+    [Fact]
+    public async Task MutatingTheDefinitionAfterAddAsync_HasNoEffectOnMonitoring()
+    {
+        (TriggerMonitor monitor, FakeTimeProvider time) = Create();
+        await using (monitor)
+        {
+            TriggerDefinition definition = Definition("t", pollInterval: null);
+            await monitor.AddAsync(definition, Ct);
+
+            // 追加後の書き換え。写しを取らない実装ではこれが「頼んでいないポーリング」になる
+            definition.PollInterval = Interval;
+            await monitor.StartAsync(null, Ct);
+
+            await AdvanceAndDrain(monitor, time, TimeSpan.FromMinutes(10));
+            Assert.Equal(0, monitor.GetDiagnostics().PollCount);
+        }
+    }
+
     /// <summary>頼めば、指定した間隔で回ること。</summary>
     [Fact]
     public async Task WhenAsked_ItPollsOnTheGivenInterval()

@@ -178,6 +178,16 @@
     <comment>{0} = option name</comment>
   </data>
 
+  <data name="Error_UndefinedEnumValue" xml:space="preserve">
+    <value>Trigger '{0}': {1} carries the undefined value {2}. The definition was probably written by hand or by a newer version of the format.</value>
+    <comment>{0} = trigger key, {1} = property path, {2} = numeric value</comment>
+  </data>
+
+  <data name="Error_DefinitionShapeInvalid" xml:space="preserve">
+    <value>Trigger '{0}': {1} is missing (null).</value>
+    <comment>{0} = trigger key, {1} = property path</comment>
+  </data>
+
   <data name="Error_NoElementAtPoint" xml:space="preserve">
     <value>No UI element was found at screen point ({0}, {1}).</value>
     <comment>{0} = x, {1} = y (screen coordinates)</comment>
@@ -246,6 +256,9 @@
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>The tolerance must not be negative.</value>
   </data>
+  <data name="Draft_UndefinedEnumValue" xml:space="preserve">
+    <value>The condition uses a value this library does not define. Reselect the lifecycle, property and comparison.</value>
+  </data>
   <data name="Draft_MinIntervalTooLarge" xml:space="preserve">
     <value>The minimum interval is too large to represent. Enter a smaller number of seconds.</value>
   </data>
@@ -275,5 +288,9 @@
   </data>
   <data name="Compose_PollIntervalNegative" xml:space="preserve">
     <value>The poll interval cannot be negative.</value>
+  </data>
+  <data name="Compose_SourceIsComposite" xml:space="preserve">
+    <value>'{0}' is already a composite: it carries an expression or OR-combined clauses, and combining it again would silently turn that into AND. Take it apart first, then combine the pieces.</value>
+    <comment>{0} = the source trigger's id</comment>
   </data>
 </root>

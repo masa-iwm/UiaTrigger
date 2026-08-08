@@ -598,7 +598,8 @@
       <summary>トリガーを 1 件追加する。監視が既に開始されていれば即座に解決を試みる。</summary>
       <remarks>
         トリガーの増減はそのトリガーの購読しか触らない。他のトリガーの動いている購読は
-        そのまま維持される。
+        そのまま維持される。モニターは定義の深い写しを取る — この呼び出しの後に定義を
+        書き換えても監視には反映されない。変えるなら削除して追加し直すこと。
       </remarks>
       <exception cref="T:System.ArgumentException">
         定義が不正であるか、その <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> が既に監視されている。
@@ -638,6 +639,7 @@
       <param name="triggers">
         トリガー定義。null なら空で開始し、<see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />
         で足していく。各 <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は空でなく一意であること。
+        モニターは各定義の深い写しを取る — この呼び出しの後に定義を書き換えても監視には反映されない。
       </param>
       <param name="cancellationToken">
         開始要求がまだ待ち行列にある間だけキャンセルできる。オートメーションスレッド上で

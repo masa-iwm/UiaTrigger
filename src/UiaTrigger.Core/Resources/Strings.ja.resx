@@ -179,6 +179,16 @@
     <comment>{0} = option name</comment>
   </data>
 
+  <data name="Error_UndefinedEnumValue" xml:space="preserve">
+    <value>トリガー '{0}': {1} に未定義の値 {2} が入っています。定義が手書きされたか、より新しい形式で書かれた可能性があります。</value>
+    <comment>{0} = trigger key, {1} = property path, {2} = numeric value</comment>
+  </data>
+
+  <data name="Error_DefinitionShapeInvalid" xml:space="preserve">
+    <value>トリガー '{0}': {1} がありません (null)。</value>
+    <comment>{0} = trigger key, {1} = property path</comment>
+  </data>
+
   <data name="Error_NoElementAtPoint" xml:space="preserve">
     <value>スクリーン座標 ({0}, {1}) に UI 要素が見つかりませんでした。</value>
     <comment>{0} = x, {1} = y (screen coordinates)</comment>
@@ -247,6 +257,9 @@
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>許容差に負の値は指定できません。</value>
   </data>
+  <data name="Draft_UndefinedEnumValue" xml:space="preserve">
+    <value>条件にこのライブラリで定義されていない値が使われています。ライフサイクル・プロパティ・比較を選び直してください。</value>
+  </data>
   <data name="Draft_MinIntervalTooLarge" xml:space="preserve">
     <value>最小間隔が大きすぎて表現できません。より小さい秒数を入力してください。</value>
   </data>
@@ -272,6 +285,10 @@
   </data>
   <data name="Compose_PollIntervalNegative" xml:space="preserve">
     <value>ポーリング間隔に負の値は指定できません。</value>
+  </data>
+  <data name="Compose_SourceIsComposite" xml:space="preserve">
+    <value>'{0}' は既に複合です。式または OR 結合の句を持ち、そのまままとめ直すと OR が黙って AND に変わります。先にほどいてから、部品をまとめ直してください。</value>
+    <comment>{0} = the source trigger's id</comment>
   </data>
   <data name="Compose_UnknownName" xml:space="preserve">
     <value>'{0}' は、まとめようとしている条件のどれでもありません。</value>

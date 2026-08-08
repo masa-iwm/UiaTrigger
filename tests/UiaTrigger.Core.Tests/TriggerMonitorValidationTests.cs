@@ -55,6 +55,21 @@ public sealed class TriggerMonitorValidationTests
             () => session.CreateMonitor(new TriggerMonitorOptions { Debounce = TimeSpan.FromMilliseconds(-1) }));
     }
 
+    /// <summary>
+    /// 域外の列挙 (キャストや手編集 JSON で入る裸の整数) は理由付きで弾くこと
+    /// (docs/DESIGN.md C20)。素通りすると、評価の default 分岐が「永久不成立の句」や
+    /// 「Any 扱いの結合」を例外なしで作る — 黙って効かない設定の典型。
+    /// </summary>
+    [Fact]
+    public async Task StartAsync_WithAnUndefinedComparisonOp_ThrowsArgumentException()
+    {
+        Exception? error = await StartAsync(Definition(
+            new PropertyClause { Property = TriggerProperty.Name, Op = (ComparisonOp)99 }));
+
+        Assert.IsType<ArgumentException>(error);
+        Assert.Contains("99", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task StartAsync_WithMalformedRegex_ThrowsArgumentException()
     {

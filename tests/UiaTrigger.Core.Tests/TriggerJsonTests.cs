@@ -303,6 +303,31 @@ public sealed class TriggerJsonTests
         }
     }
 
+    /// <summary>
+    /// 域外の列挙 (裸の整数 — 手編集で入る) を黙って読まないこと (docs/DESIGN.md C20)。
+    /// JsonStringEnumConverter は未知の**名前**は拒むが**整数**は既定で受理するため、
+    /// "Op": 99 はデシリアライズを素通りし、例外を出さずに「永久不成立の句」へ化ける。
+    /// </summary>
+    [Fact]
+    public void Store_RefusesAnUndefinedEnumValue()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"uiatrigger-{Guid.NewGuid():N}", "triggers.json");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, """
+                {"Version": 1, "Triggers": [ { "Id": "x", "Clauses": [ { "Property": "Name", "Op": 99 } ] } ]}
+                """);
+
+            JsonException error = Assert.Throws<JsonException>(() => TriggerStore.Load(path));
+            Assert.Contains("99", error.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Cleanup(path);
+        }
+    }
+
     /// <summary>知らない版数を黙って空として読まないこと (次の保存で元ファイルを失う)。</summary>
     [Fact]
     public void Store_RefusesAFileFromANewerFormat()
