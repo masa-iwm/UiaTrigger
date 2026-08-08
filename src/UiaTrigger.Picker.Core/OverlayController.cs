@@ -108,10 +108,27 @@ internal sealed class OverlayController : IOverlay
         {
             _pendingRect = rect;
         }
-        PInvoke.PostMessage(_hwnd, MsgUpdate, 0, 0);
+        Post(MsgUpdate);
     }
 
-    public void Hide() => PInvoke.PostMessage(_hwnd, MsgHide, 0, 0);
+    public void Hide() => Post(MsgHide);
+
+    /// <summary>
+    /// オーバーレイスレッドへメッセージを送る。**窓が無ければ何もしない**
+    /// (docs/DESIGN.md A27)。
+    /// </summary>
+    /// <remarks>
+    /// <c>hWnd</c> が NULL の <c>PostMessage</c> は**呼び出し元スレッドのキューへ積まれる**
+    /// (Win32 の仕様)。窓の生成に失敗した経路でそのまま呼ぶと、ホストの UI スレッドへ
+    /// <c>WM_APP</c> の迷子が届き、オーバーレイスレッドには何も伝わらない。
+    /// </remarks>
+    private void Post(uint message)
+    {
+        if (_hwnd != default)
+        {
+            _ = PInvoke.PostMessage(_hwnd, message, 0, 0);
+        }
+    }
 
     /// <summary>←/→ キーの捕捉 (選択モード) を切り替える。</summary>
     public void SetHookEnabled(bool enabled) => _hookEnabled = enabled;
@@ -122,13 +139,17 @@ internal sealed class OverlayController : IOverlay
         {
             return;
         }
-        PInvoke.PostMessage(_hwnd, MsgQuit, 0, 0);
+        // 窓が無ければ何も送らない。スレッドは既に自分で畳んで抜けている
+        // (ThreadMain の窓生成失敗の枝 — docs/DESIGN.md A27)
+        Post(MsgQuit);
         if (!_thread.Join(TimeSpan.FromSeconds(3)))
         {
             // スレッドが終わらなくてもプロセス終了を妨げない (background thread)。
             // 登録表からは落としておき、以後メッセージが来ても無視されるようにする
             Unregister();
         }
+        // ここまで来れば _ready を待つ者も Set する者も居ない
+        _ready.Dispose();
     }
 
     private void Unregister()
@@ -158,6 +179,9 @@ internal sealed class OverlayController : IOverlay
                 return;
             }
             _classesRegistered = true;
+            // 成功したら理由を消す。static に残すと、後から作ったインスタンスの
+            // CreationError に**別のインスタンスの古い失敗**が混ざる
+            _classError = null;
         }
     }
 
@@ -234,6 +258,32 @@ internal sealed class OverlayController : IOverlay
             CreationError = _classError ??
                 $"overlay window creation failed: frame=0x{(nint)_hwnd.Value:X} icon=0x{(nint)_iconHwnd.Value:X} " +
                 $"error={Marshal.GetLastPInvokeError()}";
+
+            // **窓が無いなら、フックを張らずにここで畳む** (docs/DESIGN.md A27)。
+            //
+            // 畳まないと戻る道が無い: Dispose は枠の窓へ MsgQuit を送るが、
+            // hWnd が NULL の PostMessage は**呼び出し元スレッドのキューへ**積まれるので、
+            // このスレッドは GetMessage で待ち続け、Join(3s) は必ずタイムアウトし、
+            // **低レベルキーボードフックがプロセス終了までデスクトップ全体に残る**。
+            //
+            // **_ready.Set() は必ず通ること** — 呼ばないとコンストラクターの
+            // _ready.Wait() が永久に返らない。フックの残留より悪い
+            // **登録表から先に落とす。**残したまま壊すと WM_DESTROY がこのインスタンスを
+            // 引き当て、入りもしないループへ WM_QUIT を投げることになる。
+            // ハンドルは 0 に戻す — 壊した窓の値を持ち続けると Post も OverlayHwnd も嘘をつく
+            Unregister();
+            if (_iconHwnd != default)
+            {
+                _ = PInvoke.DestroyWindow(_iconHwnd);
+                _iconHwnd = default;
+            }
+            if (_hwnd != default)
+            {
+                _ = PInvoke.DestroyWindow(_hwnd);
+                _hwnd = default;
+            }
+            _ready.Set();
+            return;
         }
 
         // 低レベルキーボードフック (このスレッドがメッセージループを回す)。
@@ -399,6 +449,13 @@ internal sealed class OverlayController : IOverlay
         HGDIOBJ oldBmp = PInvoke.SelectObject(memDc, new HGDIOBJ(bmpHandle.DangerousGetHandle()));
         try
         {
+            // GDI ハンドルが枯れると CreateDIBSection は失敗して bits に null を置く。
+            // そのまま Span を作って描くとアクセス違反でプロセスごと落ちる —
+            // 枠が 1 周出ないほうがましである
+            if (bits is null)
+            {
+                return;
+            }
             paint(new Span<uint>(bits, width * height));
 
             var dst = new System.Drawing.Point(originX, originY);

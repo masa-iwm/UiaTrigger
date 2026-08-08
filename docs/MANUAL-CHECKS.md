@@ -201,6 +201,11 @@ T3 (`Record_PutsTheStableNameInTheDisplayName`) が固定している。
       ピッカーは Enter で確定しない** (開いたまま何件でも録る経路なので、書きかけを
       確定させない)。← 既定ボタンの配線は T1 が縛る (`OnlyAnEditSession_MakesCommitThe…`)
       が、実際に Enter が届くかはここでしか見られない
+- [ ] **[条件を編集] で開いたピッカーで、検索欄に文字を入れて Enter を押しても窓が閉じない**
+      (「次を検索」として効く)。編集セッションでは確定が Enter に載っているので、
+      検索欄が自分で受け止めないと**書きかけごと閉じる** (docs/DESIGN.md A25)。
+      ← 一次の網は WinUI に対する `EnterKeyTests` (T5)、Windows Forms の判断は T1
+      (`EnterInTheSearchBox_IsTakenBySearch_…`)。**WPF の配送はここでしか見られない**
 - [ ] **Esc でピッカーの窓が閉じる** (取り消し扱い。コミット済みのトリガーは残る)。
       **コンボの一覧を開いた状態の Esc では窓が閉じず、一覧だけが閉じること**も見る —
       キーを先取りする形 (WPF の `PreviewKeyDown` / Windows Forms の `KeyPreview`) に
@@ -290,6 +295,12 @@ T4 が覆っている。
       WinUI だけ**である — WPF は `IsDefault` / `IsCancel`、Windows Forms は
       `AcceptButton` / `CancelButton` を持つが、WinUI3 に相当するものが無い。
       コンボの一覧を開いた状態の Esc では窓が閉じず、一覧だけが閉じること
+- [ ] **ただし下段の入力欄 (式 / 絞るだけ / ポーリング間隔) では、Enter は [まとめる/更新]
+      であって [OK] ではない** (docs/DESIGN.md A25)。行を 2 つ以上選び、式欄に式を打って
+      Enter を押す — **窓は開いたままで、複合の行が増える**こと。
+      流してしまうと**打ちかけの式を捨てて窓が閉じる** (下段は押して初めて効くため)。
+      ← 一次の網は WinUI に対する `EnterKeyTests` (T5)、Windows Forms の判断は T1
+      (`TheWinFormsEditor_TakesEnterInACombineField…`)。**WPF の配送はここでしか見られない**
 - [ ] **本物のモーダルであること**。エディタが出ているあいだホストの窓を操作できず、
       エディタは**ホストの中央**に出る (所有者が付いている)
 - [ ] [追加] で子ピッカーが開き、**モーダルのエディタの上で操作できる**

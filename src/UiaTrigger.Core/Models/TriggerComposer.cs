@@ -48,7 +48,10 @@ public static class TriggerComposer
     /// <param name="unwatchedNames">
     /// Ids of the source triggers whose clauses should only narrow: they are required but never
     /// subscribed to, so their changes alone fire nothing. Matched against the source trigger's id
-    /// as typed — before the <c>-1</c>/<c>-2</c> expansion the expression uses.
+    /// as typed — before the <c>-1</c>/<c>-2</c> expansion the expression uses. An id that cannot
+    /// be a clause name (see <see cref="TriggerDraftValidator.IsValidClauseName"/>) is replaced by
+    /// a positional one, <c>c1</c>, <c>c2</c> and so on, and that is what both this and the
+    /// expression have to use — the id itself no longer names anything.
     /// </param>
     /// <param name="existingIds">
     /// Ids already in use. The composite's id is the first <c>composite-N</c> not among them.

@@ -606,6 +606,33 @@ public sealed class TriggerDraftValidatorTests
         Assert.NotNull(TriggerDraftValidator.ValidateExpression("same", [Named("same"), Named("same")]));
     }
 
+    /// <summary>
+    /// 名前の検査は式の手前に置く (docs/DESIGN.md C18)。
+    /// </summary>
+    /// <remarks>
+    /// 空式の early return より後ろに置くと、「全部まとめる」で作った複合の重複が
+    /// 誰にも見つからないまま保存され、<c>TriggerMonitor.AddAsync</c> が初めて弾く。
+    /// 「名前が悪い」は式についての検査ではないので、式が無くても答えは変わらない。
+    /// </remarks>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ValidateExpression_RejectsDuplicateNames_EvenWithoutAnExpression(string? expression)
+    {
+        string? error = TriggerDraftValidator.ValidateExpression(expression, [Named("same"), Named("same")]);
+
+        Assert.NotNull(error);
+        Assert.Contains("same", error, StringComparison.Ordinal);
+    }
+
+    /// <inheritdoc cref="ValidateExpression_RejectsDuplicateNames_EvenWithoutAnExpression"/>
+    [Fact]
+    public void ValidateExpression_RejectsAnInvalidName_EvenWithoutAnExpression()
+    {
+        Assert.NotNull(TriggerDraftValidator.ValidateExpression(null, [Named("has space")]));
+    }
+
     /// <summary>名前を付けていない句は位置由来の名前 (c1, c2…) で指せること。</summary>
     [Fact]
     public void ValidateExpression_AcceptsPositionalNames()

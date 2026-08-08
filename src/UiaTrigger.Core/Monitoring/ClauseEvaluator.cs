@@ -71,8 +71,19 @@ internal static class ClauseEvaluator
     /// 句リストを結合して評価する。
     /// 句が 0 個なら「条件なし」= 成立とする (出現・削除だけを見るトリガーで使う)。
     /// </summary>
+    /// <param name="combine">句の結合方法。</param>
+    /// <param name="clauses">評価する句。</param>
+    /// <param name="read">
+    /// **句の添字**を受け取り、その句が読む値を返す。
+    /// <para>
+    /// 句そのものを渡さないのは、呼び出し先が位置を復元できなければならないためである。
+    /// 同じ <see cref="PropertyClause"/> インスタンスが 2 度並んだ定義は作れる
+    /// (<c>TriggerDefinition.Clauses</c> は公開の可変リストである) ので、参照同値で引き直すと
+    /// **2 つめが常に 1 つめの位置に解決される**。位置はここで分かっているのだから渡す。
+    /// </para>
+    /// </param>
     public static bool Matches(
-        ClauseCombinator combine, IReadOnlyList<CompiledClause> clauses, Func<PropertyClause, ClauseValue> read)
+        ClauseCombinator combine, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read)
     {
         ArgumentNullException.ThrowIfNull(clauses);
         ArgumentNullException.ThrowIfNull(read);
@@ -81,9 +92,9 @@ internal static class ClauseEvaluator
             return true;
         }
 
-        foreach (CompiledClause clause in clauses)
+        for (int i = 0; i < clauses.Count; i++)
         {
-            bool matched = MatchesClause(clause, read(clause.Clause));
+            bool matched = MatchesClause(clauses[i], read(i));
             if (combine == ClauseCombinator.All)
             {
                 if (!matched)
@@ -103,23 +114,28 @@ internal static class ClauseEvaluator
     /// 解析済みの式で評価する (docs/DESIGN.md §4)。
     /// 木は <see cref="ClauseExpression"/> が組み、葉は句の添字である。
     /// </summary>
+    /// <param name="expression">解析済みの式。</param>
+    /// <param name="clauses">評価する句。</param>
+    /// <param name="read"><inheritdoc cref="Matches(ClauseCombinator, IReadOnlyList{CompiledClause}, Func{int, ClauseValue})" path="/param[@name='read']"/></param>
     public static bool Matches(
-        ClauseExpressionNode expression, IReadOnlyList<CompiledClause> clauses, Func<PropertyClause, ClauseValue> read)
+        ClauseExpressionNode expression, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read)
     {
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(clauses);
         ArgumentNullException.ThrowIfNull(read);
         // 短絡は木の側にある。ここで全句を先に評価してはならない —
         // Custom は 1 句あたりクロスプロセス呼び出しが 1 回かかる
-        return expression.Evaluate(i => MatchesClause(clauses[i], read(clauses[i].Clause)));
+        return expression.Evaluate(i => MatchesClause(clauses[i], read(i)));
     }
 
     /// <summary>
     /// 1 句の評価。
     ///
-    /// 要素がそのプロパティを持たない場合は **否定形も含めて** 不成立にする。
-    /// 「値が無い」を「NotEquals が成立する」と解釈すると、パターン非対応の要素に対して
-    /// 常時発火するトリガーが黙って出来上がるため。
+    /// **読めなかったものは否定形も含めて不成立にする** (docs/DESIGN.md A26)。2 つある:
+    /// 要素がそのプロパティを持たない場合 (<see cref="ClauseValue.IsSupported"/>) と、
+    /// 演算子の内部で評価に失敗した場合 (正規表現の制限時間切れ) である。
+    /// どちらも「値が無い」を「NotEquals / RegexNotMatch が成立する」と解釈すると、
+    /// 対象に対して常時発火するトリガーが黙って出来上がる。
     /// </summary>
     public static bool MatchesClause(CompiledClause compiled, ClauseValue value)
     {
@@ -162,10 +178,13 @@ internal static class ClauseEvaluator
             case ComparisonOp.LessOrEqual:
                 return value.Number is { } le && clause.Value is { } lev && le <= lev + tolerance;
 
+            // **「評価できなかった」は否定形も含めて不成立** (docs/DESIGN.md A26)。
+            // null を `!` で反転させると、パターンが走れなかった周に RegexNotMatch が
+            // **成立**する — 上の !IsSupported と同じ規則をここでも守る
             case ComparisonOp.RegexMatch:
-                return IsRegexMatch(compiled, value);
+                return IsRegexMatch(compiled, value) == true;
             case ComparisonOp.RegexNotMatch:
-                return !IsRegexMatch(compiled, value);
+                return IsRegexMatch(compiled, value) == false;
 
             default:
                 return false;
@@ -201,11 +220,21 @@ internal static class ClauseEvaluator
         value.Number is { } n && clause.Low is { } low && clause.High is { } high
         && n >= low - tolerance && n <= high + tolerance;
 
-    private static bool IsRegexMatch(CompiledClause compiled, ClauseValue value)
+    /// <summary>
+    /// パターンを当てる。**null は「一致しなかった」ではなく「評価できなかった」** である
+    /// (docs/DESIGN.md A26)。
+    /// </summary>
+    /// <remarks>
+    /// 2 つある: 制限時間を使い切った (<see cref="RegexMatchTimeoutException"/>) と、
+    /// パターンがコンパイルされていない。後者は <c>CompileClause</c> が到達不能にしているが、
+    /// 規則としてはここで閉じておく — false に潰すと、呼び出し側が `!` を掛けた瞬間に
+    /// 「読めなかった」が「否定形は成立」へ化ける。
+    /// </remarks>
+    private static bool? IsRegexMatch(CompiledClause compiled, ClauseValue value)
     {
         if (compiled.Regex is null)
         {
-            return false;
+            return null;
         }
         try
         {
@@ -213,7 +242,7 @@ internal static class ClauseEvaluator
         }
         catch (RegexMatchTimeoutException)
         {
-            return false;
+            return null;
         }
     }
 }

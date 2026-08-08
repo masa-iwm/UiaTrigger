@@ -50,7 +50,7 @@ public sealed class ClauseEvaluatorTests
     }
 
     private static bool Match(ElementPropertySnapshot snapshot, ClauseCombinator combine, params CompiledClause[] clauses) =>
-        ClauseEvaluator.Matches(combine, clauses, c => ClauseValue.From(snapshot, c.Property));
+        ClauseEvaluator.Matches(combine, clauses, i => ClauseValue.From(snapshot, clauses[i].Clause.Property));
 
     private static bool Match(ElementPropertySnapshot snapshot, CompiledClause clause) =>
         Match(snapshot, ClauseCombinator.All, clause);
@@ -63,7 +63,8 @@ public sealed class ClauseEvaluatorTests
         string[] names = [.. clauses.Select((_, i) => "c" + (i + 1))];
         ClauseExpressionResult parsed = ClauseExpression.Parse(expression, names);
         Assert.Null(parsed.Error);
-        return ClauseEvaluator.Matches(parsed.Root!, clauses, c => ClauseValue.From(snapshot, c.Property));
+        return ClauseEvaluator.Matches(
+            parsed.Root!, clauses, i => ClauseValue.From(snapshot, clauses[i].Clause.Property));
     }
 
     /// <summary>
@@ -120,13 +121,54 @@ public sealed class ClauseEvaluatorTests
         ClauseExpressionResult parsed = ClauseExpression.Parse("c1 || c2", ["c1", "c2"]);
 
         List<TriggerProperty> read = [];
-        ClauseEvaluator.Matches(parsed.Root!, clauses, c =>
+        ClauseEvaluator.Matches(parsed.Root!, clauses, i =>
         {
-            read.Add(c.Property);
-            return ClauseValue.From(snapshot, c.Property);
+            read.Add(clauses[i].Clause.Property);
+            return ClauseValue.From(snapshot, clauses[i].Clause.Property);
         });
 
         Assert.Equal([TriggerProperty.Name], read);
+    }
+
+    /// <summary>
+    /// 継ぎ目は**句の添字**を渡すこと。句そのものだと、同じインスタンスが 2 度並んだときに
+    /// 位置を復元できない。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>TriggerDefinition.Clauses</c> は公開の可変リストなので、同じ
+    /// <see cref="PropertyClause"/> を 2 回足した定義は作れる。参照同値で引き直す実装では
+    /// 2 つめが常に 1 つめの位置に解決され、<c>TriggerMonitor</c> 側では
+    /// その句の <c>ClauseReading</c> が「評価されなかった」のまま配られる。
+    /// </para>
+    /// <para>
+    /// **見ているのは継ぎ目の形である。**句そのものを渡す形へ戻すとコンパイルが通らず、
+    /// 「等価に見える」書き換え (添字を <c>IndexOf</c> で作り直す等) は
+    /// <c>[0, 1]</c> の assert が実行時に捕まえる。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Matches_PassesThePositionOfEachClause_EvenWhenTheSameInstanceRepeats()
+    {
+        var shared = new PropertyClause
+        {
+            Property = TriggerProperty.Name, Op = ComparisonOp.Equals, Text = "Ready",
+        };
+        CompiledClause[] clauses =
+        [
+            new CompiledClause { Clause = shared },
+            new CompiledClause { Clause = shared },
+        ];
+
+        List<int> read = [];
+        bool matched = ClauseEvaluator.Matches(ClauseCombinator.All, clauses, i =>
+        {
+            read.Add(i);
+            return ClauseValue.From(Snapshot(name: "Ready"), clauses[i].Clause.Property);
+        });
+
+        Assert.True(matched);
+        Assert.Equal([0, 1], read);
     }
 
     // ---------- 複数句の結合 ----------
@@ -241,6 +283,38 @@ public sealed class ClauseEvaluatorTests
     {
         // ValuePattern 非対応の要素
         Assert.False(Match(Snapshot(value: null), Clause(TriggerProperty.Value, op, text: "x")));
+    }
+
+    /// <summary>
+    /// 演算子の内部で評価に失敗した場合も、**否定形を含めて**不成立であること
+    /// (docs/DESIGN.md A26)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「読めなかった」を <c>false</c> に潰すと、呼び出し側が <c>!</c> を掛けた瞬間に
+    /// <see cref="ComparisonOp.RegexNotMatch"/> が**成立**へ化ける。上の
+    /// <see cref="UnsupportedProperty_NeverMatches"/> と同じ規則が、
+    /// 非対応プロパティだけでなく演算子の内部にも要る。
+    /// </para>
+    /// <para>
+    /// 失敗の作り方は 2 つあるが、制限時間切れは <c>NonBacktracking</c> が線形時間なので
+    /// 決定的に起こせない。**未コンパイル (<c>Regex = null</c>) は同じ道を通り、
+    /// しかも決定的である** — 製品側では <c>CompileClause</c> が到達不能にしているが、
+    /// 規則を固定するのに使えるのはこちらである。
+    /// </para>
+    /// </remarks>
+    [Theory]
+    [InlineData(ComparisonOp.RegexMatch)]
+    [InlineData(ComparisonOp.RegexNotMatch)]
+    public void AnUnevaluablePattern_NeverMatches(ComparisonOp op)
+    {
+        var uncompiled = new CompiledClause
+        {
+            Clause = new PropertyClause { Property = TriggerProperty.Name, Op = op, Text = "hel+o" },
+            Regex = null,
+        };
+
+        Assert.False(Match(Snapshot(name: "hello"), uncompiled));
     }
 
     /// <summary>Always だけは「値を見ない」ので、プロパティを購読する意図として常に成立すること。</summary>

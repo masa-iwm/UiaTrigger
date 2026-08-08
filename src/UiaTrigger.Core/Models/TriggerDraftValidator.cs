@@ -294,21 +294,29 @@ public static class TriggerDraftValidator
     /// </summary>
     /// <param name="expression">The expression, or null or blank for "combine them all".</param>
     /// <param name="clauses">The clauses of the definition, in order.</param>
-    /// <returns>A localized reason the expression cannot be used, or null when it can.</returns>
+    /// <returns>
+    /// A localized reason the clauses or the expression cannot be used, or null when they can.
+    /// </returns>
     /// <remarks>
-    /// The monitor performs the same check when the trigger is added; this is here so a picker can
+    /// <para>
+    /// The monitor performs the same checks when the trigger is added; this is here so a picker can
     /// say why while the expression is still being typed, which is the one place a syntax error is
     /// cheap to fix. It also reports a clause the expression never refers to — such a clause is
     /// still resolved and subscribed to while never affecting the outcome.
+    /// </para>
+    /// <para>
+    /// A blank expression means "combine them all", which skips everything that is about the
+    /// expression — but **not** the clause names: two clauses that share a name are rejected either
+    /// way (docs/DESIGN.md C18).
+    /// </para>
     /// </remarks>
     public static string? ValidateExpression(string? expression, IReadOnlyList<PropertyClause> clauses)
     {
         ArgumentNullException.ThrowIfNull(clauses);
-        if (string.IsNullOrWhiteSpace(expression))
-        {
-            return null;
-        }
 
+        // **名前の検査は式の手前に置くこと** (docs/DESIGN.md C18)。ここを空式の early return の
+        // 下に置くと、「全部まとめる」で作った複合の句名の重複が誰にも見つからないまま保存され、
+        // TriggerMonitor.AddAsync が初めて弾く — 「確定できたのに開始できない定義」そのものである
         var names = new string[clauses.Count];
         for (int i = 0; i < clauses.Count; i++)
         {
@@ -324,6 +332,11 @@ public static class TriggerDraftValidator
                     return Message.Format(Strings.Draft_DuplicateClauseName, names[i]);
                 }
             }
+        }
+
+        if (string.IsNullOrWhiteSpace(expression))
+        {
+            return null; // 「全部まとめる」。以下はすべて式についての検査である
         }
 
         ClauseExpressionResult parsed = ClauseExpression.Parse(expression, names);

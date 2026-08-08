@@ -382,14 +382,7 @@ public sealed class TriggerPickerForm : Form, IPickerView
             _ => TreeViewMode.Control,
         });
         _searchNext.Click += (_, _) => _presenter.SearchNext(_searchBox.Text ?? string.Empty);
-        _searchBox.KeyDown += (_, e) =>
-        {
-            if (e.KeyCode == Keys.Enter)
-            {
-                e.SuppressKeyPress = true; // 既定の警告音を出さない
-                _presenter.SearchNext(_searchBox.Text ?? string.Empty);
-            }
-        };
+        // 検索欄の Enter は KeyDown では受けられない (HandleSearchEnter の remarks)
         _tree.AfterSelect += (_, e) =>
         {
             if (!_suppressSelectionChanged && e.Node?.Tag is PickerTreeNode node)
@@ -423,27 +416,57 @@ public sealed class TriggerPickerForm : Form, IPickerView
         _tree.Leave += (_, _) => _presenter.SetTreeHasFocus(false);
     }
 
-    /// <summary>プレゼンター (タイマー・オーバーレイ・UIA セッション) を解放する。</summary>
-    /// <summary>Closes the window on Esc.</summary>
-    /// <param name="keyData">The key that was pressed.</param>
-    /// <returns>True when Esc was handled here.</returns>
+    /// <summary>
+    /// <c>ProcessDialogKey</c> の判断そのもの。窓を出さずに叩けるよう、
+    /// 「どこにフォーカスが在るか」だけを引数で受ける。
+    /// </summary>
+    /// <param name="keyData">押されたキー。</param>
+    /// <param name="searchBoxHasFocus">検索欄がフォーカスを持っているか。</param>
+    /// <returns>引き受けたら true (= 既定の経路へは渡さない)。</returns>
     /// <remarks>
-    /// <c>ProcessDialogKey</c> rather than <c>KeyPreview</c>: the focused control gets its chance
-    /// first, so Esc while a combo box has its list open only closes the list. This is the same
-    /// route <c>CancelButton</c> uses, and the picker has no cancel button of its own to carry it.
-    /// Closing releases the low-level keyboard hook and the UI Automation session, because Windows
-    /// Forms disposes a non-modal form when it closes.
+    /// <para>
+    /// **Enter を <c>KeyDown</c> で受けてはいけない** (docs/DESIGN.md A25)。単一行
+    /// <c>TextBox</c> の Enter は <c>IsInputKey</c> が false なので、Windows Forms は
+    /// <c>KeyDown</c> を配る**前に** <c>ProcessDialogKey</c> を通す。編集セッションでは
+    /// <c>AcceptButton</c> が立っているのでそこで確定ボタンが押され、
+    /// **検索欄の <c>KeyDown</c> ハンドラーは一度も呼ばれない** —
+    /// 検索が黙って効かなくなり、書きかけごと窓が閉じる。
+    /// </para>
+    /// <para>
+    /// Esc も同じ経路である。<c>KeyPreview</c> ではなくここで受けるのは、フォーカスのある
+    /// コントロールに先を譲るため — コンボの一覧が開いているときの Esc は一覧だけを閉じる。
+    /// <c>CancelButton</c> が使うのと同じ道であり、ピッカーはその役のボタンを持たない。
+    /// </para>
     /// </remarks>
-    protected override bool ProcessDialogKey(Keys keyData)
+    internal bool HandleDialogKey(Keys keyData, bool searchBoxHasFocus)
     {
         if (keyData == Keys.Escape)
         {
+            // 閉じればフックと UIA セッションが畳まれる (非モーダルの Form は Close で Dispose される)
             Close();
             return true;
         }
-        return base.ProcessDialogKey(keyData);
+        if (keyData == Keys.Enter && searchBoxHasFocus)
+        {
+            _presenter.SearchNext(_searchBox.Text ?? string.Empty);
+            return true;
+        }
+        return false;
     }
 
+    /// <summary>Handles Esc (close) and Enter in the search box (find next).</summary>
+    /// <param name="keyData">The key that was pressed.</param>
+    /// <returns>True when the key was handled here.</returns>
+    /// <remarks>
+    /// The decision itself lives in an internal method so a test can drive it without putting a
+    /// window on screen; what stays here is the one Windows Forms fact it needs — which control has
+    /// the focus. <c>ActiveControl</c> is not that fact: on a form built from nested split
+    /// containers it answers with an intermediate container.
+    /// </remarks>
+    protected override bool ProcessDialogKey(Keys keyData)
+        => HandleDialogKey(keyData, _searchBox.Focused) || base.ProcessDialogKey(keyData);
+
+    /// <summary>プレゼンター (タイマー・オーバーレイ・UIA セッション) を解放する。</summary>
     /// <param name="disposing">True when called from <see cref="IDisposable.Dispose"/>.</param>
     protected override void Dispose(bool disposing)
     {

@@ -379,6 +379,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
 | 4 | T4 | ホストの窓が pick 点を覆う | **塞いである** — 窓を置くのはホスト自身 (`--place-windows`)。戻してはいけない形を下に記す |
 | 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` / `TriggerComposerTests.Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts` / `Update_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回。**`monitor.StartAsync` を呼ぶ T1 はどれも同じ形で落ちうる** — 名前で覚えず「実 UIA を触る T1」で括ること |
+| 6 | T4 / T5 | `PickerHostProcess.OpenAndAwaitPlacement` を通るすべて (`OpenPicker` / `OpenEditor` の入口) | `TimeoutException: AutomationId 'OpenPickerButton' (または `EditListButton`) の要素 が 10 秒以内に成立しませんでした`。**名前で覚えないこと** — 落ちるのはハーネスの 1 か所で、そこを通る WinUI のテストはどれも同じ形で落ちる |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —
@@ -390,12 +391,21 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 連続で通っても「直った」とは書かない (§2 の 4)。
 
 **(2)** ビルド直後の全体実行の 1 回目だけ落ちることがある。再実行は緑、
-`TriggerMonitorPollingTests` 単体でも緑。見立て (**未確認**): T1 は並列を切っておらず、
-ビルド直後は CPU が塞がっているため、`FakeTimeProvider` を進める `AdvanceAndDrain` が
-周を出し切らないまま assert に来る。見立てを裏付けずに時計やドレインへ手を入れない —
-「落ちなくなった」と「見えなくなった」を区別できない。**次に落ちたら `PollCount` の実測値を
-取ること** — 5 未満なら見立てが当たりで、そのとき初めて「T1 にも並列切りを入れる」か
-「ドレインを待ち合わせに変える」かの判断になる。
+`TriggerMonitorPollingTests` 単体でも緑。
+
+**落ちるのは 2 つめの assert (`SweepCount`) であり、`PollCount` ではない** — 実測で
+`Assert.Equal(sweepsBefore, SweepCount)` が `Expected: 0` で落ち、直前の
+`Assert.Equal(5, PollCount)` は通っていた。周は 5 回とも出ており、**掃引が 1 回余計に
+走っている**。したがって「`AdvanceAndDrain` が周を出し切らない」という当初の見立ては
+**外れている** (あれなら `PollCount` 側が先に落ちる)。
+
+いまの見立て: このテストは **実物の `UiaSession` を使う** (`FakeTimeProvider` を差し込むのは
+時計だけ) ので、`WindowOpened` / `WindowClosed` をデスクトップのルートで購読している。
+**テストの最中にどこかのウィンドウが開閉すれば掃引は正しく走る** — つまり製品の側は
+仕様どおりで、assert の側が「他人がデスクトップに居ない」を暗黙に仮定している。
+ビルド直後に出やすいのは、そのタイミングでビルドや MSBuild ノードの窓が畳まれるからだと
+説明が付く。**次に落ちたら、落ちた assert がどちらかを先に見ること。**
+`SweepCount` 側なら、直すのは製品ではなくテスト (掃引の増分に依存しない形にする) である。
 
 **(3) 本物の未修正不具合である。**CI ランナーでだけ落ちる (開発機では緑)。
 `real-uia` は必須ジョブなので、**再発すれば無関係な変更まで止まる** — そのときは
@@ -449,6 +459,39 @@ Actual: System.Runtime.InteropServices.COMException (0x80004005)
 `build-and-test` は常に必須のジョブなので、ここが揺れると無関係な変更が止まる。
 **連続で通っても「直った」と書かないこと** (§2 の 4)。次に落ちたら回数を更新し、
 同じ HRESULT かどうかを確かめる — 別の HRESULT なら別の話である。
+
+**(6)** WinUI プロファイルのテストが、ホストのメインウィンドウのボタンを 10 秒待っても
+掴めずに落ちる。落ちる場所は `PickerHostProcess.OpenAndAwaitPlacement` の
+`RequireByIdEventually` で、通る入口はどれも同じ (`OpenPicker` / `OpenEditor`)。
+**T5 も同じハーネスを使うので同じ形で落ちる** (`EditorScenario` 経由)。本文:
+
+```
+System.TimeoutException : AutomationId 'OpenPickerButton' の要素 が 10 秒以内に成立しませんでした。
+  at UiaTrigger.Picker.UiTests.PickerHostProcess.OpenAndAwaitPlacement(...)
+```
+
+実測 (T4 の全体実行 3 回で 0 件 → 4 件 → 1 件 / T5 の全体実行 5 回で 1 件 → 0 → 0 → 1 件 → 1 件):
+
+- **落ちた顔ぶれは実行のたびに変わる。**T5 で 2 回続けて落ちた
+  `EscapeKeyTests.EscapeWorksOnAFreshlyOpenedChildPicker` も、**単体では 20 秒で緑**、
+  `EditorScenario` を使う 6 件だけの実行でも緑だった。**全体実行でしか出ない。**
+- **同じ実行の中で WinUI ホストを何回起こしたかで効く。**T5 に `EditorScenario` を使う
+  テストを 2 件足した (`EnterKeyTests`) 前は 11 件で緑だった。件数を増やすとここが出やすくなる。
+
+あの待ちは既に「WinUI ではレイアウトが動いた直後に既に在る要素が一時的に UIA から消える」
+ことへの対処として入っているもので (`OpenAndAwaitPlacement` のコメント)、
+症状は**その窓が 10 秒より長い**という形である。
+
+**製品のコードは疑わなくてよい** — 落ちるのはピッカーもオーバーレイも作られる前、
+ホストの窓がまだ出そろっていない時点である。手を入れるなら待ち時間であって製品ではない。
+ただし**待ちを伸ばす前に、掃除を先に疑うこと** (§6 の残った窓)。
+
+伸ばすなら、動かすのは `RequireByIdEventually` の 10 秒ではない — あれはハーネス全体の
+既定値で、触ると無関係な待ちがすべて緩む。**`OpenAndAwaitPlacement` のこの 1 か所だけを
+`WindowTimeout` (30 秒) に揃える**のが筋である (すぐ下の「窓が置かれた」を待つのが既に
+その値で、同じ 1 つの操作の前半と後半にあたる)。**まだ入れていない** — 待ちを伸ばすのは
+「落ちなくなった」と「見えなくなった」を区別できない側の変更なので、
+上の実測だけでは足りないと判断した。
 
 ## §6 ローカル実行の注意
 

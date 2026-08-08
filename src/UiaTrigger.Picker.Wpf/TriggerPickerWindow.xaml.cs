@@ -292,10 +292,21 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
             _ => TreeViewMode.Control,
         });
 
+    /// <summary>
+    /// 検索欄の Enter は「次を検索」。**必ず <c>Handled</c> を立てること**
+    /// (docs/DESIGN.md A25)。
+    /// </summary>
+    /// <remarks>
+    /// 立てないと、編集セッションで <c>CommitButton.IsDefault</c> が立っているあいだ
+    /// **検索したうえで確定して窓が閉じる**。WPF の既定ボタンは KeyDown ではなく
+    /// そのあとの WM_CHAR (<c>AccessKeyManager</c>) で走るので、ここで Handled にすると
+    /// <c>TranslateMessage</c> ごと止まって届かなくなる。
+    /// </remarks>
     private void OnSearchKeyDown(object sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
         {
+            e.Handled = true;
             OnSearchNext(sender, e);
         }
     }

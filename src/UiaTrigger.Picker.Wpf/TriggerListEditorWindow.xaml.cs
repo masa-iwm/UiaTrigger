@@ -185,6 +185,29 @@ public partial class TriggerListEditorWindow : Window, ITriggerListEditorView
 
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();
 
+    /// <summary>
+    /// 下段の入力欄での Enter は [まとめる/更新] (docs/DESIGN.md A25 / §4)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 3 欄は押して初めて効く — <c>Snapshot</c> は式を読まないので、既定ボタン
+    /// (<c>AcceptButton.IsDefault</c>) に流すと**打ちかけの式を捨てて窓が閉じる**。
+    /// <c>Handled</c> を立てると WM_CHAR ごと止まり、既定ボタンへ届かない。
+    /// </para>
+    /// <para>
+    /// 掛けるのは 3 欄だけである。一覧や [OK] / [キャンセル] にフォーカスがあるときの
+    /// Enter は既定ボタンのままにする — そちらは「もう入力は済んでいる」場面である。
+    /// </para>
+    /// </remarks>
+    private void OnCombineFieldKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            _presenter.NotifyCombineRequested();
+        }
+    }
+
     private void OnCombine(object sender, RoutedEventArgs e) => _presenter.NotifyCombineRequested();
 
     private void OnDecompose(object sender, RoutedEventArgs e) => _presenter.NotifyDecomposeRequested();

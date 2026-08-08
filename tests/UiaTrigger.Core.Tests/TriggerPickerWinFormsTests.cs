@@ -315,6 +315,47 @@ public sealed class TriggerPickerWinFormsTests
         });
     }
 
+    /// <summary>
+    /// 検索欄に居るあいだの Enter は「次を検索」で止まり、確定ボタンへ渡らないこと
+    /// (docs/DESIGN.md A25)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// **この変種の症状はいちばん重い。**単一行 <c>TextBox</c> の Enter は
+    /// <c>IsInputKey</c> が false なので、Windows Forms は <c>KeyDown</c> を配る前に
+    /// <c>ProcessDialogKey</c> を通す — 編集セッションでは <c>AcceptButton</c> が立っており、
+    /// 確定して窓が閉じる。**検索欄の <c>KeyDown</c> ハンドラーは一度も呼ばれない**ので、
+    /// あちらに <c>SuppressKeyPress</c> を足しても直らない。
+    /// </para>
+    /// <para>
+    /// 返り値 true が「ここで止まる = 既定ボタンは押されない」である。編集セッションかどうかで
+    /// 答えが変わらないことまで見る — <c>AcceptButton</c> の有無に依存する形に戻すと、
+    /// 録る経路だけ通って編集セッションで落ちる、いまと同じ壊れ方になる。
+    /// </para>
+    /// <para>
+    /// 退行: <c>HandleDialogKey</c> から <c>Keys.Enter</c> の枝を外す。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EnterInTheSearchBox_IsTakenBySearch_WhicheverButtonIsTheDefault()
+    {
+        Sta.Run(() =>
+        {
+            using TriggerPickerForm form = CreateForm(new FakeStrings());
+
+            // 録る経路 (既定ボタン無し)
+            Assert.Null(form.AcceptButton);
+            Assert.True(form.HandleDialogKey(Keys.Enter, searchBoxHasFocus: true));
+            Assert.False(form.HandleDialogKey(Keys.Enter, searchBoxHasFocus: false));
+
+            // 編集セッション (既定ボタン有り)。**ここが元の症状である**
+            form.LoadDefinition(Editable(), editSession: true);
+            Assert.NotNull(form.AcceptButton);
+            Assert.True(form.HandleDialogKey(Keys.Enter, searchBoxHasFocus: true));
+            Assert.False(form.HandleDialogKey(Keys.Enter, searchBoxHasFocus: false));
+        });
+    }
+
     [Fact]
     public void AnEditSessionCommit_ClosesTheFormWithoutTouchingItAfterwards()
     {

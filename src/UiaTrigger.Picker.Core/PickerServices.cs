@@ -102,11 +102,15 @@ internal sealed class UiaPickerElement(UiaElement element) : IPickerElement
     /// 継ぎ目越しに来た要素から <see cref="UiaElement"/> を取り出す。
     /// 偽の要素 (テスト用) を実物のセッションへ渡そうとしたら、静かに何かが起きるのではなく
     /// ここで落ちるべきである。
+    ///
+    /// **文面は英語** — 利用者には出ないプログラマ向けの契約であり、表示用の文字列
+    /// (リソース経由) とは別である (docs/LOCALIZATION.md §3 / 台帳 L2)。
     /// </summary>
     public static UiaElement Unwrap(IPickerElement value) =>
         value is UiaPickerElement wrapper
             ? wrapper.Inner
-            : throw new ArgumentException($"{value.GetType().Name} は UIA の要素ではありません。", nameof(value));
+            : throw new ArgumentException(
+                $"'{value.GetType().Name}' is not a UI Automation element.", nameof(value));
 }
 
 internal sealed class PickerServices : IPickerServices

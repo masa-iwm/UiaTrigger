@@ -99,11 +99,17 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
         // Enter = [OK] / Esc = [キャンセル]。**この変種にだけ配線が要る** — WPF は
         // IsDefault / IsCancel、Windows Forms は AcceptButton / CancelButton を持つが、
         // WinUI3 には相当するものが無い。**バブリングの KeyDown で受けること**:
-        // 先取りすると、コンボの一覧が開いている最中の Esc まで奪って窓ごと閉じてしまう
+        // 先取りすると、コンボの一覧が開いている最中の Esc まで奪って窓ごと閉じてしまう。
+        // 下段の入力欄はここへ来る前に Enter を取る (OnCombineFieldKeyDown — A25)
         if (Content is UIElement root)
         {
             root.KeyDown += OnKeyDown;
         }
+        // NumberBox は Enter を自分で処理して Handled にする (値の確定)。素の KeyDown 購読では
+        // 呼ばれないので、**処理済みでも受け取る**形で足す (OnCombineFieldKeyDown の remarks)。
+        // クラスハンドラーが先に走るので、こちらが読む Value は確定済みの値である
+        CombinePollIntervalBox.AddHandler(
+            UIElement.KeyDownEvent, new KeyEventHandler(OnCombineFieldKeyDown), handledEventsToo: true);
     }
 
     /// <summary>子ピッカーが開いている間にこちらが活性化されたら、あちらへ返す。</summary>
@@ -202,6 +208,35 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     }
 
     private void OnDelete(object sender, RoutedEventArgs e) => _presenter.NotifyDeleteRequested();
+
+    /// <summary>
+    /// 下段の入力欄での Enter は [まとめる/更新] (docs/DESIGN.md A25 / §4)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 3 欄は押して初めて効く — <c>Snapshot</c> は式を読まないので、
+    /// <see cref="OnKeyDown"/> の <c>Enter</c> (= 他の 2 変種の既定ボタン) に流すと
+    /// **打ちかけの式を捨てて窓が閉じる**。<c>Handled</c> を立ててルートへ行かせない。
+    /// </para>
+    /// <para>
+    /// <c>CombinePollIntervalBox</c> は <c>NumberBox</c> で、Enter を自分で使う (値の確定) ため
+    /// 素の <c>KeyDown</c> 購読では呼ばれない。あちらだけはコンストラクターで
+    /// <c>handledEventsToo</c> 付きに足してある — 欄が Enter を使うこと自体は正しく、
+    /// **そのうえでこちらも走らせたい**からである (値を確定してからまとめる)。
+    /// </para>
+    /// <para>
+    /// 掛けるのは 3 欄だけである。一覧や [OK] / [キャンセル] にフォーカスがあるときの
+    /// Enter は [OK] のままにする。
+    /// </para>
+    /// </remarks>
+    private void OnCombineFieldKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == Windows.System.VirtualKey.Enter)
+        {
+            e.Handled = true;
+            _presenter.NotifyCombineRequested();
+        }
+    }
 
     private void OnCombine(object sender, RoutedEventArgs e) => _presenter.NotifyCombineRequested();
 

@@ -338,7 +338,10 @@
       <param name="unwatchedNames">
         「絞るだけ」にする元トリガーの id。その条件は必要とはされるが購読されず、
         その変化だけでは何も発火しない。照合は入力どおりの id に対して行われる —
-        式が使う <c>-1</c>/<c>-2</c> の展開より前の名前である。
+        式が使う <c>-1</c>/<c>-2</c> の展開より前の名前である。ただし条件名として使えない id
+        (<see cref="M:UiaTrigger.Models.TriggerDraftValidator.IsValidClauseName(System.String)" />)
+        は位置由来の名前 (<c>c1</c>、<c>c2</c>…) に置き換わり、ここも式もその名前で指す —
+        その id はもう何も指していない。
       </param>
       <param name="existingIds">使用中の id。複合の id はこの中に無い最初の <c>composite-N</c> になる。</param>
       <param name="pollInterval">
@@ -487,11 +490,18 @@
       </summary>
       <param name="expression">式。null または空白だけなら「すべてを結合する」を意味する。</param>
       <param name="clauses">定義の句 (並び順のまま)。</param>
-      <returns>その式が使えない理由 (ローカライズ済み)。使えるときは null。</returns>
+      <returns>その句または式が使えない理由 (ローカライズ済み)。使えるときは null。</returns>
       <remarks>
-        同じ検査はトリガーをモニターに追加するときにも走る。ここにあるのは、式を入力している
-        最中に理由を返せるようにするためで、構文の誤りを直すのがいちばん安いのはその時点だからである。
-        式が一度も参照しない句も報告する — そうした句も解決され購読されるのに、結果には一切効かない。
+        <para>
+          同じ検査はトリガーをモニターに追加するときにも走る。ここにあるのは、式を入力している
+          最中に理由を返せるようにするためで、構文の誤りを直すのがいちばん安いのはその時点だからである。
+          式が一度も参照しない句も報告する — そうした句も解決され購読されるのに、結果には一切効かない。
+        </para>
+        <para>
+          空白だけの式は「すべてを結合する」を意味し、式についての検査はすべて飛ばす。
+          ただし<strong>句の名前は別である</strong> — 名前が重複した 2 つの句は、
+          式の有無に関わらず断る (docs/DESIGN.md C18)。
+        </para>
       </remarks>
     </member>
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.IsNumericProperty(UiaTrigger.Models.TriggerProperty)">

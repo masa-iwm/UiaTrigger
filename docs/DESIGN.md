@@ -246,6 +246,7 @@ public sealed class TriggerDefinition
 | `Update` が断るもの | 複合でない / `On` が `WhileMatching` でない定義は `ArgumentException` (`Decompose` と同じ線)。`On` を見るのは、句が 2 つあるだけの `PropertyChanged` トリガーも「複合」の形には合致するが、そこへ立ち下がり通知を書くと**監視が追加時に弾く定義**ができるためである。黙って `On` を書き換えるほうが悪い。負のポーリング間隔と未知の名前は `Compose` と同じ理由文字列で断る |
 | 複合の `NotifyOnStoppedMatching` | まとめる時にも指定できる (`Compose` の `notifyOnStoppedMatching`)。複合は常に `WhileMatching` = あの旗が効く唯一のライフサイクルであり、かつ複合はピッカーで編集できない (`CanEdit`) ので、**エディタの下段が複合にこの旗を立てる唯一の口**である (C14)。**元トリガーの旗は引き継がない** — 旗は「この条件が成立しなくなったら知らせる」であって、まとめた後の「この条件」は元のどれとも違うものだからである。**引き継ぐと読まれやすい**ので、下段のチェックが唯一の入力であることを明示しておく |
 | `Update` だけが**破壊的** | その場で上書きするので、式を消して押せば元の式は戻らない。`Compose` / `Decompose` を足すだけにしてある理由 (取り消し機能なしで取り消せる) から外れる唯一の操作であり、外す代わりに「id も句も動かさない」を契約にして影響範囲を 4 つの設定に閉じてある |
+| 句名の検査 (C18) | **式の有無に関わらず走る。**`TriggerDraftValidator.ValidateExpression` は空式で早期に返るが、**その手前で**名前の妥当性と一意性を見る。名前の重複は式についての誤りではなく句についての誤りであり、「全部まとめる」でも起きる — 位置由来の名前 (`cN`) は、`cN` という綴りの id と衝突しうる (id `c2` の 1 件目 + 名前に使えない id の 2 件目 → どちらも `c2`)。ここを式の中に閉じ込めると、複合は保存できてエディタにも並ぶのに `TriggerMonitor.AddAsync` だけが弾く = **確定できたのに開始できない定義**になる |
 
 検証文字列は性質で置き場が割れる: **検証理由は Core の `Strings.resx`** (`Compose_NeedsTwo` / `Compose_UnknownName` / `Compose_PollIntervalNegative`)、**操作の結果報告はホスト** (`CombineFailed` / `CombineDone` / `UpdateFailed` / `UpdateDone`)。
 
@@ -267,6 +268,7 @@ public sealed class TriggerDefinition
 - **行のダブルクリック = [条件を編集]** (`NotifyEditRequested` に写像する)。編集できない選択 (複合・複数選択) はボタンと同じ理由をステータスへ出す。一覧の空白部分は無視する — でないと、選択済みの行が空白のダブルクリックで編集され始める。空白の判定はフレームワーク固有で View が持つ (WinUI は `DataContext`、WPF は `ContainerFromElement`、Windows Forms は `IndexFromPoint`)
 - **ダブルクリックのハンドラの中で子ピッカーを直接開かない** — 入力が掃けた後にディスパッチャで回す。二打目の入力系列が残ったまま `Activate` すると、残りの入力処理がエディタを前面へ戻す。実測: WinUI は所有関係が無いと**ピッカーが窓ごと後ろに出る** (picker BEHIND editor / foreground=editor)。WPF / Windows Forms は所有関係が重なりを保つが、フォーカスはエディタへ戻る — 3 変種とも同じ形で遅らせる
 - **所有関係が固定するのは重なりだけで、フォーカスは別に押さえる** (WinUI)。子ピッカーは前面に出るが、開いた直後の入力処理がエディタを活性化し直すと**フォーカスだけがエディタへ戻る** (実測: 要素選択の窓が active で出た後、表示が済んだあたりでフォーカスが移る)。**見えている前面の窓に打っているのにキーが効かない**という形になり、重なりを見ているだけでは気づけない。エディタは自分が活性化されたとき、子ピッカーが開いていれば活性化をあちらへ返す (ピンポンにはならない — 返した時点でこちらは非活性になり `Deactivated` では何もしないため)。WPF の `Owner` / Windows Forms の `Show(owner)` は活性化まで面倒を見るので、これが要るのはこの変種だけである
+- **下段の入力欄では Enter は [まとめる/更新] であり、[OK] ではない** (A25)。3 欄 (`ExpressionBox` / `UnwatchedBox` / `CombinePollIntervalBox`) は押して初めて効く — `Snapshot` は式を読まないので、既定ボタンに流すと**打ちかけの式を捨てて窓が閉じる**。掛けるのは 3 欄だけで、**一覧や [OK] / [キャンセル] に居るときの Enter は [OK] のまま**である (そちらは入力が済んでいる場面)。WinUI の `CombinePollIntervalBox` は `NumberBox` で Enter を自分で使う (値の確定) ため、あそこだけ `handledEventsToo` 付きで足す — 欄が Enter を使うこと自体は正しく、**そのうえで**まとめたいからである。Windows Forms は単一行 `TextBox` の Enter が `KeyDown` より先に `ProcessDialogKey` を通るので、あちらだけは `KeyDown` では受けられない (ピッカーの検索欄と同じ形)
 - **子ピッカーが開いている間、Enter / Esc は子のものである** (WinUI)。エディタでそのまま拾うと、子を閉じたつもりでエディタごと閉じる (閉じたエディタは `OnClosed` で子も閉じるので、**1 回の Esc で両方消える**)。かといって**握り潰すとどちらも動かない** — 行のダブルクリックで開いたときはフォーカスが一覧に残るので、キーは子へ届かずここで捨てられて終わる。**子へ回す**のが正しい: Esc はあれを閉じ、Enter はあれに任せる
 - **WinUI の子ピッカーには Win32 の所有関係を付ける** (`WindowOwnership` — `GWLP_HWNDPARENT`。WPF の `Owner` / Windows Forms の `Show(this)` と同じ意味)。遅延だけでは活性化の競争に環境によって負ける (実機で再発した)。所有関係は重なりを**構造で**決める — エディタを強制的に前面化しても、所有された窓は上に居続ける (実測)。副作用も Win32 の規則のとおり: タスクバーに独立のボタンを出さず、所有者と一緒に最小化され、**UIA の木ではデスクトップ直下ではなく所有者の子に出る** (T4 ハーネスの `TopLevelWindows` / `PickerWindows` はそれを織り込んで探す)
 - **WinUI の一覧は横スクロールを自分で有効にする** (実測 175%: 既定は `H-scrollable=False` で複合の長い行が右で黙って切れる。WPF / Windows Forms は元から出る)。`ListView` は自分に付いた `ScrollViewer.*` 添付プロパティをテンプレートへ中継するので、ピッカーの `TreeView` (`OnElementTreeLoaded`) のような迂回は要らない
@@ -289,6 +291,7 @@ public sealed class TriggerDefinition
 | ピッカーで編集できるのは単純トリガーのみ | ピッカーは「条件 1 件」の編集器である。複合は分解してから編集する |
 | **編集セッションは確定 1 回で閉じる** | `LoadDefinition(definition, editSession: true)` は確定ボタンの文言を `CommitButtonUpdate` に差し替え、確定が成立したら `IPickerView.Close` を呼ぶ — 条件の編集時に追加でトリガーを設定することはない。新規追加の「開いたまま何件でもコミット」は変えない (App ホストの明文化されたワークフロー)。検証失敗では閉じない |
 | `Close` は View への**全書き込みの後** | WinForms の `Form.Close` は Show で出した Form を **Dispose する**。presenter は `TriggerCommitted` → `CommitStatus` の後にしか `Close` を呼ばず、以後 View に触らない。親エディタも `Close` を呼ばない — 既存の `Closed` → `NotifyPickerClosed` 経路だけが動く |
+| **検索欄の Enter は検索で止める** (A25) | 編集セッションでは確定が既定ボタンなので、放っておくと検索欄の Enter が確定になる。WPF / WinUI は `KeyDown` で `Handled` を立てる (WPF はこれで WM_CHAR ごと止まり `AccessKeyManager` へ届かない)。**WinForms は `KeyDown` では受けられない** — 単一行 `TextBox` の Enter は `IsInputKey` が false で、`ProcessDialogKey` が先に走って `AcceptButton` を押すため、ハンドラーが一度も呼ばれない。あちらは `ProcessDialogKey` で受ける (判断は `HandleDialogKey` に分けてあり、T1 が窓を出さずに叩ける) |
 
 `TriggerDraftValidator` は第三者のピッカーが同じ検証規則を得るために public であり、式を入力させるピッカーのために `ValidateExpression` / `IsValidClauseName` も持つ。**`Apply` は新しい形で意味を失った値を残さない** — 句を作り直すとき `Expression` を落とし、ポーリングできない `On` では `PollInterval` も落とす。個別規則の検査に加えて「確定できた下書きから作った定義は必ず監視開始まで通る」(`Apply_AlwaysProducesADefinitionTheMonitorAccepts`) という**規則が増えても腐らない形**の検査がある — 実行時検証 (`CreateRuntime`) に拒否理由を足して `Apply` 側を忘れると、ホストの録り直し (`RemoveAsync` → `AddAsync` の投げっぱなし) では画面に何も出ないままトリガーが消えるからである。
 
@@ -511,6 +514,16 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 
 **枠は UIA のヒットテストでも対象を隠さない** (`WS_EX_TRANSPARENT` が尊重される)。これは満たしていなければならない不変条件である — 塞いだ瞬間、ピッカー自身がホバーで対象を拾えなくなる (§9 の自プロセス除外により、黙って何も起きない形で壊れる)。
 
+### 停止は窓ハンドルに依存させない (A27)
+
+オーバーレイスレッドを畳む合図は枠の窓への `PostMessage(MsgQuit)` である。ここには Win32 の角が 1 つある: **`hWnd` が NULL の `PostMessage` は呼び出し元スレッドのキューへ積まれる**。窓の生成に失敗した状態で `Dispose` を呼ぶと、`MsgQuit` はホストの UI スレッドへ迷子として届き、オーバーレイスレッドは `GetMessage` で待ち続け、`Join(3s)` は必ずタイムアウトする — **低レベルキーボードフックがプロセス終了までデスクトップ全体に残る**。例外も画面も出ない。
+
+そこで 2 つ: 送る側は窓が無ければ**何も送らない** (`Post`)、作る側は窓を作れなかった時点で**フックを張らずにその場で畳んで抜ける**。ただし `_ready.Set()` は失敗の枝でも必ず通すこと — 呼ばないとコンストラクターの `_ready.Wait()` が永久に返らず、フックの残留より悪い形になる。
+
+`CreateDIBSection` の失敗も同じ性質を持つ (GDI ハンドルの枯渇)。`bits` が null のまま `Span` を作って描くと**アクセス違反でプロセスごと落ちる**ので、その周は描かずに戻る — 枠が 1 周出ないほうがましである。
+
+この 3 つはどれも決定的に再現できないため、自動の網は無い (docs/TESTING.md §2 の「検出力を示せないテストは書かない」)。理由はコードのコメントとここに置く。
+
 ---
 
 ## §11 フックの不変条件
@@ -624,6 +637,9 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | A22 | (欠番 — この ID の所見は定義されていない) | — |
 | A23 | 自アセンブリ外の WinRT 値型は AOT で vtable が生成されず、例外なく動かなくなる。`GeneratedWinRTExposedExternalType` はライブラリ (`Picker.WinUI`) 側に置く | §12 |
 | A24 | 自プロセスの点は UIA へ訊く**前**に `WindowFromPoint` のプロセス ID で打ち切る。後で戻り値を捨てる形では問い合わせが自分のプロバイダーへ届き、ホストの窓が活性化されてピッカーが背面へ回る | §9 |
+| A25 | **Enter を自分の仕事に使う欄は、その欄で `Handled` にする。**既定ボタン (WPF `IsDefault` / WinForms `AcceptButton` / WinUI の自前 `OnKeyDown`) は欄の宣言より強く、放っておくと欄の仕事を奪う。WinForms は単一行 `TextBox` の Enter が `IsInputKey` = false なので `ProcessDialogKey` が `KeyDown` より**先に**走り、ハンドラーが呼ばれることすら無い。どの欄がそうかは §12 (ピッカーの検索欄) と §4 (エディタ下段の 3 欄) が正 | §12 |
+| A26 | 読めなかったものは**否定形も含めて**不成立。要素がプロパティを持たない場合だけでなく、**演算子の内部で評価に失敗した場合** (正規表現の制限時間切れ・未コンパイル) も同じ。`false` に潰すと `!` を掛けた側で「読めなかった」が「成立」へ化け、`RegexNotMatch` が常時発火する | §3 |
+| A27 | オーバーレイの停止を窓ハンドルに依存させない。`hWnd` が NULL の `PostMessage` は**呼び出し元スレッド**のキューへ積まれるので、窓の生成に失敗した経路では `MsgQuit` が届かず、低レベルキーボードフックがプロセス終了までデスクトップ全体に残る。失敗した側でその場で畳む — ただし `_ready.Set()` は必ず通す (呼ばないとコンストラクターが永久に返らず、フック残留より悪い) | §10 |
 | B1 | プロパティ読取は `CacheRequest` でまとめる。段あたり 1 往復・スナップショット 1 往復 | §3 |
 | B2 | `WindowOpened` は `Children`。`WindowClosed` は `Subtree` でなければ 1 件も届かない | §6 |
 | B3 | 解決済みの構造購読は経路上の各段を `Element \| Children` で張る。ウィンドウ全体の `Subtree` にしない | §6 |
@@ -647,6 +663,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | C15 | `ElementRemoved` の条件は消滅直前の値で評価する。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ (発火源にはしない) | §4 |
 | C16 | 在否 (`IsAbsent`) と値は別の軸。`Op=Always` は「要素が在ること」(presence) で成立し、値の述語は消えた要素でも最後に見えた値で評価され続ける | §4 |
 | C17 | 「絞るだけ」の語彙は非対称。`Compose` は元トリガーの id で照合し、`Update` と `UnwatchedNames` は句の実効名 (`login-1`) で照合する — まとめ終えた複合に元トリガーの id は残っていない。`UnwatchedNames` → `Update` は恒等 | §4 |
+| C18 | 句名の妥当性・一意性は**式の有無に関わらず**検査する。位置由来の名前 (`cN`) は同じ綴りの id と衝突しうるので、「全部まとめる」でも重複は起きる — 検査を式の中に閉じ込めると、保存はできるのに `AddAsync` だけが弾く複合が作れる | §4 |
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 |
 | D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — |

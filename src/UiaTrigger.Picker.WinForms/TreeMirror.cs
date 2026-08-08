@@ -159,8 +159,10 @@ internal sealed class TreeMirror : IDisposable
                 break;
 
             default:
-                // Replace / Move はプレゼンターが使わない。使い始めたらここで落ちるほうがよい
-                throw new NotSupportedException($"ツリーの {e.Action} は写せません。");
+                // Replace / Move はプレゼンターが使わない。使い始めたらここで落ちるほうがよい。
+                // **文面は英語** — 利用者には出ないプログラマ向けの契約であり、
+                // 表示用の文字列 (リソース経由) とは別である (docs/LOCALIZATION.md §3 / 台帳 L2)
+                throw new NotSupportedException($"Cannot mirror a '{e.Action}' change of the tree.");
         }
 
         // 子が増減すれば「まだ列挙していない」印の要否も変わる
