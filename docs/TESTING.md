@@ -375,7 +375,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | # | 層 | テスト | 状態 |
 |---|---|---|---|
 | 1 | T5 | `TargetInputTests.WhileThePickerHooksTheKeyboard_OtherAppsStillReceiveArrows` | 全体実行でまれに落ちる。原因未特定 |
-| 2 | T1 | `TriggerMonitorPollingTests.Polling_DoesNotDriveResolution` | ビルド直後の 1 回目だけ落ちることがある。見立てはあるが未確認 |
+| 2 | T1 | `TriggerMonitorPollingTests.Polling_DoesNotDriveResolution` | **塞いである** — 掃引の絶対数ではなく、ポーリングを頼まない対照との**増分の一致**を見る形にした |
 | 3 | T3 | `UnresponsiveTargetTests.AfterAnUnresponsiveSpell_TheAppsOwnTriggerResolvesAgain` | **本物の未修正不具合。**CI ランナーでだけ落ちる |
 | 4 | T4 | ホストの窓が pick 点を覆う | **塞いである** — 窓を置くのはホスト自身 (`--place-windows`)。戻してはいけない形を下に記す |
 | 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` / `TriggerComposerTests.Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts` / `Update_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回。**`monitor.StartAsync` を呼ぶ T1 はどれも同じ形で落ちうる** — 名前で覚えず「実 UIA を触る T1」で括ること |
@@ -390,22 +390,29 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 「← でキャレットが動かない」= **フックがキーを吸った (本物の退行)**。
 連続で通っても「直った」とは書かない (§2 の 4)。
 
-**(2)** ビルド直後の全体実行の 1 回目だけ落ちることがある。再実行は緑、
-`TriggerMonitorPollingTests` 単体でも緑。
+**(2) 塞いである。**原因は製品ではなく assert の側だった。
 
-**落ちるのは 2 つめの assert (`SweepCount`) であり、`PollCount` ではない** — 実測で
+**落ちていたのは 2 つめの assert (`SweepCount`) で、`PollCount` ではない** — 実測で
 `Assert.Equal(sweepsBefore, SweepCount)` が `Expected: 0` で落ち、直前の
-`Assert.Equal(5, PollCount)` は通っていた。周は 5 回とも出ており、**掃引が 1 回余計に
-走っている**。したがって「`AdvanceAndDrain` が周を出し切らない」という当初の見立ては
-**外れている** (あれなら `PollCount` 側が先に落ちる)。
+`Assert.Equal(5, PollCount)` は通っていた。周は 5 回とも出ており、掃引が余計に走っていた。
+当初の見立て (「`AdvanceAndDrain` が周を出し切らない」) は**外れ**である
+(あれなら `PollCount` 側が先に落ちる)。
 
-いまの見立て: このテストは **実物の `UiaSession` を使う** (`FakeTimeProvider` を差し込むのは
-時計だけ) ので、`WindowOpened` / `WindowClosed` をデスクトップのルートで購読している。
-**テストの最中にどこかのウィンドウが開閉すれば掃引は正しく走る** — つまり製品の側は
-仕様どおりで、assert の側が「他人がデスクトップに居ない」を暗黙に仮定している。
-ビルド直後に出やすいのは、そのタイミングでビルドや MSBuild ノードの窓が畳まれるからだと
-説明が付く。**次に落ちたら、落ちた assert がどちらかを先に見ること。**
-`SweepCount` 側なら、直すのは製品ではなくテスト (掃引の増分に依存しない形にする) である。
+このテストは **実物の `UiaSession` を使う** (`FakeTimeProvider` を差し込むのは時計だけ) ので、
+`WindowOpened` / `WindowClosed` をデスクトップのルートに本当に張る。**テストの最中に
+どこかのウィンドウが開閉すれば掃引は正しく走る** — 「掃引が 0 件」は製品ではなく
+マシンの静けさを見ていた。ビルド直後に出やすかったのは、そのタイミングでビルドや
+MSBuild ノードの窓が畳まれるからで説明が付く。
+
+**直しは対照を並べる形である。**ポーリングを頼んだ監視と頼んでいない監視を
+**同じ時計・同じデスクトップ**で並べ、掃引の**増分が一致すること**を見る。窓の開閉は
+両方に同じように効くので相殺され、退行 (ポーリングが掃引を回す) が入れば頼んだ側だけが増える。
+基準線を取る前に 1 周空回しするのは、2 つの購読を張る時刻がわずかにずれ、その隙に来た変化を
+片方しか拾わないためである。**デバウンスを伸ばして黙らせないこと** — あれは退行が入っても
+緑になる (掃引が予約されても、進めた時計では発火しない)。
+
+検出力は `PollRound` の末尾に `ScheduleSweep()` を足して実測した (対照 0 に対して
+ポーリング側だけが 5 増え、`Expected: 0 / Actual: 5` で落ちる)。
 
 **(3) 本物の未修正不具合である。**CI ランナーでだけ落ちる (開発機では緑)。
 `real-uia` は必須ジョブなので、**再発すれば無関係な変更まで止まる** — そのときは

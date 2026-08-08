@@ -46,12 +46,12 @@ public sealed class TriggerMonitorPollingTests
     private static (TriggerMonitor Monitor, FakeTimeProvider Time) Create()
     {
         var time = new FakeTimeProvider();
-        var monitor = new TriggerMonitor(new TriggerMonitorOptions
-        {
-            Session = new UiaSessionOptions { TimeProvider = time },
-        });
-        return (monitor, time);
+        return (CreateOn(time), time);
     }
+
+    /// <summary>同じ時計に乗せた監視をもう 1 つ作る (対照を並べる検査で使う)。</summary>
+    private static TriggerMonitor CreateOn(FakeTimeProvider time) =>
+        new(new TriggerMonitorOptions { Session = new UiaSessionOptions { TimeProvider = time } });
 
     /// <summary>
     /// 時計を進め、その周が終わりきるまで待つ。
@@ -131,25 +131,64 @@ public sealed class TriggerMonitorPollingTests
     /// 要素が消えたことに気づくための唯一の道である)。この定義は 1 度も解決しないので、
     /// その経路には入らない。
     /// </para>
+    /// <para>
+    /// **絶対数では見られないので対照を並べる** (docs/TESTING.md §5 の (2))。この監視は
+    /// 実物の <c>UiaSession</c> に乗っており (差し替えているのは時計だけ)、
+    /// <c>WindowOpened</c> / <c>WindowClosed</c> をデスクトップのルートに本当に張る。
+    /// テストの最中に画面のどこかで窓が 1 枚開閉すれば掃引は**正しく**走るので、
+    /// 「掃引が 0 件」は製品ではなくマシンの静けさを見ていることになる
+    /// (実測でここが `Expected: 0` で落ちた。<c>PollCount</c> は 5 のまま通っていた)。
+    /// </para>
+    /// <para>
+    /// そこで**ポーリングを頼んだ監視と頼んでいない監視を同じ時計・同じデスクトップで並べ、
+    /// 掃引の増分が一致することを見る。**窓の開閉は両方に同じように効くので相殺され、
+    /// 退行 (ポーリングが掃引を回す) が入れば頼んだ側だけが増える。
+    /// </para>
+    /// <para>
+    /// 基準線を取る前に**1 周空回しする**のが要点である。2 つの購読を張る時刻はわずかにずれ、
+    /// その隙に来た変化は片方しか拾わない — 空回しでその予約を消化させてから数え始める。
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Polling_DoesNotDriveResolution()
     {
-        (TriggerMonitor monitor, FakeTimeProvider time) = Create();
-        await using (monitor)
+        var time = new FakeTimeProvider();
+        await using TriggerMonitor polled = CreateOn(time);
+        await using TriggerMonitor control = CreateOn(time);
+
+        // 違いは PollInterval の有無だけ。続けて張って、購読の時刻差を最小にする
+        await polled.StartAsync([Definition("t", Interval)], Ct);
+        await control.StartAsync([Definition("t", pollInterval: null)], Ct);
+
+        // 空回し 1 周 (上の remarks)。ここまでの掃引は基準線に含める
+        await AdvanceBoth(polled, control, time);
+        int polledSweeps = polled.GetDiagnostics().SweepCount;
+        int controlSweeps = control.GetDiagnostics().SweepCount;
+        long polledRounds = polled.GetDiagnostics().PollCount;
+
+        for (int round = 0; round < 5; round++)
         {
-            await monitor.StartAsync([Definition("t", Interval)], Ct);
-            int sweepsBefore = monitor.GetDiagnostics().SweepCount;
-
-            for (int round = 0; round < 5; round++)
-            {
-                await AdvanceAndDrain(monitor, time, Interval);
-            }
-
-            TriggerMonitorDiagnostics diagnostics = monitor.GetDiagnostics();
-            Assert.Equal(5, diagnostics.PollCount);
-            Assert.Equal(sweepsBefore, diagnostics.SweepCount);
+            await AdvanceBoth(polled, control, time);
         }
+
+        TriggerMonitorDiagnostics after = polled.GetDiagnostics();
+        TriggerMonitorDiagnostics reference = control.GetDiagnostics();
+
+        // ポーリングは 5 周回った (この検査に検出力があることを示す)
+        Assert.Equal(5, after.PollCount - polledRounds);
+        // 対照は 1 周も回っていない (頼んでいないので)
+        Assert.Equal(0, reference.PollCount);
+        // **本題**: 掃引の増分が一致すること。増えたぶんはどちらもデスクトップ由来である
+        Assert.Equal(reference.SweepCount - controlSweeps, after.SweepCount - polledSweeps);
+    }
+
+    /// <summary>同じ時計に乗った 2 つの監視を 1 周進め、両方の周を掃き出す。</summary>
+    private static async Task AdvanceBoth(TriggerMonitor a, TriggerMonitor b, FakeTimeProvider time)
+    {
+        time.Advance(Interval);
+        // 掃き出しは 2 つとも要る。ディスパッチャは監視ごとに別で、FIFO はその中でしか効かない
+        await a.GetTriggerIdsAsync(Ct);
+        await b.GetTriggerIdsAsync(Ct);
     }
 
     /// <summary>
