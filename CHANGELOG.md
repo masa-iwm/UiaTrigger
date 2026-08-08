@@ -6,7 +6,7 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
-## Unreleased
+## 0.1.0-preview.7
 
 ### Changed
 
@@ -29,9 +29,37 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
 
 ### Fixed
 
+- **An exception thrown by an `UnhandledException` handler no longer takes the process down.** That
+  event is raised from the automation thread's entry point, where anything escaping is fatal; the
+  guarantee that a consumer's exception cannot kill the process now covers the notification handlers
+  themselves.
+- **An exception escaping the overlay's window procedure or its keyboard hook no longer crashes the
+  process.** Both are called from unmanaged code, which has nowhere to put an exception.
+- **A resolved trigger that loses its property subscription is repaired.** Subscribing could fail
+  with a `COMException` and leave the trigger resolved but permanently silent; that state is now
+  recognised and re-subscribed. A trigger whose element disappeared while nothing was watching also
+  stops being reported as orphaned once the window is really gone.
+- **Password values no longer reach a recorded definition or a fired event through the paths that
+  bypassed redaction** — the name of the step being recorded, and reads of a `Custom` property.
+- **A trigger whose `Window.ProcessName` is null is treated as absent rather than matching
+  everything.**
+- **`TriggerComposer.Compose` refuses a composite source with a reason** instead of producing a
+  definition that `TriggerMonitor` rejects later.
+- **A clause name can no longer contain a comma**, which made the composite's own field ambiguous.
+- **A trigger file left behind by an interrupted save is cleaned up**, and saving falls back to a
+  move when `File.Replace` cannot be used.
+- **Cloaked windows are skipped when looking for a target.** They are invisible but still enumerate,
+  so a definition could resolve against a window nobody can see.
 - **The test console (`UiaTrigger.TestHost`) is localized.** Its usage text, errors and status lines
   follow `--culture`; before, they were Japanese whatever you asked for. Its firing log stays in
   English on purpose — that output is meant to be shared and grepped.
+
+### Documentation
+
+- **`TriggerFiredEventArgs.OldValue` documented what the implementation does not do.** For
+  `WhileMatching` and `StoppedMatching` it said the value is always absent; in fact it carries the
+  previous value when a property change moved the edge, and is absent when the element resolving or
+  disappearing did. The documentation now matches, and a test holds them together.
 
 ## 0.1.0-preview.6
 
