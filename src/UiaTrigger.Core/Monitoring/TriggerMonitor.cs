@@ -215,6 +215,21 @@ public sealed class TriggerMonitor : IAsyncDisposable
         public bool StructureIsPathScoped;
 
         /// <summary>
+        /// このスロットにプロパティ購読を張るべきか。On × PropertyIds から
+        /// <see cref="SlotBuilder.Build"/> が確定する (実行中に変わらない)。
+        /// 「張るべきなのに張れていない」(<see cref="SlotSubscriptionState.ResolvedOrphaned"/>)
+        /// の判別に使う。
+        /// </summary>
+        public required bool WantsPropertySubscription { get; init; }
+
+        /// <summary>解決時の経路段数 (target.Ancestors.Count)。手放したら 0 に戻す。</summary>
+        /// <remarks>
+        /// 0 = 対象がウィンドウ自身 (購読 0 が正常 — 消滅は WindowClosed が拾う)。
+        /// 「解決済みなのに構造購読 0」との判別に使う。
+        /// </remarks>
+        public int ResolvedPathDepth;
+
+        /// <summary>
         /// 評価が読む観測値 (スナップショット + Custom の最終値)。
         /// **評価は必ずここ経由で読む** — 生読みは購読・ポーリング・解決の「ストア更新側」
         /// だけに置く (docs/DESIGN.md C15/C16。<see cref="SlotObservations"/> のヘッダを参照)。
@@ -222,6 +237,20 @@ public sealed class TriggerMonitor : IAsyncDisposable
         public readonly SlotObservations Observations = new();
 
         public bool IsResolved => Element is not null;
+
+        /// <summary>
+        /// 実状態の導出 (docs/DESIGN.md §8)。掃引の対象選定・修復の武装・診断の孤児数は
+        /// すべてここから決める — サイトごとの条件式に戻すと、到達可能な異常状態の一部が
+        /// どの条件にも掛からず無音の恒久沈黙になる。
+        /// </summary>
+        public SlotSubscriptionState State => SubscriptionHealth.StateOf(
+            resolved: Element is not null,
+            pathDepth: ResolvedPathDepth,
+            structureCount: StructureElements.Count,
+            attemptedHwnd: StructureHandlerHwnd,
+            pathScoped: StructureIsPathScoped,
+            wantsProperties: WantsPropertySubscription,
+            hasPropertyHandler: PropertyHandler is not null);
     }
 
     private sealed class TriggerRuntime
@@ -304,18 +333,6 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 return true;
             }
         }
-
-        /// <summary>このスロットのプロパティ変化を購読する必要があるか。</summary>
-        /// <remarks>
-        /// ElementRemoved も Watch な句があれば購読する。発火源にするためではなく
-        /// (OnPropertyChanged は ElementRemoved では鳴らさない)、ストアのスナップショットを最新に
-        /// 保つためである — 購読しないと HandleRemoved の「最後に見えていた状態」が
-        /// 実際には**解決時の状態**になり、条件が古い値と比較される (docs/DESIGN.md C15)。
-        /// ElementAppeared は対象外 — 発火は解決の瞬間だけで、以後の鮮度に意味が無い
-        /// </remarks>
-        public bool WatchesProperties(ElementSlot slot) =>
-            Definition.On is TriggerOn.PropertyChanged or TriggerOn.WhileMatching or TriggerOn.ElementRemoved
-                && slot.PropertyIds.Length > 0;
 
         /// <summary>句が読むスロット。</summary>
         public ElementSlot SlotOf(int clauseIndex) => Slots[ClauseSlots[clauseIndex]];
@@ -659,6 +676,11 @@ public sealed class TriggerMonitor : IAsyncDisposable
                     Window = _windows[i],
                     Locator = _locators[i],
                     PropertyIds = [.. _propertyIds[i]],
+                    // ElementRemoved も Watch な句があれば購読する (C15 — LastSnapshot の鮮度)。
+                    // ElementAppeared は対象外 — 発火は解決の瞬間だけで、以後の鮮度に意味が無い
+                    WantsPropertySubscription =
+                        _definition.On is TriggerOn.PropertyChanged or TriggerOn.WhileMatching or TriggerOn.ElementRemoved
+                        && _propertyIds[i].Count > 0,
                 };
             }
             return slots;
@@ -967,6 +989,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         RemoveStructureSubscription(rt, slot);
         Ctx.Tree.Release(slot.Element);
         slot.Element = null;
+        slot.ResolvedPathDepth = 0;
     }
 
     private void RemovePropertySubscription(ElementSlot slot)
@@ -1047,9 +1070,9 @@ public sealed class TriggerMonitor : IAsyncDisposable
         foreach (ElementSlot slot in rt.Slots)
         {
             // 未解決スロットは触らない (解決はイベント駆動のまま)。
-            // WatchesProperties は ElementAppeared / ElementRemoved に対して既に false なので、
-            // それらがここへ来ることはない
-            if (!slot.IsResolved || !rt.WatchesProperties(slot))
+            // WantsPropertySubscription は ElementAppeared に対して既に false なので、
+            // それがここへ来ることはない
+            if (!slot.IsResolved || !slot.WantsPropertySubscription)
             {
                 continue;
             }
@@ -1083,9 +1106,24 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 {
                     CheckAlive(rt, slot);
                 }
-                if (!slot.IsResolved)
+                // 対象の選定は状態から導出する (docs/DESIGN.md §8)。「未解決なら再解決」の
+                // 条件式だけだと、解決済みのまま購読を失ったスロット (ResolvedOrphaned) が
+                // どの条件にも掛からず、復旧経路ゼロで恒久沈黙する
+                switch (slot.State)
                 {
-                    TryResolve(rt, slot, windows, initial: false);
+                    case SlotSubscriptionState.Unresolved:
+                    case SlotSubscriptionState.WaitingSubscribed:
+                    case SlotSubscriptionState.WaitingOrphaned:
+                        TryResolve(rt, slot, windows, initial: false);
+                        break;
+                    case SlotSubscriptionState.ResolvedOrphaned:
+                    case SlotSubscriptionState.ResolvedSubtreeFallback:
+                        // 修復 = 再解決による張り替え。TryResolve は解決済みスロットへ
+                        // 再入でき、成功すれば要素を差し替えて購読を張り直す
+                        TryResolve(rt, slot, windows, initial: false);
+                        break;
+                    // Resolved / ResolvedWindowSelf: 触らない (健全なスロットまで
+                    // 再解決すると張り替え嵐になる)
                 }
             }
         }
@@ -1157,6 +1195,11 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void TryResolve(TriggerRuntime rt, ElementSlot slot, WindowCandidateCache windows, bool initial)
     {
+        // 修復モード: 解決済みのまま購読を失ったスロット (ResolvedOrphaned /
+        // ResolvedSubtreeFallback) の張り直し。解決し直して要素を差し替える —
+        // 張り替えの機構を購読の側に別途持つより、既存の解決 1 本に合流させる (§8)
+        bool repairing = slot.Element is not null;
+
         IElementTree tree = Ctx.Tree;
         ResolvedTarget? target;
         try
@@ -1171,11 +1214,31 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
         if (target is null)
         {
+            if (repairing)
+            {
+                // 修復の再解決に失敗した。現在の要素と購読はそのまま残す —
+                // 「見つからない」は「消えた」とは限らない (§8)。孤児なら修復の
+                // 再試行が回り続け、消えたなら CheckAlive が拾って未解決へ落とす
+                return;
+            }
             // 要素は無いがウィンドウがあれば、その配下の構造変化を購読して出現を検知する。
             // 出現位置は分からないので、この場合だけは Subtree で張る
             var window = ElementResolver.ResolveWindow(tree, windows, slot.Window, _options.Resolver);
             if (window is null)
             {
+                // アプリのウィンドウが列挙に無い。孤児の目印 (張ろうとした hwnd) が残っていて、
+                // その hwnd が OS 的にも死んでいるなら「未解決でウィンドウが無い」= 正常
+                // (Unresolved) へ戻す — 戻さないと、アプリ終了後も修復掃引がアプリ再起動まで
+                // 30 秒間隔で回り続け、「壊れている間だけ動く」(§5/§8) が破れる。
+                // hwnd がまだ生きているなら残す — 相手が塞がっているだけかもしれない。
+                // IsWindow は往復ゼロで決定的である (A21 と同じ手)
+                if (slot.StructureElements.Count == 0 && slot.StructureHandlerHwnd != 0 &&
+                    !NativeMethods.IsWindow(slot.StructureHandlerHwnd))
+                {
+                    slot.StructureHandlerHwnd = 0;
+                    slot.StructureIsPathScoped = false;
+                    UpdateDiagnostics();
+                }
                 EnsureStructureSubscription(rt, slot, [], TreeScope.Subtree, 0, pathScoped: false);
             }
             else
@@ -1216,17 +1279,48 @@ public sealed class TriggerMonitor : IAsyncDisposable
         EnsureStructureSubscription(
             rt, slot, target.Ancestors, TreeScope.Element | TreeScope.Children, target.WindowHandle, pathScoped: true);
 
+        if (repairing)
+        {
+            // 修復: 旧要素と旧プロパティ購読を手放してから差し替える (構造購読は上の
+            // EnsureStructureSubscription が「新を先に・旧を後で」の規律で張り替え済み)。
+            // ResolutionChanged は上げない — 解決済み → 解決済みであり、
+            // 利用者から見た状態は変わっていない
+            RemovePropertySubscription(slot);
+            tree.Release(slot.Element);
+            slot.Element = null;
+        }
+
         slot.Element = target.Element;
         slot.Identity = ElementIdentity.Of(target.Element);
         slot.WindowHandle = target.WindowHandle;
+        slot.ResolvedPathDepth = target.Ancestors.Count;
         slot.Observations.UpdateSnapshot(snapshot);
 
-        if (rt.WatchesProperties(slot))
+        // ElementRemoved も Watch な句があれば購読する。発火源にするためではなく
+        // (OnPropertyChanged は ElementRemoved では鳴らさない)、ストアのスナップショットを
+        // 最新に保つためである (docs/DESIGN.md C15)。規則の実体は SlotBuilder.Build が
+        // スロットへ確定した WantsPropertySubscription — 状態導出 (State) と同じ値を見る
+        if (slot.WantsPropertySubscription)
         {
-            slot.PropertyHandler = new PropertyChangedEventHandler(
+            var propertyHandler = new PropertyChangedEventHandler(
                 (_, _) => _dispatcher.Post(() => OnPropertyChanged(rt, slot)));
-            Ctx.Automation.AddPropertyChangedEventHandlerNativeArray(
-                element, TreeScope.Element, null, slot.PropertyHandler, slot.PropertyIds, slot.PropertyIds.Length);
+            try
+            {
+                Ctx.Automation.AddPropertyChangedEventHandlerNativeArray(
+                    element, TreeScope.Element, null, propertyHandler, slot.PropertyIds, slot.PropertyIds.Length);
+                slot.PropertyHandler = propertyHandler;
+            }
+            catch (COMException ex)
+            {
+                // 張れなかったスロットは「解決済み・購読喪失」(ResolvedOrphaned) として
+                // 掃引と修復が拾い直す (docs/DESIGN.md §8)。素通しにすると、Sweep 経由では
+                // 残りのトリガーの処理ごと中断し、StartCore/AddCore 経由では runtime が
+                // 半構築のまま fault する。解決を巻き戻す形も採らない — 構造購読は既に
+                // 経路へ張り替わっており、未解決へ戻すと「未解決なのに経路購読」という
+                // 新しい不整合を作る。PropertyHandler は成功したときにだけ代入する —
+                // 代入が先だと、失敗したのに「張れている」ように見える
+                Log.SubscriptionFailed(_logger, rt.Id, ex);
+            }
         }
 
         Log.TriggerResolved(_logger, rt.Id, target.Ancestors.Count, target.FoundBySearch);
@@ -1235,7 +1329,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // ただし**評価は待たない** — 未解決スロットの句は不成立なので、
         // a && !b の !b は「b が解決していないこと」そのものが条件である。
         // 揃うまで評価しないと ! が presence に対して永久に使えない
-        if (rt.IsResolved)
+        if (rt.IsResolved && !repairing)
         {
             RaiseResolutionChanged(rt, true, Strings.Status_ElementResolved);
         }
@@ -1250,8 +1344,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
             return;
         }
         // 「出現し、かつ条件を満たしたとき」— ライフサイクルと値の述語を
-        // 同じ列挙に同居させるモデルでは表現できない組み合わせ (docs/DESIGN.md §3)
-        if (matched && rt.Definition.On == TriggerOn.ElementAppeared)
+        // 同じ列挙に同居させるモデルでは表現できない組み合わせ (docs/DESIGN.md §3)。
+        // 修復 (解決済み → 解決済み) は「出現」ではないので鳴らさない —
+        // WhileMatching 側は wasMatching のエッジ判定が同じことを自然に保証する
+        if (matched && rt.Definition.On == TriggerOn.ElementAppeared && !repairing)
         {
             Fire(rt, TriggerOn.ElementAppeared, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
         }
@@ -1328,6 +1424,27 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 Log.SubscriptionFailed(_logger, rt.Id, ex);
                 Ctx.Tree.Release(target);
             }
+        }
+
+        if (added.Count > 0 && added.Count != targets.Count)
+        {
+            // **部分成功は全滅と同じに扱う** (docs/DESIGN.md B3/§8)。段が飛んだ購読リストは
+            // IsStillOnThePath の「i と i+1 は親子」前提を破り、健在の要素を偽の切り離し
+            // (Status_ElementDetached) として手放させる — 偽の ElementRemoved 発火や
+            // 偽の立ち下がりになる。張れた分は外して、全滅の分岐 (旧購読温存 or 孤児の目印)
+            // に合流する。一時的な失敗なら旧購読が生きている限り次の掃引で再試行される
+            foreach (IElementNode node in added)
+            {
+                try
+                {
+                    Ctx.Automation.RemoveStructureChangedEventHandler(UiaElementNode.Unwrap(node), handler);
+                }
+                catch (COMException)
+                {
+                }
+                Ctx.Tree.Release(node);
+            }
+            added.Clear();
         }
 
         if (added.Count == 0)
@@ -1409,7 +1526,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 {
                     allPathScoped = false;
                 }
-                if (SubscriptionHealth.IsOrphaned(slot.StructureElements.Count, slot.StructureHandlerHwnd))
+                if (SubscriptionHealth.IsOrphaned(slot.State))
                 {
                     anyOrphaned = true;
                 }
@@ -1572,6 +1689,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         Ctx.Tree.Release(slot.Element);
         slot.Element = null;
         slot.WindowHandle = 0;
+        slot.ResolvedPathDepth = 0;
 
         RaiseResolutionChanged(rt, false, reason);
 
@@ -1701,7 +1819,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 }
                 break;
             // ElementRemoved の購読は LastSnapshot を最新に保つためだけにある
-            // (WatchesProperties を参照)。ここでは何も鳴らさない — 鳴るのは HandleRemoved
+            // (WantsPropertySubscription を参照)。ここでは何も鳴らさない — 鳴るのは HandleRemoved
         }
     }
 
