@@ -60,6 +60,14 @@ internal static class Ui
     /// 実際に「エディタが閉じるまで待つ」がその形で書かれており、成功しても毎回 5 秒を捨て、
     /// しかも 1 回目の観測で閉じ切っていなければ落ちていた。
     /// </para>
+    /// <para>
+    /// **<see cref="Never"/> との差がもう 1 つある。**こちらは <see cref="Until{T}"/> の上に
+    /// 乗るので <see cref="ElementNotAvailableException"/> を握り潰す (「まだ成立していない」
+    /// として扱う)。<see cref="Never"/> があえて握り潰さないのは、ネガティブコントロールで
+    /// 「起きなかった」と「見られなかった」が同じ扱いになると困るからである。
+    /// **待ちでは握り潰してよい** — 窓が閉じる最中の例外はまさに待っていた事象であり、
+    /// 成立しなければ最後は期限で落ちる。
+    /// </para>
     /// </remarks>
     public static void UntilTrue(Func<bool> probe, TimeSpan timeout, string what, Func<string> diagnose)
         => Until<string>(() => probe() ? what : null, timeout, what, diagnose);

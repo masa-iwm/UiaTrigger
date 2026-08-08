@@ -495,13 +495,16 @@ System.TimeoutException : AutomationId 'OpenPickerButton' の要素 が 10 秒�
   at UiaTrigger.Picker.UiTests.PickerHostProcess.OpenAndAwaitPlacement(...)
 ```
 
-実測 (T4 の全体実行 3 回で 0 件 → 4 件 → 1 件 / T5 の全体実行 5 回で 1 件 → 0 → 0 → 1 件 → 1 件):
+実測 (T4 の全体実行 5 回で 0 件 → 4 件 → 1 件 → 6 件 → 4 件 / T5 の全体実行 5 回で 1 件 → 0 → 0 → 1 件 → 1 件):
 
 - **落ちた顔ぶれは実行のたびに変わる。**T5 で 2 回続けて落ちた
   `EscapeKeyTests.EscapeWorksOnAFreshlyOpenedChildPicker` も、**単体では 20 秒で緑**、
   `EditorScenario` を使う 6 件だけの実行でも緑だった。**全体実行でしか出ない。**
 - **同じ実行の中で WinUI ホストを何回起こしたかで効く。**T5 に `EditorScenario` を使う
   テストを 2 件足した (`EnterKeyTests`) 前は 11 件で緑だった。件数を増やすとここが出やすくなる。
+- **機械の負荷でも効く。**6 件 / 4 件を観測したのは、同じ機械でビルドとテストを続けて
+  回していた最中である。落ちた 4 件だけを掃除後に単独実行すると 26 件緑だった —
+  **落ちた顔ぶれを単独で通したことは「直った」ではない**。全体実行の結果だけが指標である。
 
 あの待ちは既に「WinUI ではレイアウトが動いた直後に既に在る要素が一時的に UIA から消える」
 ことへの対処として入っているもので (`OpenAndAwaitPlacement` のコメント)、

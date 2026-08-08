@@ -244,7 +244,7 @@
     <value>Expression (&amp;&amp;, ||, !, parentheses; blank = require all):</value>
   </data>
   <data name="UnwatchedBox.Header" xml:space="preserve">
-    <value>Only narrow, never fire (ids, comma separated):</value>
+    <value>Only narrow, never fire (trigger ids, or clause names when rewriting):</value>
   </data>
   <data name="CombinePollIntervalBox.Header" xml:space="preserve">
     <value>Poll interval (s)</value>

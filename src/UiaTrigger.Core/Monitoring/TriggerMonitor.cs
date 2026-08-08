@@ -1220,8 +1220,11 @@ public sealed class TriggerMonitor : IAsyncDisposable
         foreach (ElementSlot slot in rt.Slots)
         {
             // 未解決スロットは触らない (解決はイベント駆動のまま)。
-            // WantsPropertySubscription は ElementAppeared に対して既に false なので、
-            // それがここへ来ることはない
+            //
+            // **防壁はここではない。**ポーリングで拾えない lifecycle に PollInterval を
+            // 書いた定義は CreateRuntime が Error_PollIntervalNotApplicable で弾く
+            // (黙って効かない設定を残さない)。ここの WantsPropertySubscription 判定は、
+            // 通り抜けた定義の中で「値を読む意味があるスロット」を選ぶだけである
             if (!slot.IsResolved || !slot.WantsPropertySubscription)
             {
                 continue;
