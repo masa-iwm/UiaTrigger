@@ -243,7 +243,10 @@ internal sealed class WindowCandidateCache(IWindowSource source, ResolverOptions
         string WindowName, MatchStrength WindowNameMatch)
     {
         public static IdentityKey From(WindowIdentity identity) => new(
-            identity.ProcessName, identity.ProcessNameMatch,
+            // ProcessName は宣言上 non-null だが、手編集 JSON の "ProcessName": null は
+            // STJ が既定でそのまま入れる。ここで正規化しないと GetHashCode の
+            // ArgumentNullException が sweep 全体を毎回中断させる (壊れた定義 1 件の巻き添え)
+            identity.ProcessName ?? string.Empty, identity.ProcessNameMatch,
             identity.ProcessPath ?? string.Empty, identity.ProcessPathMatch,
             identity.ClassName ?? string.Empty, identity.ClassNameMatch,
             identity.WindowName ?? string.Empty, identity.WindowNameMatch);

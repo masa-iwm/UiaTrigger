@@ -585,6 +585,10 @@
         設定。null なら既定値。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session" /> が
         このモニターの作るセッションの設定になる。
       </param>
+      <exception cref="T:System.ArgumentOutOfRangeException">
+        <paramref name="options" /> の時間が範囲外である —
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Debounce" /> は負であってはならない。
+      </exception>
       <remarks>
         ホストが既にセッションを持っているなら <see cref="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)" />
         を使うこと。セッションが 1 つ増えるごとにオートメーションスレッドと UIA オブジェクト一式が 1 組増える。
@@ -747,6 +751,10 @@
         モニターの設定。null なら既定値。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session" /> は
         無視される — このセッションの設定が使われる。
       </param>
+      <exception cref="T:System.ArgumentOutOfRangeException">
+        <paramref name="options" /> の時間が範囲外である —
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Debounce" /> は負であってはならない。
+      </exception>
       <remarks>
         ホストが要素の調査も行うなら <c>new TriggerMonitor(...)</c> よりこちらを使うこと。
         単独のモニターは 2 本目のオートメーションスレッドと 2 組目の UIA オブジェクトを作る。

@@ -380,6 +380,10 @@ public sealed class UiaSession : IAsyncDisposable
     /// Monitor settings, or null for the defaults. <see cref="TriggerMonitorOptions.Session"/> is
     /// ignored — this session's settings apply.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A duration in <paramref name="options"/> is out of range —
+    /// <see cref="TriggerMonitorOptions.Debounce"/> must not be negative.
+    /// </exception>
     /// <remarks>
     /// Preferred over <c>new TriggerMonitor(...)</c> whenever the host also inspects elements: a
     /// standalone monitor starts a second automation thread and a second set of automation objects.

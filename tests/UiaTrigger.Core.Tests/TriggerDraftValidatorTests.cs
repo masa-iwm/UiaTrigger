@@ -288,6 +288,23 @@ public sealed class TriggerDraftValidatorTests
         Assert.Equal(expected is null ? null : TimeSpan.FromSeconds(expected.Value), interval);
     }
 
+    /// <summary>
+    /// TimeSpan で表現できない巨大な有限値は、例外 (OverflowException) ではなく**理由**になること。
+    /// この型の契約は「入力は nonsense でありうる。Validate は句か理由に変える」であり、
+    /// UI から "1e12" は 4 打鍵で入る。
+    /// </summary>
+    [Fact]
+    public void Validate_TurnsAnUnrepresentablyLargeMinIntervalIntoAReason()
+    {
+        TriggerDraft draft = Draft();
+        draft.MinIntervalSeconds = 1e300;
+
+        TriggerDraftResult result = Validate(draft);
+
+        Assert.False(result.IsValid);
+        Assert.NotNull(result.Error);
+    }
+
     // ---- ポーリング間隔 ----
 
     [Theory]

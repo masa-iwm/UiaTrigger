@@ -87,12 +87,16 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// Settings, or null for the defaults. <see cref="TriggerMonitorOptions.Session"/> configures
     /// the session this monitor creates.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A duration in <paramref name="options"/> is out of range —
+    /// <see cref="TriggerMonitorOptions.Debounce"/> must not be negative.
+    /// </exception>
     /// <remarks>
     /// Prefer <see cref="UiaSession.CreateMonitor"/> when the host already has a session: each
     /// session is another automation thread and another set of automation objects.
     /// </remarks>
     public TriggerMonitor(TriggerMonitorOptions? options = null)
-        : this(new UiaSession((options ?? new TriggerMonitorOptions()).Session), options, ownsSession: true)
+        : this(new UiaSession(EnsureValid(options).Session), options, ownsSession: true)
     {
     }
 
@@ -101,11 +105,30 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
     }
 
+    /// <summary>
+    /// 設定の検証。**セッション (= スレッド) を作る前・呼び出し元スレッドで前倒しする**
+    /// (UiaSessionOptions.Validate と同じ理由)。負の Debounce は SweepDebouncer の初回
+    /// Change で ArgumentOutOfRangeException になり (catch は ODE のみなので
+    /// UnhandledException 行き)、-1ms ちょうどは Infinite = 掃引の恒久停止 —
+    /// どちらも「黙って動かない」モニターになる。
+    /// </summary>
+    private static TriggerMonitorOptions EnsureValid(TriggerMonitorOptions? options)
+    {
+        options ??= new TriggerMonitorOptions();
+        if (options.Debounce < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options), options.Debounce,
+                Message.Format(Strings.Error_DurationNegative, nameof(TriggerMonitorOptions.Debounce)));
+        }
+        return options;
+    }
+
     private TriggerMonitor(UiaSession session, TriggerMonitorOptions? options, bool ownsSession)
     {
         _session = session;
         _ownsSession = ownsSession;
-        _options = options ?? new TriggerMonitorOptions();
+        _options = EnsureValid(options);
         _timeProvider = session.TimeProvider;
         _logger = session.Logger;
         _dispatcher = session.Dispatcher;

@@ -29,6 +29,32 @@ public sealed class TriggerMonitorValidationTests
         return await Record.ExceptionAsync(() => monitor.StartAsync([definition]));
     }
 
+    /// <summary>
+    /// 負の <see cref="TriggerMonitorOptions.Debounce"/> はモニター構築の時点で弾くこと。
+    /// SweepDebouncer まで届くと、負値はディスパッチャ上の ArgumentOutOfRangeException
+    /// (UnhandledException 行き) になり、-1ms ちょうどは Infinite = 掃引の恒久停止になる —
+    /// どちらも「黙って動かない」モニターである。
+    /// </summary>
+    [Theory]
+    [InlineData(-5)]
+    [InlineData(-1)]
+    public void Constructor_WithANegativeDebounce_ThrowsOnTheCallingThread(int milliseconds)
+    {
+        var options = new TriggerMonitorOptions { Debounce = TimeSpan.FromMilliseconds(milliseconds) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TriggerMonitor(options));
+    }
+
+    /// <summary>共有セッション経路 (CreateMonitor) でも同じ検証が効くこと。</summary>
+    [Fact]
+    public async Task CreateMonitor_WithANegativeDebounce_ThrowsOnTheCallingThread()
+    {
+        await using var session = new UiaSession();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => session.CreateMonitor(new TriggerMonitorOptions { Debounce = TimeSpan.FromMilliseconds(-1) }));
+    }
+
     [Fact]
     public async Task StartAsync_WithMalformedRegex_ThrowsArgumentException()
     {

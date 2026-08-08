@@ -173,6 +173,11 @@
     <comment>{0} = option name, {1} = upper bound in milliseconds</comment>
   </data>
 
+  <data name="Error_DurationNegative" xml:space="preserve">
+    <value>'{0}' must be zero or a positive duration.</value>
+    <comment>{0} = option name</comment>
+  </data>
+
   <data name="Error_NoElementAtPoint" xml:space="preserve">
     <value>No UI element was found at screen point ({0}, {1}).</value>
     <comment>{0} = x, {1} = y (screen coordinates)</comment>
@@ -240,6 +245,12 @@
   </data>
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>The tolerance must not be negative.</value>
+  </data>
+  <data name="Draft_MinIntervalTooLarge" xml:space="preserve">
+    <value>The minimum interval is too large to represent. Enter a smaller number of seconds.</value>
+  </data>
+  <data name="Draft_PollIntervalTooLarge" xml:space="preserve">
+    <value>The polling interval is too large to represent. Enter a smaller number of seconds.</value>
   </data>
   <data name="Draft_InvalidClauseName" xml:space="preserve">
     <value>'{0}' cannot be used as a condition name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>

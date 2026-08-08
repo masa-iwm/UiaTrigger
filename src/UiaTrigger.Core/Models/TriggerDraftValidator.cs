@@ -267,6 +267,19 @@ public static class TriggerDraftValidator
             }
             : null;
 
+        // TimeSpan.FromSeconds の上限を超える有限値は OverflowException になる。この型の契約は
+        // 「入力は nonsense でありうる。Validate は句か理由に変える」(冒頭 doc) なので、
+        // 例外ではなく理由で返す。NaN は「未入力」(WinUI の空 NumberBox) なので理由にしない
+        if (draft.MinIntervalSeconds is { } minSeconds && minSeconds >= TimeSpan.MaxValue.TotalSeconds)
+        {
+            return new TriggerDraftResult(Strings.Draft_MinIntervalTooLarge, null, null, null);
+        }
+        if (UsesPollInterval(draft.On) &&
+            draft.PollIntervalSeconds is { } pollSeconds && pollSeconds >= TimeSpan.MaxValue.TotalSeconds)
+        {
+            return new TriggerDraftResult(Strings.Draft_PollIntervalTooLarge, null, null, null);
+        }
+
         TimeSpan? minInterval = draft.MinIntervalSeconds is { } seconds and > 0
             ? TimeSpan.FromSeconds(seconds)
             : null;
