@@ -6,7 +6,7 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
-## Unreleased
+## 0.1.0-preview.6
 
 ### Fixed
 
