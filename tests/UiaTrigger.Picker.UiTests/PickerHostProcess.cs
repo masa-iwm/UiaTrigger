@@ -60,6 +60,17 @@ internal sealed class PickerHostProcess : IDisposable
     /// </remarks>
     public int ProcessId => _process.Id;
 
+    /// <summary>
+    /// <see cref="Dispose"/> で、ホストが**自分で**終了したか (Kill せずに済んだか)。
+    /// </summary>
+    /// <remarks>
+    /// **「閉じたらプロセスが残らない」を見るテストの観測点はここである。**
+    /// Dispose から戻った時点のプロセスの生死を見る形は、Kill が先回りするので
+    /// 退行を入れても必ず緑になる (docs/TESTING.md §2 — 検出力を示せないテストは書かない)。
+    /// 監視のスレッドが終了を妨げていれば、CloseMainWindow のあと 5 秒で終わらず false になる。
+    /// </remarks>
+    public bool ExitedGracefully { get; private set; }
+
     private PickerHostProcess(
         Process process,
         PickerHostProfile profile,
@@ -813,8 +824,16 @@ internal sealed class PickerHostProcess : IDisposable
             // メインウィンドウを閉じるとホストが開いているピッカーも閉じ、
             // オーバーレイの低レベルキーボードフックが外れる
             _process.CloseMainWindow();
-            if (!_process.WaitForExit(5000))
+            if (_process.WaitForExit(5000))
             {
+                ExitedGracefully = true;
+            }
+            else
+            {
+                // **Kill したことを記録する。**ここで黙って始末すると、Dispose から戻った
+                // 時点でプロセスは必ず消えており、「閉じたら残らない」を見るテストが
+                // Kill の結果を観測して常に緑になる (退行を入れても落ちない = 検出力ゼロ)。
+                // 掃除そのものは続ける — 残骸は次のテストを座標で落とす
                 _process.Kill(entireProcessTree: true);
                 _process.WaitForExit(5000);
             }

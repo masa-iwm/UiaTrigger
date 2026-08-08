@@ -77,10 +77,20 @@ public sealed class ElementBorrowTests
         string source = ReadSource("src", "UiaTrigger.Core", "Session", "UiaElement.cs");
 
         // 借用スコープの中 (Borrowed.Element) だけが生ポインターを持ってよい。
-        // UiaElement 自身のメンバーとして IUIAutomationElement を返すものがあってはならない
+        // UiaElement 自身のメンバーとして IUIAutomationElement を**外へ出す**ものが
+        // あってはならない。
+        //
+        // **メソッドだけを見ては足りない。**末尾に '(' を要求する形だと
+        // `internal IUIAutomationElement Raw => _element!;` のようなプロパティが素通りする —
+        // C# で最も自然な取り出し口であり、この検査の doc 自身が警告している
+        // 「internal に戻すだけで元に戻る」経路そのものである。
+        //
+        // 見るのは **internal / public** だけ。private フィールド (_element) は
+        // 保持であって取り出し口ではなく、これを禁じると型が要素を持てなくなる。
+        // インデント 4 で絞るのは、入れ子の Borrowed.Element (インデント 8) を除くため
         MatchCollection returns = Regex.Matches(
             source,
-            @"^\s{4}(?:internal|public|private)\s+IUIAutomationElement\s+\w+\s*\(",
+            @"^\s{4}(?:internal|public)\s+IUIAutomationElement\??\s+\w+\s*[({=;]",
             RegexOptions.CultureInvariant | RegexOptions.Multiline,
             TimeSpan.FromSeconds(1));
 

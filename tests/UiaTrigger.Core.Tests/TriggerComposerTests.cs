@@ -12,6 +12,10 @@ namespace UiaTrigger.Tests;
 /// 先に走ると、「絞るだけ」に指定した条件も常に購読される
 /// (<see cref="Compose_AnUnwatchedSource_YieldsUnwatchedClauses"/> が固定する)。
 /// </summary>
+// **実 UIA を起こす T1 なので直列化する** (docs/TESTING.md §5)。合成した定義を実物の
+// TriggerMonitor.StartAsync に通す検査があり、CUIAutomation8 の生成と GetRootElement が
+// 並列に走ると単発で E_FAIL になる。
+[Collection(RealUiaLiteTests.Name)]
 public sealed class TriggerComposerTests
 {
     /// <summary>句 1 つの、ふつうのトリガー。</summary>

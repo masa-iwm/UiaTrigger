@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  検証用コンソール (TestHost) のユーザー向け文字列 — 日本語。
+  キー集合はプライマリと一致していなければならない (XamlLocalizationTests)。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Usage" xml:space="preserve">
+    <value>使い方:
+  共通オプション: [--culture &lt;name&gt;] [--log &lt;Trace|Debug|Information|Warning|Error&gt;]
+                  例: --culture ja-JP / --log Debug (Core の診断ログを stderr へ)
+
+  UiaTrigger.TestHost [monitor] [--file &lt;path&gt;] [--duration &lt;sec&gt;]
+  UiaTrigger.TestHost record &lt;id&gt; [--file &lt;path&gt;] [--delay &lt;sec&gt;] [--point &lt;x&gt;,&lt;y&gt;]
+      [--on ElementAppeared|ElementRemoved|PropertyChanged|WhileMatching]
+      [--prop Name|AutomationId|ClassName|ControlType|BoundingRectangle|AccessKey|
+              AcceleratorKey|HelpText|IsEnabled|IsOffscreen|Value|RangeValue|
+              RangeValueMinimum|RangeValueMaximum]
+      [--op Always|Equals|NotEquals|Between|NotBetween|GreaterThan|LessThan|
+            LessOrEqual|GreaterOrEqual|RegexMatch|RegexNotMatch]
+      [--value &lt;num&gt;] [--low &lt;num&gt;] [--high &lt;num&gt;] [--text &lt;str&gt;] [--tolerance &lt;num&gt;]
+      [--min-interval &lt;sec&gt;] [--poll-interval &lt;sec&gt;] [--view Raw|Control|Content]
+
+  --poll-interval は「対象アプリが UIA の通知を上げないので鳴らない」ときの逃げ道。
+  既定は無効 = イベント駆動。停止時に出る PollCount / PolledReadCount が、
+  その費用と、「鳴らなかったのは回っていないからか」の切り分けになる。</value>
+  </data>
+
+  <data name="UnknownCulture" xml:space="preserve">
+    <value>--culture: '{0}' は既知のカルチャ名ではありません。</value>
+  </data>
+  <data name="RecordNeedsId" xml:space="preserve">
+    <value>record にはトリガー Id を指定してください。</value>
+  </data>
+  <data name="RecordCountdown" xml:space="preserve">
+    <value>{0} 秒後にマウスカーソル下の要素を記録します。対象の上にカーソルを置いてください…</value>
+  </data>
+  <data name="ExistingTriggersUnreadable" xml:space="preserve">
+    <value>既存のトリガー定義を読めないので保存しません ({0}): {1}</value>
+  </data>
+  <data name="Recorded" xml:space="preserve">
+    <value>記録しました: id='{0}' → {1}</value>
+  </data>
+
+  <data name="TriggersUnreadable" xml:space="preserve">
+    <value>トリガー定義を読めません ({0}): {1}</value>
+  </data>
+  <data name="NoTriggers" xml:space="preserve">
+    <value>トリガー定義がありません: {0}</value>
+  </data>
+  <data name="NoTriggersHint" xml:space="preserve">
+    <value>record コマンドで作成してください。</value>
+  </data>
+  <data name="LoadedTriggers" xml:space="preserve">
+    <value>定義 {0} 件を読み込みました ({1}):</value>
+  </data>
+  <data name="NoClauses" xml:space="preserve">
+    <value>(条件なし)</value>
+  </data>
+  <data name="DefinitionError" xml:space="preserve">
+    <value>定義エラー: {0}</value>
+  </data>
+  <data name="MonitoringUntilDuration" xml:space="preserve">
+    <value>監視中… {0} 秒後に終了します。</value>
+  </data>
+  <data name="MonitoringUntilCancel" xml:space="preserve">
+    <value>監視中… Ctrl+C で終了します。</value>
+  </data>
+  <data name="Diagnostics" xml:space="preserve">
+    <value>診断: 掃引={0} ポーリング周={1} ポーリング読み={2} 解決={3}/{4} 抑制した発火={5}</value>
+  </data>
+  <data name="Stopping" xml:space="preserve">
+    <value>停止します…</value>
+  </data>
+</root>

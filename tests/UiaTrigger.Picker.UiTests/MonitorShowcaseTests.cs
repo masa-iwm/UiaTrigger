@@ -271,20 +271,25 @@ public sealed class MonitorShowcaseTests
     public void ClosingTheWindowWhileMonitoring_LeavesNoProcessBehind()
     {
         int processId;
+        bool exitedGracefully;
         using (var scenario = ShowcaseScenario.Open())
         {
             _ = scenario.RecordAndCommit();
             scenario.StartMonitoring();
             processId = scenario.ProcessId;
+            scenario.Dispose();
+            // **観測点は「自分で終わったか」である。**Dispose から戻った時点の生死を見る形は、
+            // ハーネスの Kill が先回りするので退行を入れても必ず緑になる — この検査が
+            // 固定したいのは「監視のスレッドが終了を妨げないこと」であって、
+            // 「ハーネスが後始末できること」ではない (docs/TESTING.md §2)
+            exitedGracefully = scenario.ExitedGracefully;
         }
 
-        // Dispose がホストを閉じている。残っていれば、監視のスレッドが止まっていない
         Assert.True(
-            Ui.Until(
-                () => HasExited(processId) ? "ok" : null,
-                Settle,
-                "監視中のホストを閉じたらプロセスが残らないこと",
-                () => $"pid={processId}") is not null);
+            exitedGracefully,
+            $"監視中のホスト (pid={processId}) が CloseMainWindow から 5 秒で終わらず、" +
+            "ハーネスが Kill しました。監視のスレッドがプロセスの終了を妨げています。");
+        Assert.True(HasExited(processId));
     }
 
     /// <summary>
@@ -336,6 +341,8 @@ public sealed class MonitorShowcaseTests
         /// <summary>テストの途中で対象アプリを落としたか (Dispose で二重に落とさないため)。</summary>
         private bool _targetClosed;
 
+        private bool _disposed;
+
         private ShowcaseScenario(TestTargetProcess target, PickerHostProcess host)
         {
             _target = target;
@@ -343,6 +350,12 @@ public sealed class MonitorShowcaseTests
         }
 
         public int ProcessId => _host.ProcessId;
+
+        /// <summary>
+        /// ホストが自分で終了したか (<see cref="PickerHostProcess.ExitedGracefully"/> の転送)。
+        /// <see cref="Dispose"/> の後に読むこと。
+        /// </summary>
+        public bool ExitedGracefully => _host.ExitedGracefully;
 
         /// <param name="pickPoints">
         /// 用意する pick 点の数。**ピッカーは n 枚目が n 番目を受け取る**ので、
@@ -675,8 +688,18 @@ public sealed class MonitorShowcaseTests
             throw new InvalidOperationException($"行 '{row.NameOf()}' に確定ボタンがありません。");
         }
 
+        /// <summary>
+        /// 冪等。テストが観測のために先に呼び、そのあと <c>using</c> がもう一度呼ぶ形を許す
+        /// (<c>ClosingTheWindowWhileMonitoring_LeavesNoProcessBehind</c> が
+        /// <see cref="ExitedGracefully"/> を読むためにそうしている)。
+        /// </summary>
         public void Dispose()
         {
+            if (_disposed)
+            {
+                return;
+            }
+            _disposed = true;
             _host.Dispose();
             if (!_targetClosed)
             {

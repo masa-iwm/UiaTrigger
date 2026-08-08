@@ -22,7 +22,8 @@
     <!--
       Picker.WinUI と同じ理由で明示する (docs/DESIGN.md §12)。
       **このホストは自分でも GridSplitter を使う** (2 つの一覧の間の ListSplitter) ので、
-      A23 の不具合はここにも掛かる。
+      A23 の不具合はここにも掛かる。**2 つの値は Picker.WinUI と一致していること** —
+      WinUiPinTests が縛る (片方だけ更新すると AOT 破壊の検出が黙って外れる)。
     -->
     <WindowsSdkPackageVersion>10.0.19041.87</WindowsSdkPackageVersion>
     <CsWinRTAotWarningLevel>3</CsWinRTAotWarningLevel>

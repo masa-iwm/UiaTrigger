@@ -52,7 +52,8 @@ if (GetOption("--culture") is { Length: > 0 } cultureName)
     }
     catch (CultureNotFoundException)
     {
-        Console.Error.WriteLine($"--culture: '{cultureName}' は既知のカルチャ名ではありません。");
+        // カルチャを決められなかったので、この 1 行だけは既定のカルチャで出る
+        Console.Error.WriteLine(TestHostStrings.Format("UnknownCulture", cultureName));
         return 1;
     }
 }
@@ -78,27 +79,7 @@ return command switch
 
 int Usage()
 {
-    Console.WriteLine("""
-        使い方:
-          共通オプション: [--culture <name>] [--log <Trace|Debug|Information|Warning|Error>]
-                          例: --culture ja-JP / --log Debug (Core の診断ログを stderr へ)
-
-          UiaTrigger.TestHost [monitor] [--file <path>] [--duration <sec>]
-          UiaTrigger.TestHost record <id> [--file <path>] [--delay <sec>] [--point <x>,<y>]
-              [--on ElementAppeared|ElementRemoved|PropertyChanged|WhileMatching]
-              [--prop Name|AutomationId|ClassName|ControlType|BoundingRectangle|AccessKey|
-                      AcceleratorKey|HelpText|IsEnabled|IsOffscreen|Value|RangeValue|
-                      RangeValueMinimum|RangeValueMaximum]
-              [--op Always|Equals|NotEquals|Between|NotBetween|GreaterThan|LessThan|
-                    LessOrEqual|GreaterOrEqual|RegexMatch|RegexNotMatch]
-              [--value <num>] [--low <num>] [--high <num>] [--text <str>] [--tolerance <num>]
-              [--min-interval <sec>] [--poll-interval <sec>] [--view Raw|Control|Content]
-
-          --poll-interval は「対象アプリが UIA の通知を上げないので鳴らない」ときの逃げ道
-          (docs/DESIGN.md §5)。既定は無効 = イベント駆動。
-          停止時に出る PollCount / PolledReadCount が、その費用と、
-          「鳴らなかったのは回っていないからか」の切り分けになる。
-        """);
+    Console.WriteLine(TestHostStrings.Get("Usage"));
     return 1;
 }
 
@@ -108,7 +89,7 @@ async Task<int> RecordAsync()
     string? id = argList.Count > 0 && !argList[0].StartsWith('-') ? argList[0] : null;
     if (id is null)
     {
-        Console.Error.WriteLine("record にはトリガー Id を指定してください。");
+        Console.Error.WriteLine(TestHostStrings.Get("RecordNeedsId"));
         return Usage();
     }
 
@@ -132,7 +113,7 @@ async Task<int> RecordAsync()
     else
     {
         int delay = int.TryParse(GetOption("--delay"), NumberStyles.Integer, CultureInfo.InvariantCulture, out int d) ? d : 3;
-        Console.WriteLine($"{delay} 秒後にマウスカーソル下の要素を記録します。対象の上にカーソルを置いてください...");
+        Console.WriteLine(TestHostStrings.Format("RecordCountdown", delay));
         for (int i = delay; i > 0; i--)
         {
             Console.Write($"\r  {i} ");
@@ -177,13 +158,13 @@ async Task<int> RecordAsync()
         or IOException or UnauthorizedAccessException)
     {
         // **既存を読めないまま保存しない。**上書きすると、読めなかっただけの定義が消える
-        Console.Error.WriteLine($"既存のトリガー定義を読めないので保存しません ({file}): {ex.Message}");
+        Console.Error.WriteLine(TestHostStrings.Format("ExistingTriggersUnreadable", file, ex.Message));
         return 1;
     }
     existing.Add(def);
     TriggerStore.Save(file, existing);
 
-    Console.WriteLine($"記録しました: id='{id}' → {file}");
+    Console.WriteLine(TestHostStrings.Format("Recorded", id, file));
     Console.WriteLine(JsonSerializer.Serialize(def, TriggerJsonContext.Default.TriggerDefinition));
     return 0;
 }
@@ -201,21 +182,21 @@ async Task<int> MonitorAsync()
     catch (Exception ex) when (ex is JsonException or NotSupportedException
         or IOException or UnauthorizedAccessException)
     {
-        Console.Error.WriteLine($"トリガー定義を読めません ({file}): {ex.Message}");
+        Console.Error.WriteLine(TestHostStrings.Format("TriggersUnreadable", file, ex.Message));
         return 1;
     }
     if (triggers.Count == 0)
     {
-        Console.Error.WriteLine($"トリガー定義がありません: {file}");
-        Console.Error.WriteLine("record コマンドで作成してください。");
+        Console.Error.WriteLine(TestHostStrings.Format("NoTriggers", file));
+        Console.Error.WriteLine(TestHostStrings.Get("NoTriggersHint"));
         return 1;
     }
 
-    Console.WriteLine($"定義 {triggers.Count} 件を読み込みました ({file}):");
+    Console.WriteLine(TestHostStrings.Format("LoadedTriggers", triggers.Count, file));
     foreach (TriggerDefinition def in triggers)
     {
         string clauses = def.Clauses.Count == 0
-            ? "(条件なし)"
+            ? TestHostStrings.Get("NoClauses")
             : string.Join($" {def.Combine} ", def.Clauses.Select(c => $"{c.Property} {c.Op}"));
         Console.WriteLine($"  [{def.Id}] {def.DisplayName} — {def.Window.ProcessName} / {def.On} : {clauses}");
     }
@@ -224,14 +205,17 @@ async Task<int> MonitorAsync()
     {
         Session = new UiaSessionOptions { Logger = logger, ThreadName = "UiaTrigger.TestHost" },
     });
-    monitor.UnhandledException += ex => Log($"!! ディスパッチャ例外: {ex}");
+    // **この下の Log(...) は分類 3 (開発者向け) なので英語固定である**
+    // (docs/LOCALIZATION.md §3 の 3)。共有して grep する行なので、実行環境の言語で
+    // 語彙が変わってはいけない — リソース経由にしないのはそのためである
+    monitor.UnhandledException += ex => Log($"!! dispatcher exception: {ex}");
     monitor.ResolutionChanged += (_, e) =>
-        Log($"[{e.TriggerId}] {(e.IsResolved ? "解決" : "未解決")} : {e.Message}");
+        Log($"[{e.TriggerId}] {(e.IsResolved ? "resolved" : "unresolved")} : {e.Message}");
     monitor.TriggerFired += (_, e) =>
     {
         // OldValue/NewValue は ComparisonString — 条件評価が見ているのと同じ invariant 形である。
         // ここで表示用に整形し直すと「ログの値で条件を書いたのに一致しない」が起きる
-        Log($"[{e.TriggerId}] ★発火 {e.On}: '{e.OldValue}' → '{e.NewValue}'");
+        Log($"[{e.TriggerId}] *** FIRED {e.On}: '{e.OldValue}' -> '{e.NewValue}'");
         if (e.Properties is { } p)
         {
             // 型名は安定名 (ControlTypeName) と表示名 (LocalizedControlType) を併記する
@@ -241,7 +225,7 @@ async Task<int> MonitorAsync()
             Log(FormattableString.Invariant(
                     $"    Name='{p.Name}' Type={p.ControlTypeName} ({p.LocalizedControlType})") +
                 FormattableString.Invariant($" Class='{p.ClassName}' Rect={p.BoundingRectangle}") +
-                (p.IsPassword ? " (password — 値は伏せています)" : "") +
+                (p.IsPassword ? " (password - value redacted)" : "") +
                 (p.SupportsValuePattern ? $" Value='{p.Value}'" : "") +
                 (p.SupportsRangeValuePattern
                     ? FormattableString.Invariant(
@@ -256,7 +240,7 @@ async Task<int> MonitorAsync()
     }
     catch (ArgumentException ex)
     {
-        Console.Error.WriteLine($"定義エラー: {ex.Message}");
+        Console.Error.WriteLine(TestHostStrings.Format("DefinitionError", ex.Message));
         return 1;
     }
 
@@ -267,8 +251,8 @@ async Task<int> MonitorAsync()
     // (常に Invariant) と表示 (カルチャ依存) は別の規則である — 同じ規則で
     // 扱うと取り違える
     Console.WriteLine(duration is { } seconds
-        ? string.Format(CultureInfo.CurrentCulture, "監視中... {0} 秒後に終了します。", seconds)
-        : "監視中... Ctrl+C で終了します。");
+        ? TestHostStrings.Format("MonitoringUntilDuration", seconds)
+        : TestHostStrings.Get("MonitoringUntilCancel"));
     var exit = new TaskCompletionSource();
     Console.CancelKeyPress += (_, e) =>
     {
@@ -287,13 +271,12 @@ async Task<int> MonitorAsync()
     // 「回ったが値が変わらなかった」なのかは、この 2 つでしか切り分けられない
     // (docs/DESIGN.md §5 / docs/MANUAL-CHECKS.md §9)
     TriggerMonitorDiagnostics diagnostics = monitor.GetDiagnostics();
-    Console.WriteLine(string.Format(
-        CultureInfo.CurrentCulture,
-        "診断: 掃引={0} ポーリング周={1} ポーリング読み={2} 解決={3}/{4} 抑制した発火={5}",
+    Console.WriteLine(TestHostStrings.Format(
+        "Diagnostics",
         diagnostics.SweepCount, diagnostics.PollCount, diagnostics.PolledReadCount,
         diagnostics.ResolvedElementCount, diagnostics.ElementSlotCount, diagnostics.SuppressedFireCount));
 
-    Console.WriteLine("停止します...");
+    Console.WriteLine(TestHostStrings.Get("Stopping"));
     return 0;
 }
 

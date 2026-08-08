@@ -51,7 +51,7 @@ public partial class App : Application
         {
             // アンパッケージのホストで効くかは環境依存である。効かなくても
             // resx 側 (メインウィンドウ) は切り替わるので、ここで落とす価値は無い
-            Log($"PrimaryLanguageOverride を設定できませんでした: {ex}");
+            Log($"Could not set PrimaryLanguageOverride: {ex}");
         }
     }
 

@@ -23,6 +23,11 @@
       .NET SDK が既定で引くのは 10.0.19041.**57** で、そこの CsWinRT は
       CsWinRTAotWarningLevel を知らない。**AOT の警告を上げるための前提である。**
       版を上げること自体が目的ではない — 上げないと下の警告レベルが黙って無視される。
+
+      **App.WinUI と同じ値でなければならない** (WinUiPinTests が縛る)。片方だけ更新すると、
+      更新し忘れた側で AOT 破壊の検出が黙って外れ、症状は「発行して人が掴んで初めて分かる」。
+      Directory.Build.props へは移せない — props は csproj 本体より先に評価されるので
+      UseWinUI の条件が効かない (props 側にその記録がある)。
     -->
     <WindowsSdkPackageVersion>10.0.19041.87</WindowsSdkPackageVersion>
     <!--

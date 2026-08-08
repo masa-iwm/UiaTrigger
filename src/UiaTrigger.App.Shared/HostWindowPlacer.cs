@@ -117,12 +117,12 @@ internal static unsafe class HostWindowPlacer
         {
             string effect = (show, moved) switch
             {
-                (0, 0) => "窓は退きません。",
-                (0, _) => "出現時には退きません (移動には追随します)。",
-                _ => "移動には追随しません (出現時には退きます)。",
+                (0, 0) => "Windows will not move out of the way.",
+                (0, _) => "Windows will not move out of the way when they appear (moves are still followed).",
+                _ => "Moves are not followed (windows still move out of the way when they appear).",
             };
             _log(FormattableString.Invariant(
-                $"--place-windows: SetWinEventHook に失敗しました (show={show} moved={moved})。{effect}"));
+                $"--place-windows: SetWinEventHook failed (show={show} moved={moved}). {effect}"));
             if (show == 0 && moved == 0)
             {
                 return;
@@ -130,7 +130,7 @@ internal static unsafe class HostWindowPlacer
         }
 
         _log(FormattableString.Invariant(
-            $"--place-windows: 窓を ({_target.Left},{_target.Top}) {_target.Width}x{_target.Height} へ置きます。"));
+            $"--place-windows: placing windows at ({_target.Left},{_target.Top}) {_target.Width}x{_target.Height}."));
     }
 
     /// <summary>
@@ -167,7 +167,7 @@ internal static unsafe class HostWindowPlacer
         {
             // **コールバックから例外を投げない。**アンマネージドの呼び出し元へ抜けるので、
             // プロセスがその場で落ちる。理由だけ残して飲む
-            _log($"--place-windows: 窓を置けませんでした: {ex}");
+            _log($"--place-windows: could not place a window: {ex}");
         }
         finally
         {
@@ -228,7 +228,7 @@ internal static unsafe class HostWindowPlacer
             // これに当たっていた。いまは IsPlaceable が先に弾く)。
             // 覆っているかどうかは T4 のガードが名指しで落とす
             _log(FormattableString.Invariant(
-                $"--place-windows: 窓 0x{hwnd:X} を {MaxPlacementsPerWindow} 回置き直しても目標へ届きませんでした。この窓は以後触りません。"));
+                $"--place-windows: window 0x{hwnd:X} did not reach the target after {MaxPlacementsPerWindow} attempts; leaving it alone from now on."));
         }
 
         _ = NativeWindowPlacement.MoveTo(hwnd, _target.Left, _target.Top, _target.Width, _target.Height);

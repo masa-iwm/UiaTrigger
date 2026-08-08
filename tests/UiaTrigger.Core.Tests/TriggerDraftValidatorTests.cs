@@ -12,6 +12,11 @@ namespace UiaTrigger.Tests;
 /// 「NumberBox が見えているかどうか」で句へ載せる値を決める形になる —
 /// **表示の都合が永続化される値を左右する**。Core に置いてここで固定する。
 /// </summary>
+// **実 UIA を起こす T1 なので直列化する** (docs/TESTING.md §5)。
+// Apply_AlwaysProducesADefinitionTheMonitorAccepts が実物の TriggerMonitor を作るため、
+// CUIAutomation8 の生成と GetRootElement が並列に走ると単発で E_FAIL になる。
+// 括りは「名前で覚える」ではなく「実 UIA を触る T1」で、RealUiaSerializationTests が機械で縛る
+[Collection(RealUiaLiteTests.Name)]
 public sealed class TriggerDraftValidatorTests
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);

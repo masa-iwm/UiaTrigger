@@ -82,9 +82,11 @@ internal static class HostOptions
 
     private static Action<string> Log => _log ?? throw NotInitialized();
 
+    // プログラマ向けの契約違反なので英語で書く (docs/LOCALIZATION.md §3)。
+    // 利用者の画面には出ない — 出るとしたらホストの実装が間違っている
     private static InvalidOperationException NotInitialized() => new(
-        "HostOptions.Initialize を呼ぶ前に使われました。" +
-        "ホストのエントリーポイントで、ウィンドウを 1 つも作る前に呼んでください。");
+        "HostOptions was used before HostOptions.Initialize was called. " +
+        "Call it from the host entry point, before creating any window.");
 
     /// <summary>
     /// <c>--pick-at x,y</c> で指定された固定カーソルの列。指定が無ければ空。
@@ -160,7 +162,7 @@ internal static class HostOptions
         }
         catch (CultureNotFoundException)
         {
-            Log($"--culture の値を解釈できませんでした: '{name}'");
+            Log($"--culture: '{name}' is not a known culture name.");
             return null;
         }
 
