@@ -99,7 +99,7 @@ public sealed class XamlLocalizationTests
     /// <c>src/</c> のプロジェクトが、検査対象の表か除外表のどちらかに必ず載っていること。
     /// </summary>
     /// <remarks>
-    /// docs/TESTING.md §2 が名指しする「表に載っていないから緑」を塞ぐ。実際に
+    /// docs/TESTING.md §2 が名指しする「表に載っていないから緑」を塞ぐ (台帳 L9)。実際に
     /// TestHost がこの形で抜けており、ユーザー向け出力が全部日本語直書きのまま
     /// どのゲートにも掛からなかった。**プロジェクトを足す側にこの判断を強制する。**
     /// </remarks>

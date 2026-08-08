@@ -163,4 +163,48 @@ public sealed class InteropShapeTests
 
         Assert.Equal(typeof(IUIAutomationElement).MakeByRefType(), output.ParameterType);
     }
+
+    /// <summary>
+    /// 共有 RCW は <c>ComInterfaceMarshaller&lt;T&gt;</c> でだけ作ること (docs/DESIGN.md B7)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>UiaFactory</c> が自前の <c>StrategyBasedComWrappers</c> で共有 RCW を作ると、
+    /// 生成された marshalling stub とは**別のインスタンス**になり、同一性テーブルが
+    /// 2 系統に分裂する。同じ COM オブジェクトに対して RCW が 2 つでき、
+    /// <c>CompareElements</c> を通さない参照等価の判定が静かに嘘になる。
+    /// </para>
+    /// <para>
+    /// **一意 RCW 側 (B6) は逆に自前の <c>ComWrappers</c> でなければならない。**
+    /// 同一性テーブルに載せないことが決定的解放の前提だからである。
+    /// 2 つは似た名前の似た処理なので、取り違えても**コンパイルは通る**。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheSharedWrapperGoesThroughTheGeneratedMarshaller()
+    {
+        string source = File.ReadAllText(
+            RepoPaths.Combine("src", "UiaTrigger.Core", "Interop", "UiaFactory.cs"));
+
+        string shared = Between(source, "public static unsafe T? WrapShared<T>", "public static T? WrapUnique<T>");
+        string unique = Between(source, "public static T? WrapUnique<T>", "public static void ReleaseUnique");
+
+        // 先に「切り出せていること」を固定する。空振りしたまま不在を主張すると何も守らない
+        Assert.NotEmpty(shared);
+        Assert.NotEmpty(unique);
+
+        Assert.Contains("ComInterfaceMarshaller<T>.ConvertToManaged", shared, StringComparison.Ordinal);
+        Assert.DoesNotContain("UniqueWrappers", shared, StringComparison.Ordinal);
+
+        // 対照: 一意側はこの逆でなければならない
+        Assert.Contains("UniqueWrappers", unique, StringComparison.Ordinal);
+        Assert.DoesNotContain("ComInterfaceMarshaller", unique, StringComparison.Ordinal);
+    }
+
+    private static string Between(string source, string start, string end)
+    {
+        int from = source.IndexOf(start, StringComparison.Ordinal);
+        int to = source.IndexOf(end, StringComparison.Ordinal);
+        return from < 0 || to <= from ? string.Empty : source[from..to];
+    }
 }

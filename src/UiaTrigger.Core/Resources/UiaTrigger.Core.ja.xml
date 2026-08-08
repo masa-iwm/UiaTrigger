@@ -1403,8 +1403,9 @@
       <remarks>
         したがって値が入らないのは次の場合である:
         <see cref="F:UiaTrigger.Models.TriggerOn.ElementAppeared" /> (変化前の値が存在しない)、
-        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> (条件全体が成立したことで鳴るので、
-        1 つの値の変化ではない)、そして
+        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> と
+        <see cref="F:UiaTrigger.Models.TriggerOn.StoppedMatching" /> (どちらのエッジも
+        条件全体の真偽が変わったことで鳴るので、1 つの値の変化ではない)、そして
         <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
         **最初以外の条件**の変化で鳴ったとき (その条件が変わったことは、
         最初の条件が何だったかを何も語らない)。

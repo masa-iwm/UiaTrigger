@@ -70,7 +70,7 @@ UiaSession (public, IAsyncDisposable)   … 1 セッション = 1 MTA ディス�
 ### 応答しないアプリへの耐性 (B5)
 
 - `IUIAutomation2.put_TransactionTimeout` を既定で設定する。`IUIAutomation` しか QI しないとここに到達できず、**応答しないアプリ 1 つで全トリガーが無期限停止**する。設定口は `UiaSessionOptions` に集約し、効いているかは `GetSupportsTimeoutsAsync()` で確認できる
-- **別アプリのトリガーの発火経路は、塞がれたアプリを一度も通らない。**発火はプロパティ変化のコールバックで届きその場で句が評価されるので、ディスパッチャーが別アプリへの呼び出しで塞がっていても発火はその後ろに並ばない (実測: 一方を 10 秒塞いでも他方は 19〜119ms で発火)
+- **別アプリのトリガーの発火経路は、塞がれたアプリを一度も通らない。**プロパティ変化のコールバックは UIA 自身のスレッドで届き、そこからディスパッチャーへ `Post` される。**句の評価はディスパッチャー上で行う** (要素を読むので、その 1 本しか触れない)。塞がれた相手への呼び出しはその 1 本を占有しうるが、塞がる相手と発火する相手が別なら経路が交わらない (実測: 一方を 10 秒塞いでも他方は 19〜119ms で発火)。**コールバックの中で評価するのではない** — そうすると UIA のスレッドから要素を読むことになり、専用 MTA スレッド 1 本という前提が崩れる
 - 「塞がれたトリガーが未解決になる」性質は**持っていない**。持たせるかどうかは設計判断であり、テストで要求すべきものではない
 - 塞がれたことは解決を恒久的に汚染しない。塞ぎが明けて要素が戻れば解決して発火する
 
@@ -612,86 +612,89 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 
 所見 ID (A / B / C / D / L / S) を安定アンカーとして保存する。各行は現在形の不変条件 1 つと、詳細を書いた節を指す。T1〜T6 (検証の層) と K1〜K5 / M1〜M2 (合成入力の検査項目) は docs/TESTING.md が正である。
 
-| ID | 不変条件 | 詳細 |
-|---|---|---|
-| A1 | コンシューマの例外はプロセスを落とさない。発火配送は捕捉して `UnhandledException` へ回す | §3 |
-| A2 | 発火イベントは検出順に届く。配送は単一ワーカーの直列である | §3 |
-| A3 | 兄弟の増減で解決は壊れない。`SiblingIndex` は同点タイブレークのみに使う | §3 |
-| A4 | 揮発属性と安定属性を同じスコア空間で合計して閾値に掛けない。足切りは `Required` 宣言の属性だけ | §3 |
-| A5 | `ControlType` 不一致は除外ではなく重い減点。`AutomationId` 一致が上回る (重みの不等式で固定) | §3 |
-| A6 | 段ごとの貪欲選択をしない。ビーム探索 (既定幅 3) でバックトラックできる | §3 |
-| A7 | 兄弟インデックスの「不明」は -1 で表現する。誤った index を黙って永続化しない | §3 |
-| A8 | 解決済み要素は安定属性の組を 1 往復で突合し、「生きているが別物」を検出する | §8 |
-| A9 | 購読の張り替え判定に HWND 値の一致だけを使わない。HWND は再利用される — 要素同一性まで確認する | §8 |
-| A10 | 昇格プロセスの除外は通知する。`InaccessibleProcessCount` を数え、`ResolutionChanged.Message` とログに理由を載せる | §3 |
-| A11 | `COMException` は判別する。「要素消滅」は `ComErrors.IsElementGone` に集約し、`RPC_E_DISCONNECTED` 等も含める | §3 |
-| A12 | 数値比較は `PropertyClause.Tolerance` を持つ。double の厳密比較は実用上一致しない | §3 |
-| A13 | bool の比較形は `true` / `false`。`Equals` は bool として大小文字を問わず解釈する | §3 |
-| A14 | sweep のデバウンス状態は `SweepDebouncer` に封じ、停止時に `Reset()` する | §3 |
-| A15 | UIA の out は nullable で宣言する。`ElementFromPoint` / `ElementFromHandle` は null を返しうる | §3 |
-| A16 | `StartAsync` の `CancellationToken` は「実行開始前のみキャンセル可」で honor する。偽の affordance を置かない | §3 |
-| A17 | トリガーファイルの保存は temp + `File.Replace` の原子的書き込み。truncate-in-place しない | §3 |
-| A18 | オーバーレイの状態は HWND / フックスレッド索引の登録表で持つ。ピッカーは複数開ける | §10 |
-| A19 | DPI 非認識のホストでは座標仮想化により別の要素が静かに記録される。PerMonitorV2 を前提とし、宣言できていなければ `CoordinateProblem` として必ず報告する | §9 |
-| A20 | `NonBacktracking` は後方参照・先読み等に `NotSupportedException` を投げる (`ArgumentException` ではない)。検証はそれも定義の誤りとして捕まえる | §2 |
-| A21 | ネイティブ UIA プロバイダーの切り離された要素はゾンビとして応答し続ける。生存判定は下向きの到達性 (`IsStillOnThePath`) と、ウィンドウ自身には `IsWindow` を使う | §8 |
-| A22 | (欠番 — この ID の所見は定義されていない) | — |
-| A23 | 自アセンブリ外の WinRT 値型は AOT で vtable が生成されず、例外なく動かなくなる。`GeneratedWinRTExposedExternalType` はライブラリ (`Picker.WinUI`) 側に置く | §12 |
-| A24 | 自プロセスの点は UIA へ訊く**前**に `WindowFromPoint` のプロセス ID で打ち切る。後で戻り値を捨てる形では問い合わせが自分のプロバイダーへ届き、ホストの窓が活性化されてピッカーが背面へ回る | §9 |
-| A25 | **Enter を自分の仕事に使う欄は、その欄で `Handled` にする。**既定ボタン (WPF `IsDefault` / WinForms `AcceptButton` / WinUI の自前 `OnKeyDown`) は欄の宣言より強く、放っておくと欄の仕事を奪う。WinForms は単一行 `TextBox` の Enter が `IsInputKey` = false なので `ProcessDialogKey` が `KeyDown` より**先に**走り、ハンドラーが呼ばれることすら無い。どの欄がそうかは §12 (ピッカーの検索欄) と §4 (エディタ下段の 3 欄) が正 | §12 |
-| A26 | 読めなかったものは**否定形も含めて**不成立。要素がプロパティを持たない場合だけでなく、**演算子の内部で評価に失敗した場合** (正規表現の制限時間切れ・未コンパイル) も同じ。`false` に潰すと `!` を掛けた側で「読めなかった」が「成立」へ化け、`RegexNotMatch` が常時発火する | §3 |
-| A27 | オーバーレイの停止を窓ハンドルに依存させない。`hWnd` が NULL の `PostMessage` は**呼び出し元スレッド**のキューへ積まれるので、窓の生成に失敗した経路では `MsgQuit` が届かず、低レベルキーボードフックがプロセス終了までデスクトップ全体に残る。失敗した側でその場で畳む — ただし `_ready.Set()` は必ず通す (呼ばないとコンストラクターが永久に返らず、フック残留より悪い) | §10 |
-| A28 | `UnhandledException` を発火させる側は**例外なく**購読者の例外を捕捉する。A1 (コンシューマの例外はプロセスを落とさない) は通知ハンドラー自身にも適用される — 特にスレッドの生エントリ (`UiaDispatcher.Run`) では、漏れた例外がそのままプロセス終了になる | §3 |
-| A29 | ディスパッチャ上の状態確定 (`_state` の Running 化・スロットの解決済み化) は、それを成立させる COM 呼び出しが全て成功してから行う。途中失敗は同じ work item 内で巻き戻してから fault させる — 半構築の状態を残さない。呼び出し元スレッドの検査と post の間に破棄が滑り込む窓があるので、work item の冒頭で状態を再検査する | §3 |
-| A30 | 記録側の走査上限・深さ防御は解決側と同じポリシー (`ResolverOptions`) を共有する。「記録できたのに候補集合に入らない」(記録上限 > 解決上限) を作らない — その定義はエラーを出さずに別の要素へ解決される。段レベルの `ClassName` 不一致は `ControlType` 一致より軽い減点でなければならない (A4 と同じ理由で、起動ごとに変わる token を持つ段が恒久解決不能になる) | §3 |
-| B1 | プロパティ読取は `CacheRequest` でまとめる。段あたり 1 往復・スナップショット 1 往復 | §3 |
-| B2 | `WindowOpened` は `Children`。`WindowClosed` は `Subtree` でなければ 1 件も届かない | §6 |
-| B3 | 解決済みの構造購読は経路上の各段を `Element \| Children` で張る。ウィンドウ全体の `Subtree` にしない | §6 |
-| B4 | ウィンドウ候補は `WindowCandidateCache` で共有する。照合の強さもキャッシュのキーに含める | §3 |
-| B5 | `IUIAutomation2.put_TransactionTimeout` を既定で設定する。応答しないアプリ 1 つが他のトリガーを止めない | §3 |
-| B6 | COM の決定的解放は `FinalRelease()` で、`UniqueInstance` の RCW に限る。共有 RCW には安全でない | §7 |
-| B7 | RCW の生成は `ComInterfaceMarshaller<T>` に統一する。同一性テーブルを 2 系統に分裂させない | §7 |
-| B8 | デバウンスは `TimeProvider.CreateTimer`。時計は注入される | §3 |
-| B9 | 兄弟走査はキャッシュ済み属性で絞ってから `CompareElements` を呼ぶ | §3 |
-| B10 | `UiaElement` の明示 `Dispose` は進行中の借用 (`Borrowed`) と排他する。借用中に要求された解放は借用終了まで遅延する — 進行中のクロスプロセス呼び出しの真下で `FinalRelease` すると、例外ではなくアクセス違反でプロセスごと落ちる | §7 |
-| C1 | トリガーは動的に増減できる (`AddAsync` / `RemoveAsync`)。停止は張った単位で外し、セッション共有時に他の購読者を巻き添えにしない | §3 |
-| C2 | Core は「UIA セッション + 監視」である。`UiaSession` が要素 API を公開し、第三者が自前のピッカー / インスペクタを作れる | §3 |
+**「網」列は、その不変条件を縛るテストが在るかを示す。**「テストが ID で参照」は、`tests/` 配下のどれかがその ID を doc コメントに書いていることを意味する — テスト名を書かないのは、名前が変わるたびに台帳が腐るからである。ID を引用させると、テストを直す人の目に不変条件が入る。`LedgerNetTests` がこの対応を**両方向**で縛るので、網なしの不変条件に網を建てた日には台帳のほうも直すことになる。
+
+| ID | 不変条件 | 詳細 | 網 |
+|---|---|---|---|
+| A1 | コンシューマの例外はプロセスを落とさない。発火配送は捕捉して `UnhandledException` へ回す | §3 | テストが ID で参照 |
+| A2 | 発火イベントは検出順に届く。配送は単一ワーカーの直列である | §3 | テストが ID で参照 |
+| A3 | 兄弟の増減で解決は壊れない。`SiblingIndex` は同点タイブレークのみに使う | §3 | テストが ID で参照 |
+| A4 | 揮発属性と安定属性を同じスコア空間で合計して閾値に掛けない。足切りは `Required` 宣言の属性だけ | §3 | テストが ID で参照 |
+| A5 | `ControlType` 不一致は除外ではなく重い減点。`AutomationId` 一致が上回る (重みの不等式で固定) | §3 | テストが ID で参照 |
+| A6 | 段ごとの貪欲選択をしない。ビーム探索 (既定幅 3) でバックトラックできる | §3 | テストが ID で参照 |
+| A7 | 兄弟インデックスの「不明」は -1 で表現する。誤った index を黙って永続化しない | §3 | テストが ID で参照 |
+| A8 | 解決済み要素は安定属性の組を 1 往復で突合し、「生きているが別物」を検出する | §8 | テストが ID で参照 |
+| A9 | 購読の張り替え判定に HWND 値の一致だけを使わない。HWND は再利用される — 要素同一性まで確認する | §8 | テストが ID で参照 |
+| A10 | 昇格プロセスの除外は通知する。`InaccessibleProcessCount` を数え、`ResolutionChanged.Message` とログに理由を載せる | §3 | テストが ID で参照 |
+| A11 | `COMException` は判別する。「要素消滅」は `ComErrors.IsElementGone` に集約し、`RPC_E_DISCONNECTED` 等も含める | §3 | テストが ID で参照 |
+| A12 | 数値比較は `PropertyClause.Tolerance` を持つ。double の厳密比較は実用上一致しない | §3 | テストが ID で参照 |
+| A13 | bool の比較形は `true` / `false`。`Equals` は bool として大小文字を問わず解釈する | §3 | テストが ID で参照 |
+| A14 | sweep のデバウンス状態は `SweepDebouncer` に封じ、停止時に `Reset()` する | §3 | テストが ID で参照 |
+| A15 | UIA の out は nullable で宣言する。`ElementFromPoint` / `ElementFromHandle` は null を返しうる | §3 | テストが ID で参照 |
+| A16 | `StartAsync` の `CancellationToken` は「実行開始前のみキャンセル可」で honor する。偽の affordance を置かない | §3 | テストが ID で参照 |
+| A17 | トリガーファイルの保存は temp + `File.Replace` の原子的書き込み。truncate-in-place しない | §3 | テストが ID で参照 |
+| A18 | オーバーレイの状態は HWND / フックスレッド索引の登録表で持つ。ピッカーは複数開ける | §10 | テストが ID で参照 |
+| A19 | DPI 非認識のホストでは座標仮想化により別の要素が静かに記録される。PerMonitorV2 を前提とし、宣言できていなければ `CoordinateProblem` として必ず報告する | §9 | テストが ID で参照 |
+| A20 | `NonBacktracking` は後方参照・先読み等に `NotSupportedException` を投げる (`ArgumentException` ではない)。検証はそれも定義の誤りとして捕まえる | §2 | テストが ID で参照 |
+| A21 | ネイティブ UIA プロバイダーの切り離された要素はゾンビとして応答し続ける。生存判定は下向きの到達性 (`IsStillOnThePath`) と、ウィンドウ自身には `IsWindow` を使う | §8 | テストが ID で参照 |
+| A22 | (欠番 — この ID の所見は定義されていない) | — | 欠番 |
+| A23 | 自アセンブリ外の WinRT 値型は AOT で vtable が生成されず、例外なく動かなくなる。`GeneratedWinRTExposedExternalType` はライブラリ (`Picker.WinUI`) 側に置く | §12 | テストが ID で参照 |
+| A24 | 自プロセスの点は UIA へ訊く**前**に `WindowFromPoint` のプロセス ID で打ち切る。後で戻り値を捨てる形では問い合わせが自分のプロバイダーへ届き、ホストの窓が活性化されてピッカーが背面へ回る | §9 | テストが ID で参照 |
+| A25 | **Enter を自分の仕事に使う欄は、その欄で `Handled` にする。**既定ボタン (WPF `IsDefault` / WinForms `AcceptButton` / WinUI の自前 `OnKeyDown`) は欄の宣言より強く、放っておくと欄の仕事を奪う。WinForms は単一行 `TextBox` の Enter が `IsInputKey` = false なので `ProcessDialogKey` が `KeyDown` より**先に**走り、ハンドラーが呼ばれることすら無い。どの欄がそうかは §4 が正 (ピッカーの検索欄・エディタ下段の 3 欄とも「ピッカーの編集モード」節にある) | §4 | テストが ID で参照 |
+| A26 | 読めなかったものは**否定形も含めて**不成立。要素がプロパティを持たない場合だけでなく、**演算子の内部で評価に失敗した場合** (正規表現の制限時間切れ・未コンパイル) も同じ。`false` に潰すと `!` を掛けた側で「読めなかった」が「成立」へ化け、`RegexNotMatch` が常時発火する | §3 | テストが ID で参照 |
+| A27 | オーバーレイの停止を窓ハンドルに依存させない。`hWnd` が NULL の `PostMessage` は**呼び出し元スレッド**のキューへ積まれるので、窓の生成に失敗した経路では `MsgQuit` が届かず、低レベルキーボードフックがプロセス終了までデスクトップ全体に残る。失敗した側でその場で畳む — ただし `_ready.Set()` は必ず通す (呼ばないとコンストラクターが永久に返らず、フック残留より悪い) | §10 | 網なし — フックのハンドルが残っているかは外から観測できず、窓の生成失敗を決定的に起こす手立ても無い (docs/MANUAL-CHECKS.md §2) |
+| A28 | `UnhandledException` を発火させる側は**例外なく**購読者の例外を捕捉する。A1 (コンシューマの例外はプロセスを落とさない) は通知ハンドラー自身にも適用される — 特にスレッドの生エントリ (`UiaDispatcher.Run`) では、漏れた例外がそのままプロセス終了になる | §3 | テストが ID で参照 |
+| A29 | ディスパッチャ上の状態確定 (`_state` の Running 化・スロットの解決済み化) は、それを成立させる COM 呼び出しが全て成功してから行う。途中失敗は同じ work item 内で巻き戻してから fault させる — 半構築の状態を残さない。呼び出し元スレッドの検査と post の間に破棄が滑り込む窓があるので、work item の冒頭で状態を再検査する | §3 | テストが ID で参照 |
+| A30 | 記録側の走査上限・深さ防御は解決側と同じポリシー (`ResolverOptions`) を共有する。「記録できたのに候補集合に入らない」(記録上限 > 解決上限) を作らない — その定義はエラーを出さずに別の要素へ解決される。段レベルの `ClassName` 不一致は `ControlType` 一致より軽い減点でなければならない (A4 と同じ理由で、起動ごとに変わる token を持つ段が恒久解決不能になる) | §3 | テストが ID で参照 |
+| B1 | プロパティ読取は `CacheRequest` でまとめる。段あたり 1 往復・スナップショット 1 往復 | §3 | テストが ID で参照 |
+| B2 | `WindowOpened` は `Children`。`WindowClosed` は `Subtree` でなければ 1 件も届かない | §6 | テストが ID で参照 |
+| B3 | 解決済みの構造購読は経路上の各段を `Element \| Children` で張る。ウィンドウ全体の `Subtree` にしない | §6 | テストが ID で参照 |
+| B4 | ウィンドウ候補は `WindowCandidateCache` で共有する。照合の強さもキャッシュのキーに含める | §3 | テストが ID で参照 |
+| B5 | `IUIAutomation2.put_TransactionTimeout` を既定で設定する。応答しないアプリ 1 つが他のトリガーを止めない | §3 | テストが ID で参照 |
+| B6 | COM の決定的解放は `FinalRelease()` で、`UniqueInstance` の RCW に限る。共有 RCW には安全でない | §7 | テストが ID で参照 |
+| B7 | RCW の生成は `ComInterfaceMarshaller<T>` に統一する。同一性テーブルを 2 系統に分裂させない | §7 | テストが ID で参照 |
+| B8 | デバウンスは `TimeProvider.CreateTimer`。時計は注入される | §3 | テストが ID で参照 |
+| B9 | 兄弟走査はキャッシュ済み属性で絞ってから `CompareElements` を呼ぶ | §3 | テストが ID で参照 |
+| B10 | `UiaElement` の明示 `Dispose` は進行中の借用 (`Borrowed`) と排他する。借用中に要求された解放は借用終了まで遅延する — 進行中のクロスプロセス呼び出しの真下で `FinalRelease` すると、例外ではなくアクセス違反でプロセスごと落ちる | §7 | テストが ID で参照 |
+| C1 | トリガーは動的に増減できる (`AddAsync` / `RemoveAsync`)。停止は張った単位で外し、セッション共有時に他の購読者を巻き添えにしない | §3 | テストが ID で参照 |
+| C2 | Core は「UIA セッション + 監視」である。`UiaSession` が要素 API を公開し、第三者が自前のピッカー / インスペクタを作れる | §3 | テストが ID で参照 |
 | C3〜C6 | トリガーモデル: キー (`Id`) はモデルに内包する / ライフサイクル (`TriggerOn`) と値の述語 (`PropertyClause`) を分離する / 句は複数持てて平坦に結合する / `TriggerProperty.Custom` + `CustomPropertyId` が任意プロパティへの逃げ道である | §3 |
-| C7 | 実装詳細は公開しない。`UiaTrigger.Interop` / `UiaTrigger.Threading` は公開型ゼロ、公開型は `UiaTrigger` 名前空間に置く | §3 |
-| C8 | 列挙の永続形式はモデル自身が持つ (`[JsonConverter(JsonStringEnumConverter<T>)]`)。ホストが合成した serializer 経路には設定が引き継がれない | §3 |
-| C9 | ログは `ILogger` (`Microsoft.Extensions.Logging.Abstractions` が唯一の実行時依存)。ログのメッセージは英語固定 | §3 |
-| C10 | 時刻は `TimeProvider` 注入。発火時刻・レート制限・デバウンスがすべて同じ時計に従う | §3 |
-| C11 | `TriggerDefinition.MinInterval` が発火レート制限。`BoundingRectangle` の比較文字列は `ElementRect.ToString` の invariant な `(L,T)-(R,B)` 形式で、表示と比較で同一 | §3 |
-| C12 | `IsPassword` の要素は `Value` と `Name` を伏字化する。条件評価もスナップショット経由なので伏せた値は復活しない | §3 |
-| C13 | ピッカーはホストの PerMonitorV2 を実行時に確かめ、`CoordinateProblem` を画面に出す | §9 |
-| C14 | 立ち下がり通知 (`NotifyOnStoppedMatching` → イベントは `On=StoppedMatching`) は `WhileMatching` 専用で、`MinInterval` の対象外。停止・削除では通知しない | §4 |
-| C15 | `ElementRemoved` の条件は消滅直前の値で評価する。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ (発火源にはしない) | §4 |
-| C16 | 在否 (`IsAbsent`) と値は別の軸。`Op=Always` は「要素が在ること」(presence) で成立し、値の述語は消えた要素でも最後に見えた値で評価され続ける | §4 |
-| C17 | 「絞るだけ」の語彙は非対称。`Compose` は元トリガーの id で照合し、`Update` と `UnwatchedNames` は句の実効名 (`login-1`) で照合する — まとめ終えた複合に元トリガーの id は残っていない。`UnwatchedNames` → `Update` は恒等 | §4 |
-| C18 | 句名の妥当性・一意性は**式の有無に関わらず**検査する。位置由来の名前 (`cN`) は同じ綴りの id と衝突しうるので、「全部まとめる」でも重複は起きる — 検査を式の中に閉じ込めると、保存はできるのに `AddAsync` だけが弾く複合が作れる | §4 |
-| C19 | 公開境界 (`AddAsync` / `StartAsync` / ピッカーの `TriggerCommitted`) を渡る `TriggerDefinition` は受け取った側が `TriggerJsonContext` 往復で写す。写さない API (`Compose` の Window / Locator 共有) は共有と寿命を XML doc に明記する | §3 |
-| C20 | 定義の検証は列挙の定義域と文字列の null まで見る。域外値・null は黙って「鳴らないトリガー / Any 扱い」にならず、**単一の検証関数** (`TriggerDefinitionRules`) が全入口 (JSON 読込・`AddAsync`・`Apply`・`Compose`) で理由付きに弾く — 検証が入口ごとに分散すると、最も寛容な入口 (デシリアライズ) が事実上の門になる | §3 |
-| C21 | `IsPassword` の伏字化は**全読み取り経路**に適用される。C12 の「復活しない」は経路記録 (`ElementPathStep.Name`) と `Custom` 読みを含む — スナップショット関門を通らない経路が伏字化を素通りすると、平文が定義ファイルに残り、発火イベントでホストへ渡る | §3 |
-| D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 |
-| D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 |
-| D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — |
-| D4 | NuGet 5 パッケージ / MIT / プレリリース版数から。パッケージは全て MSIL | §1 |
-| D5 | ライブラリは AnyCPU。App の RID は `Platform` から導き、ARM64 でも建つ | §12 |
-| D6 | README は実装と一致させる。英語版が正である | docs/LOCALIZATION.md |
-| D7 | サンプルは XAML 未処理例外を握り潰さない。`UnhandledException` はログへ出す | §12 |
-| D8 | 昇格アプリを監視できない制約は文書と実行時通知 (A10) の両方で明示する | §3 |
-| D9 | `App.WinUI` だけが Picker → Monitor の E2E ショーケースを兼ねる。意図的な非対称である | §12 |
-| L1 | 公開 API の XML doc は英語。実装内部のコメントは日本語のままでよい (経緯の記録として価値がある) | docs/LOCALIZATION.md |
-| L2 | 例外・診断メッセージはリソース経由 (en-US 中立 + ja サテライト)。ハードコードしない | docs/LOCALIZATION.md |
-| L3 | WinUI の UI 文字列は `.resw` + `x:Uid` + MRT Core | docs/LOCALIZATION.md |
-| L4 | 比較文字列 (`ComparisonString` / invariant) と表示文字列 (`CurrentCulture`) は型で分離し、条件評価は前者しか受けない | docs/LOCALIZATION.md |
-| L5 | `InvariantGlobalization` は false。サテライトが要る | docs/LOCALIZATION.md |
-| L6 | 識別用の安定名 (英語固定・永続化する) と表示用 `LocalizedControlType` (相手アプリのロケール・永続化しない) を分離する | docs/LOCALIZATION.md |
-| L7 | invariant にすべきもの (オプション解釈・ログ) とカルチャに従うもの (画面表示) を 1 つの文字列に混ぜない | docs/LOCALIZATION.md |
-| L8 | `README.md` = 英語 (正・パッケージ同梱・リンクは絶対 URL) / `README.ja.md` = 日本語 | docs/LOCALIZATION.md |
-| S1 | オーバーレイは UIA から観測できる実ウィンドウであり、2 枚のピッカーは独立の枠を出す | §10 |
-| S2 | 確定 → 条件設定 → コミットの 1 往復。真偽の根拠は画面の文字列ではなくトリガーファイルに置く | docs/TESTING.md §1 |
-| S3 | 表示名と安定名の分離 (L6 と同じ対象) | docs/LOCALIZATION.md |
-| S4 | リソース解決は発行レイアウトで確かめる。`.pri` / サテライトは発行してからでないと落ちない | docs/TESTING.md §1 |
+| C7 | 実装詳細は公開しない。`UiaTrigger.Interop` / `UiaTrigger.Threading` は公開型ゼロ、公開型は `UiaTrigger` 名前空間に置く | §3 | テストが ID で参照 |
+| C8 | 列挙の永続形式はモデル自身が持つ (`[JsonConverter(JsonStringEnumConverter<T>)]`)。ホストが合成した serializer 経路には設定が引き継がれない | §3 | テストが ID で参照 |
+| C9 | ログは `ILogger` (`Microsoft.Extensions.Logging.Abstractions` が唯一の実行時依存)。ログのメッセージは英語固定 | §3 | テストが ID で参照 |
+| C10 | 時刻は `TimeProvider` 注入。発火時刻・レート制限・デバウンスがすべて同じ時計に従う | §3 | テストが ID で参照 |
+| C11 | `TriggerDefinition.MinInterval` が発火レート制限。`BoundingRectangle` の比較文字列は `ElementRect.ToString` の invariant な `(L,T)-(R,B)` 形式で、表示と比較で同一 | §3 | テストが ID で参照 |
+| C12 | `IsPassword` の要素は `Value` と `Name` を伏字化する。条件評価もスナップショット経由なので伏せた値は復活しない | §3 | テストが ID で参照 |
+| C13 | ピッカーはホストの PerMonitorV2 を実行時に確かめ、`CoordinateProblem` を画面に出す | §9 | テストが ID で参照 |
+| C14 | 立ち下がり通知 (`NotifyOnStoppedMatching` → イベントは `On=StoppedMatching`) は `WhileMatching` 専用で、`MinInterval` の対象外。停止・削除では通知しない | §4 | テストが ID で参照 |
+| C15 | `ElementRemoved` の条件は消滅直前の値で評価する。句付き `ElementRemoved` は監視プロパティを購読して `LastSnapshot` を最新に保つ (発火源にはしない) | §4 | テストが ID で参照 |
+| C16 | 在否 (`IsAbsent`) と値は別の軸。`Op=Always` は「要素が在ること」(presence) で成立し、値の述語は消えた要素でも最後に見えた値で評価され続ける | §4 | テストが ID で参照 |
+| C17 | 「絞るだけ」の語彙は非対称。`Compose` は元トリガーの id で照合し、`Update` と `UnwatchedNames` は句の実効名 (`login-1`) で照合する — まとめ終えた複合に元トリガーの id は残っていない。`UnwatchedNames` → `Update` は恒等 | §4 | テストが ID で参照 |
+| C18 | 句名の妥当性・一意性は**式の有無に関わらず**検査する。位置由来の名前 (`cN`) は同じ綴りの id と衝突しうるので、「全部まとめる」でも重複は起きる — 検査を式の中に閉じ込めると、保存はできるのに `AddAsync` だけが弾く複合が作れる | §4 | テストが ID で参照 |
+| C19 | 公開境界 (`AddAsync` / `StartAsync` / ピッカーの `TriggerCommitted`) を渡る `TriggerDefinition` は受け取った側が `TriggerJsonContext` 往復で写す。写さない API (`Compose` の Window / Locator 共有) は共有と寿命を XML doc に明記する | §3 | テストが ID で参照 |
+| C20 | 定義の検証は列挙の定義域と文字列の null まで見る。域外値・null は黙って「鳴らないトリガー / Any 扱い」にならず、**単一の検証関数** (`TriggerDefinitionRules`) が全入口 (JSON 読込・`AddAsync`・`Apply`・`Compose`) で理由付きに弾く — 検証が入口ごとに分散すると、最も寛容な入口 (デシリアライズ) が事実上の門になる | §3 | テストが ID で参照 |
+| C21 | `IsPassword` の伏字化は**全読み取り経路**に適用される。C12 の「復活しない」は経路記録 (`ElementPathStep.Name`) と `Custom` 読みを含む — スナップショット関門を通らない経路が伏字化を素通りすると、平文が定義ファイルに残り、発火イベントでホストへ渡る | §3 | テストが ID で参照 |
+| D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 | テストが ID で参照 |
+| D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 | テストが ID で参照 |
+| D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — | テストが ID で参照 |
+| D4 | NuGet 5 パッケージ / MIT / プレリリース版数から。パッケージは全て MSIL | §1 | テストが ID で参照 |
+| D5 | ライブラリは AnyCPU。App の RID は `Platform` から導き、ARM64 でも建つ | §12 | テストが ID で参照 |
+| D6 | README は実装と一致させる。英語版が正である | docs/LOCALIZATION.md | 網なし — 散文と実装の一致に機械的な判定基準が無い。README が書いた決定の**実装側**は個別のテストが縛る |
+| D7 | サンプルは XAML 未処理例外を握り潰さない。`UnhandledException` はログへ出す | §12 | テストが ID で参照 |
+| D8 | 昇格アプリを監視できない制約は文書と実行時通知 (A10) の両方で明示する | §3 | テストが ID で参照 |
+| D9 | `App.WinUI` だけが Picker → Monitor の E2E ショーケースを兼ねる。意図的な非対称である | §12 | テストが ID で参照 |
+| L1 | 公開 API の XML doc は英語。実装内部のコメントは日本語のままでよい (経緯の記録として価値がある) | docs/LOCALIZATION.md | テストが ID で参照 |
+| L2 | 例外・診断メッセージはリソース経由 (en-US 中立 + ja サテライト)。ハードコードしない | docs/LOCALIZATION.md | テストが ID で参照 |
+| L3 | WinUI の UI 文字列は `.resw` + `x:Uid` + MRT Core | docs/LOCALIZATION.md | テストが ID で参照 |
+| L4 | 比較文字列 (`ComparisonString` / invariant) と表示文字列 (`CurrentCulture`) は型で分離し、条件評価は前者しか受けない | docs/LOCALIZATION.md | テストが ID で参照 |
+| L5 | `InvariantGlobalization` は false。サテライトが要る | docs/LOCALIZATION.md | テストが ID で参照 |
+| L6 | 識別用の安定名 (英語固定・永続化する) と表示用 `LocalizedControlType` (相手アプリのロケール・永続化しない) を分離する | docs/LOCALIZATION.md | テストが ID で参照 |
+| L7 | invariant にすべきもの (オプション解釈・ログ) とカルチャに従うもの (画面表示) を 1 つの文字列に混ぜない | docs/LOCALIZATION.md | テストが ID で参照 |
+| L8 | `README.md` = 英語 (正・パッケージ同梱・リンクは絶対 URL) / `README.ja.md` = 日本語 | docs/LOCALIZATION.md | テストが ID で参照 |
+| L9 | 配るものは CLI も含めてローカライズの対象である。分類 2 と分類 3 は**同じプロセスの中でも**分けて扱う (`TestHost` は使い方・利用ミス・進捗をリソース経由にし、発火ログだけ英語固定)。検査対象の表に載っていないプロジェクトが出ないことは別に見る | docs/LOCALIZATION.md §3 | テストが ID で参照 |
+| S1 | オーバーレイは UIA から観測できる実ウィンドウであり、2 枚のピッカーは独立の枠を出す | §10 | テストが ID で参照 |
+| S2 | 確定 → 条件設定 → コミットの 1 往復。真偽の根拠は画面の文字列ではなくトリガーファイルに置く | docs/TESTING.md §1 | テストが ID で参照 |
+| S3 | 表示名と安定名の分離 (L6 と同じ対象) | docs/LOCALIZATION.md | テストが ID で参照 |
+| S4 | リソース解決は発行レイアウトで確かめる。`.pri` / サテライトは発行してからでないと落ちない | docs/TESTING.md §1 | テストが ID で参照 |
 | T1〜T6 | 検証の層の定義と分担 | → docs/TESTING.md §1 |
 | K1〜K5 / M1〜M2 | 合成入力 (T5) の検査項目と入力政策 | → docs/TESTING.md §3 |

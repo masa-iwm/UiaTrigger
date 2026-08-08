@@ -82,7 +82,8 @@ public sealed class TriggerMonitorValidationTests
     /// <summary>
     /// 後読みは文法としては正しいが <c>NonBacktracking</c> では使えず、
     /// <see cref="NotSupportedException"/> になる。これを捕まえ損ねると、
-    /// 定義の誤りがローカライズされない別種の例外として呼び出し元へ漏れる。
+    /// 定義の誤りがローカライズされない別種の例外として呼び出し元へ漏れる
+    /// (docs/DESIGN.md A20)。
     /// </summary>
     [Theory]
     [InlineData("(?<=a)b")]     // 後読み

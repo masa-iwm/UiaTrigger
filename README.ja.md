@@ -199,6 +199,25 @@ dotnet publish src/UiaTrigger.App.WinUI -c Release -o publish/App
 | `PropertyChanged` | 監視中のプロパティが変化し、句を満たすたび |
 | `WhileMatching` | 句が成立し始めた瞬間だけ (立ち上がりエッジ) |
 
+`WhileMatching` は**立ち下がり**も通知できる。定義に `NotifyOnStoppedMatching` を立てると、
+句が成立しなくなった瞬間にもう一度発火し、イベント側の `On` が `TriggerOn.StoppedMatching` になる:
+
+```csharp
+var definition = new TriggerDefinition
+{
+    On = TriggerOn.WhileMatching,
+    NotifyOnStoppedMatching = true,   // 成立しなくなったときにも発火する
+    // …
+};
+```
+
+`StoppedMatching` はイベントが報告する値であって、記録する値ではない — `On` に書くと拒否される。
+`WhileMatching` 以外にこのフラグを立てるのも拒否される (効かない定義の上に黙って残らないため)。
+立ち下がりは `MinInterval` の対象外である。落とすと、条件がまだ成立していると受け手に思わせるからである。
+
+`Always` の句は要素が解決できている間だけ成立するので、`WhileMatching` + このフラグで
+「要素が出た / 消えた」をトリガー 1 つで受け取れる。
+
 句 (`PropertyClause`) の比較演算子:
 
 - `Always` — 値を見ない (プロパティを購読したいだけのとき)

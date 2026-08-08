@@ -223,8 +223,8 @@ public sealed class TriggerFiredEventArgs : EventArgs
     /// </summary>
     /// <remarks>
     /// So it is absent for <see cref="TriggerOn.ElementAppeared"/> (there was no previous value),
-    /// for <see cref="TriggerOn.WhileMatching"/> (the trigger fires on the condition as a whole
-    /// becoming true, not on one value changing), and for a
+    /// for <see cref="TriggerOn.WhileMatching"/> and <see cref="TriggerOn.StoppedMatching"/> (both
+    /// edges fire on the condition as a whole changing truth, not on one value changing), and for a
     /// <see cref="TriggerOn.PropertyChanged"/> trigger whose firing came from a condition other than
     /// the first — that condition changing says nothing about what the first one was.
     /// </remarks>

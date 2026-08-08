@@ -67,6 +67,13 @@ public sealed class StoppedMatchingScenarioTests
         Assert.Equal(TriggerOn.StoppedMatching, falling.On);
         Assert.Equal(definition.Id, falling.TriggerId);
         Assert.Equal("off", falling.NewValue.Value);
+
+        // **OldValue は両エッジとも absent であること** (`TriggerFiredEventArgs.OldValue` の doc)。
+        // WhileMatching が鳴るのは「条件が全体として成立した / しなくなった」瞬間であって、
+        // 1 つの値が変わった瞬間ではない — 前回値を載せると、条件が複数の要素にまたがるとき
+        // 「変わったのはこの値だ」という嘘になる。doc がそう書いてあるだけで網が無かった
+        Assert.Equal(ComparisonString.None, rising.OldValue);
+        Assert.Equal(ComparisonString.None, falling.OldValue);
     }
 
     /// <summary>
