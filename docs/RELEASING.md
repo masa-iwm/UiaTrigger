@@ -55,6 +55,12 @@ PE 種別を見る。件数と `.xml` の中身は release.yml が機械で検�
 
 `.github/workflows/ci.yml` は 7 ジョブ。push / PR / `workflow_dispatch` で走る。
 
+**外部の action は SHA で指す** (`actions/checkout@3d3c… # v7`)。タグは可変で、
+乗っ取られたタグは**気づかれずに別のコードを走らせる** — CI は書き込み権限こそ持たないが、
+ソースとビルド成果物には触れる。`# v7` のコメントは人が読むためのもので、解決には使われない。
+SHA pin だけを入れると今度は更新が止まるので、`.github/dependabot.yml` を対で置く
+(週 1 で SHA とコメントの両方を上げる PR が来る)。**片方だけにしないこと。**
+
 | ジョブ | 内容 | 扱い |
 |---|---|---|
 | `build-and-test` | ソリューションビルド (`TreatWarningsAsErrors`) + T1/T2 | 必須 |
