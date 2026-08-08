@@ -1,0 +1,14 @@
+# GitHub Actions の版を追う。
+#
+# **SHA pin と対で置くこと。**pin は「知らないうちに別のコードが走る」を塞ぐが、
+# 同時に「更新が止まる」も作る — 脆弱性の直った版が出ても、誰も気づかないまま
+# 古い SHA を指し続ける。pin だけを入れて更新経路を置かないのは、供給網の
+# 対策として半分だけである。
+#
+# 週 1 で PR が来る。SHA と `# v7` のコメントは dependabot が両方更新する。
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

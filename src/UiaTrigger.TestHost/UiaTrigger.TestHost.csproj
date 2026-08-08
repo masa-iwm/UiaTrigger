@@ -16,4 +16,14 @@
     <ProjectReference Include="..\UiaTrigger.Core\UiaTrigger.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    ユーザー向け文字列 (docs/LOCALIZATION.md §3 の分類 2)。**このアセンブリが自前の
+    サテライトを持つ最初の AOT 発行物である** — 発行後に ja が引けることは
+    ファイルの有無では確かめられないので、CI の aot ジョブが実際の出力で見ている。
+  -->
+  <ItemGroup>
+    <EmbeddedResource Update="Resources\Strings.resx" />
+    <EmbeddedResource Update="Resources\Strings.ja.resx" />
+  </ItemGroup>
+
 </Project>

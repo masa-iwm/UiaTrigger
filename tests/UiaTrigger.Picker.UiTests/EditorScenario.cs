@@ -1,4 +1,4 @@
-// エディタの E2E を組み立てる土台 (docs/TESTING.md §1 T4 / §3 T5)。
+﻿// エディタの E2E を組み立てる土台 (docs/TESTING.md §1 T4 / §3 T5)。
 //
 // **T4 と T5 の両方から使う。**エディタと子ピッカーを実際に起こす手順はどちらでも同じで、
 // 違うのは駆動の仕方だけである — T4 は UIA のコントロールパターン、T5 は合成入力。
@@ -138,7 +138,7 @@ internal sealed class EditorScenario : IDisposable
             $"子ピッカーが {Target} を捕捉すること",
             Diagnostics);
         Assert.Contains($"[{Target}]", row.NameOf(), StringComparison.Ordinal);
-        ConfirmButtonOf(row).Invoke();
+        row.ConfirmButtonOf().Invoke();
         _ = Ui.Until(
             () => picker.ById("CommitButton") is { } b && b.Current.IsEnabled ? "ok" : null,
             Settle,
@@ -286,14 +286,21 @@ internal sealed class EditorScenario : IDisposable
     /// エディタが閉じるまで待つ。
     /// </summary>
     /// <remarks>
+    /// <para>
     /// **閉じたことを待たないと次の <c>OpenEditor</c> が古い窓を掴む。**
     /// ホストは await 中ボタンを無効にしているので、押しても何も起きないまま
     /// 「一覧が出ない」で落ちる形になる。
+    /// </para>
+    /// <para>
+    /// <c>Ui.Never</c> ではなく <c>Ui.UntilTrue</c> であること。前者は「期限いっぱい
+    /// 起きない」を確かめる形で、待ちではない — 閉じていても 5 秒を捨て、
+    /// 押した直後にまだ閉じ切っていなければ落ちる。
+    /// </para>
     /// </remarks>
-    private void WaitUntilTheEditorIsGone() => Ui.Never(
-        () => _host.EditorWindowIsShowing(),
+    private void WaitUntilTheEditorIsGone() => Ui.UntilTrue(
+        () => !_host.EditorWindowIsShowing(),
         TimeSpan.FromSeconds(5),
-        "エディタの窓が閉じない",
+        "エディタの窓が閉じること",
         Diagnostics);
 
     private IReadOnlyList<AutomationElement> Rows()
@@ -306,41 +313,6 @@ internal sealed class EditorScenario : IDisposable
                     TreeScope.Descendants,
                     new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem))
                 .Cast<AutomationElement>()];
-    }
-
-    /// <summary>
-    /// 行の確定ボタン。**その行自身のもの**を取る。
-    /// </summary>
-    /// <remarks>
-    /// AutomationId では探せない — ボタンは <c>DataTemplate</c> の中にあり、
-    /// 行ごとに実体化されるので id を持たない。加えて WinUI の <c>TreeView</c> は
-    /// 行を入れ子にするので、部分木をそのまま辿ると**子の行のボタンを掴みうる**。
-    /// <c>MonitorShowcaseTests</c> と同じ形である。
-    /// </remarks>
-    private static AutomationElement ConfirmButtonOf(AutomationElement row)
-    {
-        AutomationElement? nestedRow = row.FindFirst(
-            TreeScope.Children,
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TreeItem));
-        foreach (AutomationElement button in row.FindAll(
-            TreeScope.Descendants,
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
-        {
-            if (!button.TryGetCurrentPattern(InvokePattern.Pattern, out _))
-            {
-                continue;
-            }
-            if (nestedRow is not null &&
-                nestedRow.FindFirst(
-                    TreeScope.Descendants,
-                    new PropertyCondition(
-                        AutomationElement.RuntimeIdProperty, button.GetRuntimeId())) is not null)
-            {
-                continue;
-            }
-            return button;
-        }
-        throw new InvalidOperationException($"行 '{row.NameOf()}' に確定ボタンがありません。");
     }
 
     public void Dispose()

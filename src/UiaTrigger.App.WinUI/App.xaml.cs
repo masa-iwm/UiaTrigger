@@ -51,20 +51,14 @@ public partial class App : Application
         {
             // アンパッケージのホストで効くかは環境依存である。効かなくても
             // resx 側 (メインウィンドウ) は切り替わるので、ここで落とす価値は無い
-            Log($"PrimaryLanguageOverride を設定できませんでした: {ex}");
+            Log($"Could not set PrimaryLanguageOverride: {ex}");
         }
     }
 
-    internal static void Log(string message)
-    {
-        try
-        {
-            File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-        }
-        catch
-        {
-        }
-    }
+    /// <summary>
+    /// 診断ログ。時刻の書式は App.Shared が invariant で握る (docs/DESIGN.md L7)。
+    /// </summary>
+    internal static void Log(string message) => HostLog.Append(LogPath, message);
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {

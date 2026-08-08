@@ -12,6 +12,10 @@ namespace UiaTrigger.Tests;
 /// 先に走ると、「絞るだけ」に指定した条件も常に購読される
 /// (<see cref="Compose_AnUnwatchedSource_YieldsUnwatchedClauses"/> が固定する)。
 /// </summary>
+// **実 UIA を起こす T1 なので直列化する** (docs/TESTING.md §5)。合成した定義を実物の
+// TriggerMonitor.StartAsync に通す検査があり、CUIAutomation8 の生成と GetRootElement が
+// 並列に走ると単発で E_FAIL になる。
+[Collection(RealUiaLiteTests.Name)]
 public sealed class TriggerComposerTests
 {
     /// <summary>句 1 つの、ふつうのトリガー。</summary>
@@ -57,6 +61,38 @@ public sealed class TriggerComposerTests
             notifyOnStoppedMatching);
 
     // ---- Compose: 基本形 ----
+
+    /// <summary>
+    /// 複合 (式または OR 結合の句を持つ定義) を素材にまとめ直せないこと (docs/DESIGN.md §4)。
+    /// 式は持ち込まれないため、'a || b' の複合を素材にすると元の ∨ が警告なしで
+    /// ∧ に化ける — 「黙って意味が変わる設定を残さない」の違反。
+    /// </summary>
+    [Fact]
+    public void Compose_RefusesACompositeSource()
+    {
+        TriggerDefinition composite = Multi("comp");
+        composite.On = TriggerOn.WhileMatching;
+        composite.Expression = "comp-1 || comp-2";
+        composite.Clauses[0].Name = "comp-1";
+        composite.Clauses[1].Name = "comp-2";
+
+        TriggerCompositionResult result = Compose([composite, Simple("p")]);
+
+        Assert.False(result.IsValid);
+        Assert.Contains("comp", result.Error, StringComparison.Ordinal);
+    }
+
+    /// <summary>式は無くても、OR 結合の複数句は同じ理由で断ること (Any が All に化ける)。</summary>
+    [Fact]
+    public void Compose_RefusesAnOrCombinedMultiClauseSource()
+    {
+        TriggerDefinition source = Multi("any");
+        source.Combine = ClauseCombinator.Any;
+
+        TriggerCompositionResult result = Compose([source, Simple("p")]);
+
+        Assert.False(result.IsValid);
+    }
 
     [Fact]
     public void Compose_TwoSimpleTriggers_MakesAWhileMatchingCompositeNamedByTheirIds()
@@ -254,8 +290,15 @@ public sealed class TriggerComposerTests
     [Fact]
     public void Compose_ASourceWithoutClauses_ContributesAnAlwaysClause()
     {
-        // 出現だけを見るトリガー。「その要素が在ること」だけを意味する句になる
-        var appearOnly = new TriggerDefinition { Id = "a", On = TriggerOn.ElementAppeared };
+        // 出現だけを見るトリガー。「その要素が在ること」だけを意味する句になる。
+        // Window は実在の形にする — 空 (ProcessName 必須なのに空) だと、その複合は
+        // AddAsync も拒否する定義であり、Compose が C20 の全域検証で先に断る
+        var appearOnly = new TriggerDefinition
+        {
+            Id = "a",
+            On = TriggerOn.ElementAppeared,
+            Window = new WindowIdentity { ProcessName = "a.exe" },
+        };
         TriggerDefinition b = Simple("b");
 
         TriggerDefinition composite = Compose([appearOnly, b]).Definition!;
@@ -730,7 +773,13 @@ public sealed class TriggerComposerTests
     [Fact]
     public void ComposeDecompose_RoundTripsTheSubstituteClause()
     {
-        var appearOnly = new TriggerDefinition { Id = "a", On = TriggerOn.ElementAppeared };
+        // Window を実在の形にする理由は Compose_ASourceWithoutClauses_ContributesAnAlwaysClause と同じ
+        var appearOnly = new TriggerDefinition
+        {
+            Id = "a",
+            On = TriggerOn.ElementAppeared,
+            Window = new WindowIdentity { ProcessName = "a.exe" },
+        };
         TriggerDefinition composite = Compose([appearOnly, Simple("b")]).Definition!;
 
         IReadOnlyList<TriggerDefinition> parts = TriggerComposer.Decompose(composite, []);

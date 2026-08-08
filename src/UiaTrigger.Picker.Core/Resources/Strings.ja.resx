@@ -223,7 +223,7 @@
     <value>式 (&amp;&amp;, ||, !, 括弧。空欄ならすべてを要求):</value>
   </data>
   <data name="UnwatchedBox.Header" xml:space="preserve">
-    <value>絞るだけで発火させないトリガー (id をカンマ区切り):</value>
+    <value>絞るだけで発火させない対象 (トリガー id、書き換え時は句名):</value>
   </data>
   <data name="CombinePollIntervalBox.Header" xml:space="preserve">
     <value>ポーリング間隔 (秒)</value>

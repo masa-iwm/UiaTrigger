@@ -55,8 +55,37 @@ public sealed class TriggerMonitor : IAsyncDisposable
     private AutomationEventHandler? _windowClosedHandler;
     // 監視状態は診断 API から任意のスレッドで読まれるので volatile。
     // 書き込むのは常に UiaDispatcher スレッド 1 本だけである
-    private volatile bool _started;
-    private volatile bool _disposed;
+    /// <summary>
+    /// 生涯状態 (docs/DESIGN.md §3 / A29)。値は <see cref="MonitorState"/>。
+    /// **Created ↔ Running の遷移はディスパッチャスレッド上でのみ行う** — 検証は呼び出し元
+    /// スレッドで前倒しする二相構造 (§2) のまま、状態の確定だけを単一の直列点に閉じる。
+    /// check-then-act が 2 スレッドに割れると、Dispose 完了後に StartCore が走って
+    /// 「購読を張ったのに誰も畳まない」ゾンビ監視ができる。診断は任意スレッドから Volatile 読み。
+    /// </summary>
+    private int _state;
+
+    /// <summary>
+    /// DisposeAsync の冪等ゲート (呼び出しスレッドで CAS)。「予約」であって状態遷移ではない —
+    /// 状態の確定 (Disposed) は DisposeCore (ディスパッチャ上) が行う。公開 API の
+    /// 呼び出し元スレッド側の早期 ODE 検査もこれを見る。
+    /// </summary>
+    private int _disposeRequested;
+
+    private enum MonitorState
+    {
+        Created = 0,
+        Running = 1,
+        Disposed = 2,
+    }
+
+    private bool IsRunningOnDispatcher => Volatile.Read(ref _state) == (int)MonitorState.Running;
+
+    /// <summary>
+    /// 生きている SlotPoller の登録簿 (R-014)。共有セッションが先に破棄されて StopCore が
+    /// 走れない経路 (<see cref="DisposeAllPollers"/>) のためだけにある。
+    /// </summary>
+    private readonly object _pollersGate = new();
+    private readonly HashSet<SlotPoller> _pollers = [];
     private int _sweepCount;
     private int _structureEventCount;
     private int _structureSubscriptionCount;
@@ -87,12 +116,16 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// Settings, or null for the defaults. <see cref="TriggerMonitorOptions.Session"/> configures
     /// the session this monitor creates.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A duration in <paramref name="options"/> is out of range —
+    /// <see cref="TriggerMonitorOptions.Debounce"/> must not be negative.
+    /// </exception>
     /// <remarks>
     /// Prefer <see cref="UiaSession.CreateMonitor"/> when the host already has a session: each
     /// session is another automation thread and another set of automation objects.
     /// </remarks>
     public TriggerMonitor(TriggerMonitorOptions? options = null)
-        : this(new UiaSession((options ?? new TriggerMonitorOptions()).Session), options, ownsSession: true)
+        : this(new UiaSession(EnsureValid(options).Session), options, ownsSession: true)
     {
     }
 
@@ -101,11 +134,30 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
     }
 
+    /// <summary>
+    /// 設定の検証。**セッション (= スレッド) を作る前・呼び出し元スレッドで前倒しする**
+    /// (UiaSessionOptions.Validate と同じ理由)。負の Debounce は SweepDebouncer の初回
+    /// Change で ArgumentOutOfRangeException になり (catch は ODE のみなので
+    /// UnhandledException 行き)、-1ms ちょうどは Infinite = 掃引の恒久停止 —
+    /// どちらも「黙って動かない」モニターになる。
+    /// </summary>
+    private static TriggerMonitorOptions EnsureValid(TriggerMonitorOptions? options)
+    {
+        options ??= new TriggerMonitorOptions();
+        if (options.Debounce < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(options), options.Debounce,
+                Message.Format(Strings.Error_DurationNegative, nameof(TriggerMonitorOptions.Debounce)));
+        }
+        return options;
+    }
+
     private TriggerMonitor(UiaSession session, TriggerMonitorOptions? options, bool ownsSession)
     {
         _session = session;
         _ownsSession = ownsSession;
-        _options = options ?? new TriggerMonitorOptions();
+        _options = EnsureValid(options);
         _timeProvider = session.TimeProvider;
         _logger = session.Logger;
         _dispatcher = session.Dispatcher;
@@ -144,6 +196,12 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// Raised for exceptions that have nowhere else to go: failures on the internal UIA thread and
     /// exceptions thrown by <see cref="TriggerFired"/> / <see cref="ResolutionChanged"/> handlers.
     /// </summary>
+    /// <remarks>
+    /// The two sources run on different threads (the automation thread and the delivery worker), so
+    /// this event can be raised concurrently — a handler must be thread-safe. Exceptions thrown by
+    /// a handler of this event are swallowed — it is the last resort, and letting them escape would
+    /// take the process down with nothing left to report to.
+    /// </remarks>
     public event Action<Exception>? UnhandledException;
 
     /// <summary>The session whose automation thread this monitor runs on.</summary>
@@ -186,25 +244,44 @@ public sealed class TriggerMonitor : IAsyncDisposable
         public nint StructureHandlerHwnd;
         /// <summary>true = 解決済みの経路購読 / false = ウィンドウ全体の Subtree 購読。</summary>
         public bool StructureIsPathScoped;
-        public ElementPropertySnapshot? LastSnapshot;
 
         /// <summary>
-        /// <see cref="TriggerProperty.Custom"/> の直前値 (鍵は <see cref="PropertyClause.CustomPropertyId"/>)。
-        ///
-        /// <para>
-        /// Custom はスナップショットに入らないので、<see cref="WatchedValuesChanged"/> は
-        /// 「変わったか」を答えられず**無条件に true** を返している。イベント経路ではそれでよい
-        /// (UIA が何かの変化を伝えてきている) が、**ポーリング経路では誰も何も言っていない**ため、
-        /// そのままだと毎周期鳴る。ここに前回値を残しておくのがその埋め合わせである。
-        /// </para>
-        /// <para>
-        /// 鍵が句ではなく**プロパティ ID** なのは、同じスロットの 2 つの句が同じ ID を
-        /// 指しうるからである (値は同じなので 1 つ持てば足りる)。
-        /// </para>
+        /// このスロットにプロパティ購読を張るべきか。On × PropertyIds から
+        /// <see cref="SlotBuilder.Build"/> が確定する (実行中に変わらない)。
+        /// 「張るべきなのに張れていない」(<see cref="SlotSubscriptionState.ResolvedOrphaned"/>)
+        /// の判別に使う。
         /// </summary>
-        public Dictionary<int, ClauseValue>? CustomValues;
+        public required bool WantsPropertySubscription { get; init; }
+
+        /// <summary>解決時の経路段数 (target.Ancestors.Count)。手放したら 0 に戻す。</summary>
+        /// <remarks>
+        /// 0 = 対象がウィンドウ自身 (購読 0 が正常 — 消滅は WindowClosed が拾う)。
+        /// 「解決済みなのに構造購読 0」との判別に使う。
+        /// </remarks>
+        public int ResolvedPathDepth;
+
+        /// <summary>
+        /// 評価が読む観測値 (スナップショット + Custom の最終値)。
+        /// **評価は必ずここ経由で読む** — 生読みは購読・ポーリング・解決の「ストア更新側」
+        /// だけに置く (docs/DESIGN.md C15/C16。<see cref="SlotObservations"/> のヘッダを参照)。
+        /// </summary>
+        public readonly SlotObservations Observations = new();
 
         public bool IsResolved => Element is not null;
+
+        /// <summary>
+        /// 実状態の導出 (docs/DESIGN.md §8)。掃引の対象選定・修復の武装・診断の孤児数は
+        /// すべてここから決める — サイトごとの条件式に戻すと、到達可能な異常状態の一部が
+        /// どの条件にも掛からず無音の恒久沈黙になる。
+        /// </summary>
+        public SlotSubscriptionState State => SubscriptionHealth.StateOf(
+            resolved: Element is not null,
+            pathDepth: ResolvedPathDepth,
+            structureCount: StructureElements.Count,
+            attemptedHwnd: StructureHandlerHwnd,
+            pathScoped: StructureIsPathScoped,
+            wantsProperties: WantsPropertySubscription,
+            hasPropertyHandler: PropertyHandler is not null);
     }
 
     private sealed class TriggerRuntime
@@ -245,6 +322,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         public required bool[] LastEvaluated { get; init; }
 
         /// <summary>
+        /// その周の句ごとの成否。**評価がその場で記録したもの**であり、発火時に述語を
+        /// 当て直さない — 当て直すと正規表現の制限時間切れが評価時と別の答えになりうる。
+        /// 0 (<see cref="ClauseOutcome.NotEvaluated"/>) が「読まれていない」。
+        /// </summary>
+        public required ClauseOutcome[] LastOutcomes { get; init; }
+
+        /// <summary>
         /// 解析済みの <see cref="TriggerDefinition.Expression"/>。
         /// null なら <see cref="TriggerDefinition.Combine"/> で平坦に結合する。
         /// </summary>
@@ -281,18 +365,6 @@ public sealed class TriggerMonitor : IAsyncDisposable
             }
         }
 
-        /// <summary>このスロットのプロパティ変化を購読する必要があるか。</summary>
-        /// <remarks>
-        /// ElementRemoved も Watch な句があれば購読する。発火源にするためではなく
-        /// (OnPropertyChanged は ElementRemoved では鳴らさない)、LastSnapshot を最新に
-        /// 保つためである — 購読しないと HandleRemoved の「最後に見えていた状態」が
-        /// 実際には**解決時の状態**になり、条件が古い値と比較される (docs/DESIGN.md C15)。
-        /// ElementAppeared は対象外 — 発火は解決の瞬間だけで、以後の鮮度に意味が無い
-        /// </remarks>
-        public bool WatchesProperties(ElementSlot slot) =>
-            Definition.On is TriggerOn.PropertyChanged or TriggerOn.WhileMatching or TriggerOn.ElementRemoved
-                && slot.PropertyIds.Length > 0;
-
         /// <summary>句が読むスロット。</summary>
         public ElementSlot SlotOf(int clauseIndex) => Slots[ClauseSlots[clauseIndex]];
     }
@@ -303,7 +375,8 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </summary>
     /// <param name="triggers">
     /// Trigger definitions, or null to start empty and add them with <see cref="AddAsync"/>. Each
-    /// <see cref="TriggerDefinition.Id"/> must be non-empty and unique.
+    /// <see cref="TriggerDefinition.Id"/> must be non-empty and unique. The monitor takes a deep
+    /// copy of every definition: mutating one after this call has no effect on monitoring.
     /// </param>
     /// <param name="cancellationToken">
     /// Cancels the start request while it is still queued. Once the start has begun on the
@@ -312,7 +385,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </param>
     public Task StartAsync(IEnumerable<TriggerDefinition>? triggers = null, CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposeRequested();
 
         var runtimes = new List<TriggerRuntime>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -339,7 +412,8 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </summary>
     /// <remarks>
     /// Only this trigger's subscriptions are touched; every other trigger keeps its working
-    /// subscriptions.
+    /// subscriptions. The monitor takes a deep copy of the definition: mutating it after this call
+    /// has no effect on monitoring — remove the trigger and add it again to change it.
     /// </remarks>
     /// <exception cref="ArgumentException">
     /// The definition is invalid, or its <see cref="TriggerDefinition.Id"/> is already monitored.
@@ -347,7 +421,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     public Task AddAsync(TriggerDefinition definition, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposeRequested();
         if (string.IsNullOrEmpty(definition.Id))
         {
             throw new ArgumentException(Strings.Error_TriggerIdRequired, nameof(definition));
@@ -363,17 +437,33 @@ public sealed class TriggerMonitor : IAsyncDisposable
     public Task<bool> RemoveAsync(string triggerId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(triggerId);
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ThrowIfDisposeRequested();
         return _dispatcher.InvokeAsync(() => RemoveCore(triggerId), cancellationToken);
     }
 
     /// <summary>The ids of the triggers currently being monitored.</summary>
-    public Task<IReadOnlyList<string>> GetTriggerIdsAsync(CancellationToken cancellationToken = default) =>
-        _dispatcher.InvokeAsync<IReadOnlyList<string>>(() => _runtimes.Keys.ToArray(), cancellationToken);
+    public Task<IReadOnlyList<string>> GetTriggerIdsAsync(CancellationToken cancellationToken = default)
+    {
+        // 破棄後の挙動を他の公開 API と揃える (ObjectDisposedException)。ガード無しだと
+        // ディスパッチャの生死次第で「完了する / internal 型名を晒す faulted Task になる」に割れる
+        ThrowIfDisposeRequested();
+        return _dispatcher.InvokeAsync<IReadOnlyList<string>>(() => _runtimes.Keys.ToArray(), cancellationToken);
+    }
 
     /// <summary>Stops monitoring and releases every UIA subscription.</summary>
-    public Task StopAsync(CancellationToken cancellationToken = default) =>
-        _dispatcher.InvokeAsync(StopCore, cancellationToken);
+    /// <remarks>
+    /// Every trigger is discarded, including ones added with <see cref="AddAsync"/> before
+    /// monitoring started — pass the definitions again when restarting.
+    /// </remarks>
+    public Task StopAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposeRequested();
+        return _dispatcher.InvokeAsync(StopCore, cancellationToken);
+    }
+
+    /// <summary>公開 API の呼び出し元スレッド側の早期 ODE 検査 (破棄後の挙動を 1 通りに揃える)。</summary>
+    private void ThrowIfDisposeRequested() =>
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposeRequested) != 0, this);
 
     /// <summary>
     /// A snapshot of what the monitor is currently doing.
@@ -386,7 +476,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </remarks>
     public TriggerMonitorDiagnostics GetDiagnostics() => new()
     {
-        IsRunning = _started,
+        IsRunning = Volatile.Read(ref _state) == (int)MonitorState.Running,
         TriggerCount = Volatile.Read(ref _triggerCount),
         ResolvedTriggerCount = Volatile.Read(ref _resolvedCount),
         SweepCount = Volatile.Read(ref _sweepCount),
@@ -412,17 +502,27 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        if (_disposed)
+        // 冪等ゲート。予約が立った瞬間から公開 API は ODE を返し始めるが、
+        // 状態の確定 (Disposed) はディスパッチャ上の DisposeCore が行う (A29 —
+        // 遷移は単一の直列点で)。これで「_disposed 検査と post の間に Dispose が完走し、
+        // 破棄済みモニターの上で StartCore が購読を張る」TOCTOU が閉じる:
+        // DisposeCore はキュー上で StartCore と直列に並び、後から走る側の冒頭再検査が捕まえる
+        if (Interlocked.Exchange(ref _disposeRequested, 1) != 0)
         {
             return;
         }
-        _disposed = true;
         try
         {
-            await _dispatcher.InvokeAsync(StopCore).ConfigureAwait(false);
+            await _dispatcher.InvokeAsync(DisposeCore).ConfigureAwait(false);
         }
         catch (ObjectDisposedException)
         {
+            // 共有セッションが先に破棄された (doc は「モニターを先に」と定めるが、型では
+            // 守られていない)。COM にはもう触れないが、タイマーはディスパッチャ無しで畳める —
+            // ここで畳まないと SlotPoller が生きたまま誰にも止められなくなる。
+            // 状態の確定もこの経路だけは呼び出しスレッドで行う (ディスパッチャはもう居ない)
+            Volatile.Write(ref _state, (int)MonitorState.Disposed);
+            DisposeAllPollers();
         }
         _dispatcher.UnhandledException -= RaiseUnhandledException;
         _sweep.Dispose();
@@ -433,6 +533,13 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
         // 投入済みの発火をハンドラへ流し切ってから戻る
         await _events.DisposeAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>ディスパッチャ上の破棄 (停止 + 状態の確定)。</summary>
+    private void DisposeCore()
+    {
+        StopCore();
+        Volatile.Write(ref _state, (int)MonitorState.Disposed);
     }
 
     /// <summary>通知先が投げてもここで止める (通知先の例外でプロセスを落とさない)。</summary>
@@ -453,6 +560,21 @@ public sealed class TriggerMonitor : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(definition.Window);
         ArgumentNullException.ThrowIfNull(definition.Locator);
         ArgumentNullException.ThrowIfNull(definition.Clauses);
+
+        // 呼び出し元の可変 POCO を参照のまま保持しない (docs/DESIGN.md C19)。追加後に
+        // ホストが書き換えた値が UIA スレッドから live に読まれると、データ競合と
+        // 「検証を通らない値が黙って効く」の両方が起きる。以降この関数と runtime が持つのは
+        // すべてこの写しである
+        definition = TriggerDefinitionRules.Clone(definition);
+
+        // 規則の正は TriggerDefinitionRules (docs/DESIGN.md C20)。**新しい規則をこの関数の
+        // 続きに足さないこと** — ここにだけ足すと Composer と TriggerStore.Load の門が
+        // 黙って緩む。続きに残っている検査は構築 (Regex / スロット / 式木) の途中で同じ規則を
+        // 再確認しているだけの重複であり、文言は Rules と一致している
+        if (TriggerDefinitionRules.Validate(definition, _options.RegexTimeout) is { } reason)
+        {
+            throw new ArgumentException(reason);
+        }
 
         // StoppedMatching は TriggerFiredEventArgs.On に載せるためだけの値である。
         // 定義の lifecycle として受けると「立ち下がりだけの WhileMatching」という
@@ -553,6 +675,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
             ClauseNames = names,
             LastValues = new ClauseValue[compiled.Count],
             LastEvaluated = new bool[compiled.Count],
+            LastOutcomes = new ClauseOutcome[compiled.Count],
             Expression = ParseExpression(id, definition.Expression, names),
             Gate = new MinIntervalGate(definition.MinInterval, _timeProvider),
         };
@@ -617,6 +740,11 @@ public sealed class TriggerMonitor : IAsyncDisposable
                     Window = _windows[i],
                     Locator = _locators[i],
                     PropertyIds = [.. _propertyIds[i]],
+                    // ElementRemoved も Watch な句があれば購読する (C15 — LastSnapshot の鮮度)。
+                    // ElementAppeared は対象外 — 発火は解決の瞬間だけで、以後の鮮度に意味が無い
+                    WantsPropertySubscription =
+                        _definition.On is TriggerOn.PropertyChanged or TriggerOn.WhileMatching or TriggerOn.ElementRemoved
+                        && _propertyIds[i].Count > 0,
                 };
             }
             return slots;
@@ -771,27 +899,49 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private UiaContext Ctx => _session.Context;
 
+    /// <summary>
+    /// work item 冒頭の状態再検査 (docs/DESIGN.md A29 / R-019)。呼び出し元スレッドの
+    /// 早期検査 (<see cref="ThrowIfDisposeRequested"/>) と post の間に DisposeAsync が
+    /// 完走する窓があるため、ディスパッチャ上でもう一度確かめる — DisposeCore はこの
+    /// キューで直列に並ぶので、後から走る側は必ずここで捕まる。
+    /// </summary>
+    private void ThrowIfDisposedOnDispatcher() =>
+        ObjectDisposedException.ThrowIf(
+            Volatile.Read(ref _state) == (int)MonitorState.Disposed ||
+            Volatile.Read(ref _disposeRequested) != 0,
+            this);
+
+    /// <summary>
+    /// 監視の開始。**失敗した work item は状態を開始前と完全に同一へ巻き戻してから fault する**
+    /// (docs/DESIGN.md A29) — 「純検査 → 失敗しうる副作用 (巻き戻し付き) → 以降投げない」の
+    /// 3 段に並べてある。半開始 (IsRunning=true・購読 0 本) で固着すると、復旧は
+    /// StopAsync のみで、気づく手掛かりが無い。
+    /// </summary>
     private void StartCore(List<TriggerRuntime> runtimes)
     {
-        if (_started)
+        ThrowIfDisposedOnDispatcher();
+        if (IsRunningOnDispatcher)
         {
             throw new InvalidOperationException(Strings.Error_AlreadyStarted);
         }
-        _started = true;
-        if (!Ctx.SupportsTimeouts)
-        {
-            Log.TimeoutsUnsupported(_logger);
-        }
 
+        // ---- 1) 純検査: 何も変えずに弾く。開始前に AddAsync で足された分と衝突しうる
+        //      (呼び出し元スレッドの seen は引数内の重複しか見ない)
         foreach (TriggerRuntime rt in runtimes)
         {
-            // 開始前に AddAsync で足された分と衝突しうる
-            if (!_runtimes.TryAdd(rt.Id, rt))
+            if (_runtimes.ContainsKey(rt.Id))
             {
                 throw new ArgumentException(Message.Format(Strings.Error_DuplicateTriggerId, rt.Id));
             }
         }
 
+        if (!Ctx.SupportsTimeouts)
+        {
+            Log.TimeoutsUnsupported(_logger);
+        }
+
+        // ---- 2) 失敗しうる副作用: ルート購読 2 本。2 本目の失敗は 1 本目を外して rethrow
+        //
         // ウィンドウの出現・消滅をルートで一括購読し、デバウンス付きで再解決を回す。
         //
         // WindowOpened はトップレベルウィンドウがルートの直接の子なので Children で足りる
@@ -804,10 +954,36 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // System.Windows.Automation は同じ制約を明示的に例外にしている:
         //   "WindowClosed event is only applicable to RootElement and TreeScope.Subtree"
         // 手書き interop には検証が無いので、黙って何も来なくなる形で壊れる。
-        _windowOpenedHandler = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
-        _windowClosedHandler = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
-        Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowOpenedEvent, Ctx.Root, TreeScope.Children, null, _windowOpenedHandler);
-        Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowClosedEvent, Ctx.Root, TreeScope.Subtree, null, _windowClosedHandler);
+        var opened = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
+        var closed = new AutomationEventHandler((_, _) => _dispatcher.Post(ScheduleSweep));
+        Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowOpenedEvent, Ctx.Root, TreeScope.Children, null, opened);
+        try
+        {
+            Ctx.Automation.AddAutomationEventHandler(UiaIds.WindowClosedEvent, Ctx.Root, TreeScope.Subtree, null, closed);
+        }
+        catch (COMException)
+        {
+            // WindowClosed 側が張れなかった (WinForms 系の削除検知が黙って死ぬ) まま
+            // 進んではいけない。1 本目を外して開始前と同一状態に戻す
+            try
+            {
+                Ctx.Automation.RemoveAutomationEventHandler(UiaIds.WindowOpenedEvent, Ctx.Root, opened);
+            }
+            catch (COMException)
+            {
+            }
+            throw;
+        }
+        _windowOpenedHandler = opened;
+        _windowClosedHandler = closed;
+
+        // ---- 3) 以降は投げない: 登録 → 状態の確定 → 解決 → ポーリング。
+        //      解決 (ResolveOrWait → TryResolve) は COMException を内側で握る
+        foreach (TriggerRuntime rt in runtimes)
+        {
+            _runtimes.Add(rt.Id, rt);
+        }
+        Volatile.Write(ref _state, (int)MonitorState.Running);
 
         var windows = NewCandidateCache();
         foreach (TriggerRuntime rt in _runtimes.Values)
@@ -822,13 +998,14 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void AddCore(TriggerRuntime runtime)
     {
+        ThrowIfDisposedOnDispatcher();
         if (_runtimes.ContainsKey(runtime.Id))
         {
             throw new ArgumentException(Message.Format(Strings.Error_DuplicateTriggerId, runtime.Id));
         }
         _runtimes.Add(runtime.Id, runtime);
         Log.TriggerAdded(_logger, runtime.Id);
-        if (_started)
+        if (IsRunningOnDispatcher)
         {
             // 1 件だけ足すのに全体を止める必要は無い。この 1 件だけを解決する
             ResolveOrWait(runtime, NewCandidateCache(), initial: true);
@@ -839,6 +1016,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private bool RemoveCore(string triggerId)
     {
+        ThrowIfDisposedOnDispatcher();
         if (!_runtimes.Remove(triggerId, out TriggerRuntime? rt))
         {
             return false;
@@ -858,7 +1036,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void StopCore()
     {
-        bool wasStarted = _started;
+        bool wasStarted = IsRunningOnDispatcher;
         if (wasStarted)
         {
             // RemoveAllEventHandlers は使わない。セッションを共有している場合、
@@ -870,14 +1048,18 @@ public sealed class TriggerMonitor : IAsyncDisposable
             foreach (TriggerRuntime rt in _runtimes.Values)
             {
                 ReleaseTrigger(rt);
-                // 停止をまたいでレート制限を持ち越さない (再開直後の 1 回目は必ず通す)
-                rt.Gate.Reset();
+                // レート制限 (Gate) には触らない。runtime は直後の Clear で捨てられ、
+                // 再開時は CreateRuntime が新しい Gate を作るので、停止をまたいだ持ち越しは
+                // 構造的に起きない — ここでの Reset は捨てるオブジェクトへの無効操作である
             }
         }
         // 開始前に AddAsync された分もここで捨てる (残すと次の StartAsync が重複で落ちる)。
         // 購読は張っていないので UiaContext には触らない
         _runtimes.Clear();
-        _started = false;
+        if (Volatile.Read(ref _state) != (int)MonitorState.Disposed)
+        {
+            Volatile.Write(ref _state, (int)MonitorState.Created);
+        }
         // これを忘れると、停止時に残っていたデバウンス予約のせいで
         // 再開後の最初の sweep 要求が黙って捨てられる (docs/DESIGN.md A14)
         _sweep.Reset();
@@ -925,6 +1107,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         RemoveStructureSubscription(rt, slot);
         Ctx.Tree.Release(slot.Element);
         slot.Element = null;
+        slot.ResolvedPathDepth = 0;
     }
 
     private void RemovePropertySubscription(ElementSlot slot)
@@ -945,7 +1128,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void ScheduleSweep()
     {
-        if (_started)
+        if (IsRunningOnDispatcher)
         {
             _sweep.Schedule();
         }
@@ -962,6 +1145,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
         rt.Poller = new SlotPoller(
             rt.Definition.PollInterval!.Value, () => _dispatcher.Post(() => PollRound(rt)), _timeProvider);
+        lock (_pollersGate)
+        {
+            _pollers.Add(rt.Poller);
+        }
         rt.Poller.Schedule();
         Log.PollingStarted(_logger, rt.Id, rt.Poller.Interval.TotalMilliseconds);
     }
@@ -969,10 +1156,38 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// <summary>
     /// ポーリングを止める。停止をまたいで持ち越さない (<c>_sweep.Reset()</c> と同じ理由 — A14)。
     /// </summary>
-    private static void StopPolling(TriggerRuntime rt)
+    private void StopPolling(TriggerRuntime rt)
     {
-        rt.Poller?.Dispose();
+        if (rt.Poller is null)
+        {
+            return;
+        }
+        lock (_pollersGate)
+        {
+            _pollers.Remove(rt.Poller);
+        }
+        rt.Poller.Dispose();
         rt.Poller = null;
+    }
+
+    /// <summary>
+    /// 全ポーラーを畳む。**共有セッションが先に破棄された経路 (DisposeAsync の ODE) 専用。**
+    /// StopCore が走れないとき、_runtimes をディスパッチャ外から列挙するのは危険なので、
+    /// ポーラーだけの登録簿を別に持つ。SlotPoller.Dispose は冪等なので、通常経路の
+    /// StopPolling と重なっても安全である。lock の中で COM には触らない (デッドロックの形が無い)。
+    /// </summary>
+    private void DisposeAllPollers()
+    {
+        SlotPoller[] pollers;
+        lock (_pollersGate)
+        {
+            pollers = [.. _pollers];
+            _pollers.Clear();
+        }
+        foreach (SlotPoller poller in pollers)
+        {
+            poller.Dispose();
+        }
     }
 
     /// <summary>
@@ -996,7 +1211,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         // 次の予約を受け付けられるようにしてから走る (SweepDebouncer と同じ約束)
         rt.Poller?.Reset();
-        if (!_started || !_runtimes.ContainsKey(rt.Id))
+        if (!IsRunningOnDispatcher || !_runtimes.ContainsKey(rt.Id))
         {
             return;
         }
@@ -1005,9 +1220,12 @@ public sealed class TriggerMonitor : IAsyncDisposable
         foreach (ElementSlot slot in rt.Slots)
         {
             // 未解決スロットは触らない (解決はイベント駆動のまま)。
-            // WatchesProperties は ElementAppeared / ElementRemoved に対して既に false なので、
-            // それらがここへ来ることはない
-            if (!slot.IsResolved || !rt.WatchesProperties(slot))
+            //
+            // **防壁はここではない。**ポーリングで拾えない lifecycle に PollInterval を
+            // 書いた定義は CreateRuntime が Error_PollIntervalNotApplicable で弾く
+            // (黙って効かない設定を残さない)。ここの WantsPropertySubscription 判定は、
+            // 通り抜けた定義の中で「値を読む意味があるスロット」を選ぶだけである
+            if (!slot.IsResolved || !slot.WantsPropertySubscription)
             {
                 continue;
             }
@@ -1026,7 +1244,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         Interlocked.Increment(ref _sweepCount);
         _sweep.Reset();
-        if (!_started)
+        if (!IsRunningOnDispatcher)
         {
             return;
         }
@@ -1041,13 +1259,44 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 {
                     CheckAlive(rt, slot);
                 }
-                if (!slot.IsResolved)
+                // 対象の選定は状態から導出する (docs/DESIGN.md §8)。「未解決なら再解決」の
+                // 条件式だけだと、解決済みのまま購読を失ったスロット (ResolvedOrphaned) が
+                // どの条件にも掛からず、復旧経路ゼロで恒久沈黙する
+                switch (slot.State)
                 {
-                    TryResolve(rt, slot, windows, initial: false);
+                    case SlotSubscriptionState.Unresolved:
+                    case SlotSubscriptionState.WaitingSubscribed:
+                    case SlotSubscriptionState.WaitingOrphaned:
+                        TryResolve(rt, slot, windows, initial: false);
+                        break;
+                    case SlotSubscriptionState.ResolvedOrphaned:
+                        // 修復 = 再解決による張り替え。TryResolve は解決済みスロットへ
+                        // 再入でき、同一要素を引き直せたときだけ購読を張り直す
+                        TryResolve(rt, slot, windows, initial: false);
+                        break;
+                    // Resolved / ResolvedWindowSelf: 触らない (健全なスロットまで
+                    // 再解決すると張り替え嵐になる)。
+                    //
+                    // ResolvedSubtreeFallback も触らない。**購読はあり、イベントは来る**ので
+                    // 閉路ではない — 経路購読 (B3) の外に居るだけである。毎掃引で再解決すると、
+                    // 経路購読に失敗し続ける相手に対してビーム探索 1 回 + プロパティ購読の
+                    // 解除と再張りが恒久的に走り続け、しかも張り替えの窓で変化を落とす。
+                    // この状態は次の構造変化 (Subtree 購読が拾う) が解決を回すときに、
+                    // 通常の経路で自然に張り替わる
                 }
             }
         }
         UpdateDiagnostics();
+    }
+
+    /// <summary>採らなかった解決結果を丸ごと手放す (対象と経路の全段)。</summary>
+    private static void ReleaseTarget(IElementTree tree, ResolvedTarget target)
+    {
+        tree.Release(target.Element);
+        foreach (IElementNode ancestor in target.Ancestors)
+        {
+            tree.Release(ancestor);
+        }
     }
 
     /// <summary>解決を試み、できなければ理由付きで「未解決」を通知する。</summary>
@@ -1115,6 +1364,11 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void TryResolve(TriggerRuntime rt, ElementSlot slot, WindowCandidateCache windows, bool initial)
     {
+        // 修復モード: 解決済みのまま購読を失ったスロット (ResolvedOrphaned /
+        // ResolvedSubtreeFallback) の張り直し。解決し直して要素を差し替える —
+        // 張り替えの機構を購読の側に別途持つより、既存の解決 1 本に合流させる (§8)
+        bool repairing = slot.Element is not null;
+
         IElementTree tree = Ctx.Tree;
         ResolvedTarget? target;
         try
@@ -1129,17 +1383,51 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
         if (target is null)
         {
+            if (repairing)
+            {
+                // 修復の再解決に失敗した。現在の要素と購読はそのまま残す —
+                // 「見つからない」は「消えた」とは限らない (§8)。孤児なら修復の
+                // 再試行が回り続け、消えたなら CheckAlive が拾って未解決へ落とす
+                return;
+            }
             // 要素は無いがウィンドウがあれば、その配下の構造変化を購読して出現を検知する。
             // 出現位置は分からないので、この場合だけは Subtree で張る
             var window = ElementResolver.ResolveWindow(tree, windows, slot.Window, _options.Resolver);
             if (window is null)
             {
+                // アプリのウィンドウが列挙に無い。孤児の目印 (張ろうとした hwnd) が残っていて、
+                // その hwnd が OS 的にも死んでいるなら「未解決でウィンドウが無い」= 正常
+                // (Unresolved) へ戻す — 戻さないと、アプリ終了後も修復掃引がアプリ再起動まで
+                // 30 秒間隔で回り続け、「壊れている間だけ動く」(§5/§8) が破れる。
+                // hwnd がまだ生きているなら残す — 相手が塞がっているだけかもしれない。
+                // IsWindow は往復ゼロで決定的である (A21 と同じ手)
+                if (slot.StructureElements.Count == 0 && slot.StructureHandlerHwnd != 0 &&
+                    !NativeMethods.IsWindow(slot.StructureHandlerHwnd))
+                {
+                    slot.StructureHandlerHwnd = 0;
+                    slot.StructureIsPathScoped = false;
+                    UpdateDiagnostics();
+                }
                 EnsureStructureSubscription(rt, slot, [], TreeScope.Subtree, 0, pathScoped: false);
             }
             else
             {
                 EnsureStructureSubscription(rt, slot, [window.Value.Window], TreeScope.Subtree, window.Value.Hwnd, pathScoped: false);
             }
+            return;
+        }
+
+        // **修復は「同じ要素を引き直せたとき」しか続行しない** (docs/DESIGN.md A8/A9)。
+        // 別の候補が最良として返る形 (兄弟が増えてスコアが動いた等) で黙って乗り換えると、
+        // 通知ゼロで監視対象が入れ替わり、Identity も新しい要素のもので上書きされるので
+        // 以後 CheckAlive も気づけない — A8 が防ぐために在る壊れ方そのものである。
+        // 別物なら何も触らずに帰る (購読の張り替えより**前**に判断すること — 張り替えてから
+        // 帰ると、購読は新しい経路・要素は古いまま、というずれが残る)。本当に消えていれば
+        // 次の掃引の CheckAlive が HandleRemoved へ落とし、通常の再解決
+        // (ResolutionChanged が上がる側) が引き直す
+        if (repairing && !IsSameElement(slot.Element, target.Element))
+        {
+            ReleaseTarget(tree, target);
             return;
         }
 
@@ -1152,11 +1440,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         catch (COMException)
         {
             // 解決直後に消えた。次のイベントで再解決
-            tree.Release(target.Element);
-            foreach (IElementNode ancestor in target.Ancestors)
-            {
-                tree.Release(ancestor);
-            }
+            ReleaseTarget(tree, target);
             return;
         }
 
@@ -1174,17 +1458,48 @@ public sealed class TriggerMonitor : IAsyncDisposable
         EnsureStructureSubscription(
             rt, slot, target.Ancestors, TreeScope.Element | TreeScope.Children, target.WindowHandle, pathScoped: true);
 
+        if (repairing)
+        {
+            // 同一要素であることは上で確認済み。旧要素と旧プロパティ購読を手放してから
+            // 差し替える (構造購読は上の EnsureStructureSubscription が
+            // 「新を先に・旧を後で」の規律で張り替え済み)。ResolutionChanged は上げない —
+            // 解決済み → 解決済みであり、利用者から見た状態は変わっていない
+            RemovePropertySubscription(slot);
+            tree.Release(slot.Element);
+            slot.Element = null;
+        }
+
         slot.Element = target.Element;
         slot.Identity = ElementIdentity.Of(target.Element);
         slot.WindowHandle = target.WindowHandle;
-        slot.LastSnapshot = snapshot;
+        slot.ResolvedPathDepth = target.Ancestors.Count;
+        slot.Observations.UpdateSnapshot(snapshot);
 
-        if (rt.WatchesProperties(slot))
+        // ElementRemoved も Watch な句があれば購読する。発火源にするためではなく
+        // (OnPropertyChanged は ElementRemoved では鳴らさない)、ストアのスナップショットを
+        // 最新に保つためである (docs/DESIGN.md C15)。規則の実体は SlotBuilder.Build が
+        // スロットへ確定した WantsPropertySubscription — 状態導出 (State) と同じ値を見る
+        if (slot.WantsPropertySubscription)
         {
-            slot.PropertyHandler = new PropertyChangedEventHandler(
+            var propertyHandler = new PropertyChangedEventHandler(
                 (_, _) => _dispatcher.Post(() => OnPropertyChanged(rt, slot)));
-            Ctx.Automation.AddPropertyChangedEventHandlerNativeArray(
-                element, TreeScope.Element, null, slot.PropertyHandler, slot.PropertyIds, slot.PropertyIds.Length);
+            try
+            {
+                Ctx.Automation.AddPropertyChangedEventHandlerNativeArray(
+                    element, TreeScope.Element, null, propertyHandler, slot.PropertyIds, slot.PropertyIds.Length);
+                slot.PropertyHandler = propertyHandler;
+            }
+            catch (COMException ex)
+            {
+                // 張れなかったスロットは「解決済み・購読喪失」(ResolvedOrphaned) として
+                // 掃引と修復が拾い直す (docs/DESIGN.md §8)。素通しにすると、Sweep 経由では
+                // 残りのトリガーの処理ごと中断し、StartCore/AddCore 経由では runtime が
+                // 半構築のまま fault する。解決を巻き戻す形も採らない — 構造購読は既に
+                // 経路へ張り替わっており、未解決へ戻すと「未解決なのに経路購読」という
+                // 新しい不整合を作る。PropertyHandler は成功したときにだけ代入する —
+                // 代入が先だと、失敗したのに「張れている」ように見える
+                Log.SubscriptionFailed(_logger, rt.Id, ex);
+            }
         }
 
         Log.TriggerResolved(_logger, rt.Id, target.Ancestors.Count, target.FoundBySearch);
@@ -1193,7 +1508,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // ただし**評価は待たない** — 未解決スロットの句は不成立なので、
         // a && !b の !b は「b が解決していないこと」そのものが条件である。
         // 揃うまで評価しないと ! が presence に対して永久に使えない
-        if (rt.IsResolved)
+        if (rt.IsResolved && !repairing)
         {
             RaiseResolutionChanged(rt, true, Strings.Status_ElementResolved);
         }
@@ -1208,8 +1523,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
             return;
         }
         // 「出現し、かつ条件を満たしたとき」— ライフサイクルと値の述語を
-        // 同じ列挙に同居させるモデルでは表現できない組み合わせ (docs/DESIGN.md §3)
-        if (matched && rt.Definition.On == TriggerOn.ElementAppeared)
+        // 同じ列挙に同居させるモデルでは表現できない組み合わせ (docs/DESIGN.md §3)。
+        // 修復 (解決済み → 解決済み) は「出現」ではないので鳴らさない —
+        // WhileMatching 側は wasMatching のエッジ判定が同じことを自然に保証する
+        if (matched && rt.Definition.On == TriggerOn.ElementAppeared && !repairing)
         {
             Fire(rt, TriggerOn.ElementAppeared, ComparisonString.None, LastValueOf(rt), CurrentSnapshot(rt));
         }
@@ -1286,6 +1603,27 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 Log.SubscriptionFailed(_logger, rt.Id, ex);
                 Ctx.Tree.Release(target);
             }
+        }
+
+        if (added.Count > 0 && added.Count != targets.Count)
+        {
+            // **部分成功は全滅と同じに扱う** (docs/DESIGN.md B3/§8)。段が飛んだ購読リストは
+            // IsStillOnThePath の「i と i+1 は親子」前提を破り、健在の要素を偽の切り離し
+            // (Status_ElementDetached) として手放させる — 偽の ElementRemoved 発火や
+            // 偽の立ち下がりになる。張れた分は外して、全滅の分岐 (旧購読温存 or 孤児の目印)
+            // に合流する。一時的な失敗なら旧購読が生きている限り次の掃引で再試行される
+            foreach (IElementNode node in added)
+            {
+                try
+                {
+                    Ctx.Automation.RemoveStructureChangedEventHandler(UiaElementNode.Unwrap(node), handler);
+                }
+                catch (COMException)
+                {
+                }
+                Ctx.Tree.Release(node);
+            }
+            added.Clear();
         }
 
         if (added.Count == 0)
@@ -1367,7 +1705,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 {
                     allPathScoped = false;
                 }
-                if (SubscriptionHealth.IsOrphaned(slot.StructureElements.Count, slot.StructureHandlerHwnd))
+                if (SubscriptionHealth.IsOrphaned(slot.State))
                 {
                     anyOrphaned = true;
                 }
@@ -1389,7 +1727,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // 壊れている間だけ再試行を予約する。戻ったら間隔も最初へ戻す。
         // **ここが「ポーリングしない」を保つ唯一の場所である** —
         // 判定 (SubscriptionHealth) が緩いと、アプリ未起動のトリガーで回りっぱなしになる
-        if (orphaned > 0 && _started)
+        if (orphaned > 0 && IsRunningOnDispatcher)
         {
             _repair.Schedule();
         }
@@ -1499,7 +1837,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     private void HandleRemoved(TriggerRuntime rt, ElementSlot slot, string reason)
     {
-        ElementPropertySnapshot? lastSnapshot = slot.LastSnapshot;
+        ElementPropertySnapshot? lastSnapshot = slot.Observations.Snapshot;
 
         RemovePropertySubscription(slot);
 
@@ -1507,6 +1845,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // 要素はもう無いので読み直しようがなく、これが唯一意味のある解釈である。
         // **要素を手放す前に評価すること** — 手放した後の評価は在否 (IsAbsent) が変わり、
         // 「消えた瞬間の状態を絞る」ではなく「消えた後の水準」になってしまう。
+        // **読むのはストアの最終値だけ (CustomReadMode.Stored)** — 消えかけの要素への
+        // 生読みは COMException → Unsupported に潰れ、Custom で絞った ElementRemoved が
+        // 例外もログも無く一度も鳴らなくなる (C15 が snapshot 系に約束している意味論を
+        // Custom にも適用する)
         //
         // **評価を飛ばす側では記録を戻すこと。**下の ElementRemoved は lastSnapshot が
         // null でも鳴るので、戻さないと**前の周の句の値が載る** (docs/DESIGN.md §4)
@@ -1519,13 +1861,14 @@ public sealed class TriggerMonitor : IAsyncDisposable
             }
             else
             {
-                matchedLastSeen = Evaluate(rt);
+                matchedLastSeen = Evaluate(rt, CustomReadMode.Stored);
             }
         }
 
         Ctx.Tree.Release(slot.Element);
         slot.Element = null;
         slot.WindowHandle = 0;
+        slot.ResolvedPathDepth = 0;
 
         RaiseResolutionChanged(rt, false, reason);
 
@@ -1549,8 +1892,9 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // 値の述語は最後に見えた値で評価され続ける (成立したまま要素が入れ替わっただけで
         // 水準が揺れないため — docs/DESIGN.md C16) が、「在ること」(Op=Always の presence 句)
         // はもう成立しない。水準は代入ではなく評価から求める。false を入れてしまうと、
-        // !presence で「b が消えたら成立」が表せなくなる (立ち上がりが起きた瞬間に潰される)
-        bool matched = Evaluate(rt);
+        // !presence で「b が消えたら成立」が表せなくなる (立ち上がりが起きた瞬間に潰される)。
+        // Custom もストアの最終値で評価する (Stored) — 上と同じ C16 の適用である
+        bool matched = Evaluate(rt, CustomReadMode.Stored);
         bool wasMatching = rt.LastMatch;
         rt.LastMatch = matched;
 
@@ -1579,11 +1923,11 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// 利用者が頼んだポーリングから来たか。**UIA からの通知と違い、この経路には
     /// 「何かが変わった」という手掛かりが一切無い**ので、
     /// <see cref="TriggerProperty.Custom"/> の扱いだけが変わる
-    /// (<see cref="ElementSlot.CustomValues"/> を参照)。それ以外は完全に同じ道を通る。
+    /// (<see cref="SlotObservations"/> を参照)。それ以外は完全に同じ道を通る。
     /// </param>
     private void OnPropertyChanged(TriggerRuntime rt, ElementSlot slot, bool polled = false)
     {
-        if (slot.Element is null || !_started)
+        if (slot.Element is null || !IsRunningOnDispatcher)
         {
             return;
         }
@@ -1613,15 +1957,14 @@ public sealed class TriggerMonitor : IAsyncDisposable
         // **1 つのイベントの中で 2 つの要素を指す**形になる。
         // oldValue が空になりうるのはそのためである (報告したのが先頭の句のスロットでなければ、
         // 先頭の句の「変化前の値」というものが存在しない)
-        ElementPropertySnapshot? previous = slot.LastSnapshot;
+        ElementPropertySnapshot? previous = slot.Observations.Snapshot;
         ComparisonString oldValue = LastValueOf(rt, slot, previous);
-        slot.LastSnapshot = snapshot;
+        slot.Observations.UpdateSnapshot(snapshot);
         ComparisonString newValue = LastValueOf(rt);
 
-        // Custom はスナップショットに入らないので、Evaluate が読んだ値でキャッシュが上書きされる。
+        // Custom はスナップショットに入らないので、Evaluate が読んだ値でストアが上書きされる。
         // 比較には「この周が始まる前」の写しが要る (ポーリング経路だけ)
-        Dictionary<int, ClauseValue>? customBefore =
-            polled && slot.CustomValues is { Count: > 0 } ? new Dictionary<int, ClauseValue>(slot.CustomValues) : null;
+        Dictionary<int, ClauseValue>? customBefore = polled ? slot.Observations.SnapshotCustomValues() : null;
 
         // 未解決スロットが残っていても評価する。その句は不成立になるだけで、
         // a && !b の !b はまさにそれを条件にしている (TryResolve と同じ理由)
@@ -1655,7 +1998,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 }
                 break;
             // ElementRemoved の購読は LastSnapshot を最新に保つためだけにある
-            // (WatchesProperties を参照)。ここでは何も鳴らさない — 鳴るのは HandleRemoved
+            // (WantsPropertySubscription を参照)。ここでは何も鳴らさない — 鳴るのは HandleRemoved
         }
     }
 
@@ -1691,6 +2034,17 @@ public sealed class TriggerMonitor : IAsyncDisposable
             TriggerProperty property = compiled.Clause.Property;
             if (property == TriggerProperty.Custom)
             {
+                // 短絡で読まれなかった句は、この周について何も分かっていない —
+                // 発火の理由にしない。ここを外すと、式が安定して短絡する構成
+                // (a || custom で a が成立し続ける等) の Custom 句がストアに値を持てず、
+                // 「片方でも欠けていれば通す」の既定に毎周期落ちて、matched の間
+                // ポーリングのたびに鳴る。named 句は snapshot 比較で常に答えられるので対象外。
+                // この判定は Evaluate が LastEvaluated を書いた後に呼ばれることに依存する
+                // (OnPropertyChanged の順序: Evaluate → WatchedValuesChanged)
+                if (!rt.LastEvaluated[i])
+                {
+                    continue;
+                }
                 if (CustomValueChanged(compiled.Clause, slot, polled, customBefore))
                 {
                     return true;
@@ -1718,7 +2072,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// </para>
     /// <para>
     /// **ポーリング経路には、その手掛かりすら無い。**タイマーで起きただけなので、
-    /// ここで通すと毎周期鳴る。<see cref="ElementSlot.CustomValues"/> に残した直前値と
+    /// ここで通すと毎周期鳴る。<see cref="SlotObservations"/> に残した直前値と
     /// 突き合わせて、本当に変わった周だけを通す。
     /// </para>
     /// </summary>
@@ -1738,16 +2092,35 @@ public sealed class TriggerMonitor : IAsyncDisposable
         }
         int id = clause.CustomPropertyId;
         // 片方でも欠けていれば判断できない。通す側に倒す。
-        // 欠けるのは (a) 初回の周 (b) 式が短絡してこの句を読まなかった周 である
+        // 欠けるのは初回の周である (短絡で読まれなかった周は呼び出し元が先に落とす —
+        // WatchedValuesChanged の LastEvaluated 判定)
         return customBefore is null ||
                !customBefore.TryGetValue(id, out ClauseValue before) ||
-               slot.CustomValues is null ||
-               !slot.CustomValues.TryGetValue(id, out ClauseValue after) ||
+               !slot.Observations.TryGetCustom(id, out ClauseValue after) ||
                before != after;
     }
 
     /// <summary>
-    /// 句を評価する。<see cref="TriggerProperty.Custom"/> だけはその場で読む。
+    /// <see cref="TriggerProperty.Custom"/> の読み方 (docs/DESIGN.md C15/C16)。
+    /// named プロパティは常にストア (スナップショット) 経由なのでモードが要らない —
+    /// Custom だけが評価のたびにクロスプロセスの生読みを起こすため、
+    /// 「読み直してよい評価」と「最終値で評価する評価」を呼び出し側が宣言する。
+    /// </summary>
+    private enum CustomReadMode
+    {
+        /// <summary>生きた要素から読み直し、ストアを更新する (購読・ポーリング・解決 = 更新側)。</summary>
+        Live,
+
+        /// <summary>
+        /// ストアの最終値のみ (<see cref="HandleRemoved"/> — 要素はもう信用できない)。
+        /// 消えかけの要素への生読みは COMException → Unsupported に潰れ、
+        /// C15/C16 の「最後に見えた値」の約束が Custom だけ破れる。
+        /// </summary>
+        Stored,
+    }
+
+    /// <summary>
+    /// 句を評価する。<see cref="TriggerProperty.Custom"/> だけは (Live なら) その場で読む。
     ///
     /// **各スロットの最新スナップショットに対して評価するのであって、同時に読むわけではない。**
     /// 別プロセスを原子的にスナップショットする方法は無く、イベントごとに全スロットを読み直せば
@@ -1755,7 +2128,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// 未解決スロットの句は読めない = 不成立なので、<c>!b</c> は
     /// **b のアプリが起動していない間ずっと成立する**。回避は <c>a &amp;&amp; !b</c>。
     /// </summary>
-    private static bool Evaluate(TriggerRuntime rt)
+    private static bool Evaluate(TriggerRuntime rt, CustomReadMode mode = CustomReadMode.Live)
     {
         ResetReadings(rt);
 
@@ -1777,7 +2150,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 return value;
             }
 
-            if (slot.LastSnapshot is not { } snapshot)
+            if (slot.Observations.Snapshot is not { } snapshot)
             {
                 // 一度も解決していないスロット。値は無く、要素も居ない (Absent) —
                 // 在否は Always (presence) の成否を決める (ClauseValue.IsAbsent)
@@ -1793,23 +2166,37 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 // 「在ること」はもう言えない
                 return Record(slot.Element is null ? value.AsAbsent() : value);
             }
-            if (slot.Element is null)
+            if (slot.Element is null || mode == CustomReadMode.Stored)
             {
-                return Record(ClauseValue.Unsupported.AsAbsent());
+                // Custom も named と同じ意味論 (C15/C16): 値の述語はストアの最終値で
+                // 評価され続け、在否だけが変わる。ここで生読みに落ちると、消えた要素の
+                // Custom 述語だけが Unsupported に潰れて水準が揺れる
+                ClauseValue last = slot.Observations.TryGetCustom(clause.CustomPropertyId, out ClauseValue stored)
+                    ? stored
+                    : ClauseValue.Unsupported;
+                return Record(slot.Element is null ? last.AsAbsent() : last);
             }
             ClauseValue custom = PropertyReader.ReadCustom(
                 UiaElementNode.Unwrap(slot.Element), clause.CustomPropertyId);
-            // 読んだ値は残しておく。ポーリング経路が「本当に変わったか」を言える唯一の手掛かりで、
-            // それが無いと Custom 句を持つトリガーは毎周期鳴る (CustomValueChanged を参照)。
-            // **イベント経路もここを通るが、あちらはこの値を読まない** — 書いておくのは、
-            // 最初の周が比べる相手を持てるようにするためである
-            (slot.CustomValues ??= [])[clause.CustomPropertyId] = custom;
+            // 読んだ値は残しておく。ポーリング経路が「本当に変わったか」を言える手掛かりであり、
+            // 消滅後の評価 (Stored) の「最後に見えた値」でもある
+            slot.Observations.UpdateCustom(clause.CustomPropertyId, custom);
             return Record(custom);
         }
 
+        // 成立したかどうかは**評価したその場**で記録する (onClauseMatched)。
+        // 発火時に述語を当て直す形だと、正規表現の制限時間切れが評価時と発火時で
+        // 別の答えになりうる — イベントは「そのとき何がどう評価されたか」を語るものである
+        void RecordOutcome(int index, bool matched) =>
+            rt.LastOutcomes[index] = matched
+                ? ClauseOutcome.Matched
+                : !rt.LastValues[index].IsSupported
+                    ? ClauseOutcome.Unreadable
+                    : ClauseOutcome.NotMatched;
+
         return rt.Expression is { } expression
-            ? ClauseEvaluator.Matches(expression, rt.Clauses, Read)
-            : ClauseEvaluator.Matches(rt.Definition.Combine, rt.Clauses, Read);
+            ? ClauseEvaluator.Matches(expression, rt.Clauses, Read, RecordOutcome)
+            : ClauseEvaluator.Matches(rt.Definition.Combine, rt.Clauses, Read, RecordOutcome);
     }
 
     /// <summary>
@@ -1825,6 +2212,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     {
         Array.Clear(rt.LastValues);
         Array.Clear(rt.LastEvaluated);
+        Array.Clear(rt.LastOutcomes); // 0 = ClauseOutcome.NotEvaluated
     }
 
     /// <summary>
@@ -1833,8 +2221,10 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// <remarks>
     /// **ここで固めるのが要点である。**作業領域は次の評価で上書きされ、配送は別スレッドで
     /// 起きるので、渡す時点で写しておかないと「配られたときには別の値」になる。
-    /// 成立したかどうかはここで計算する — 短絡を観測するために評価器を触らない代わりに、
-    /// 記録した値へ同じ述語をもう一度当てる (どちらも純粋なので結果は変わらない)。
+    /// 成否は**評価がその場で記録したもの** (LastOutcomes) を写すだけで、述語を当て直さない —
+    /// 当て直すと、正規表現の制限時間切れが評価時と発火時で別の答えになりうるし、
+    /// 在否で成立した Op=Always (パターン非対応でも要素が居れば成立する) が
+    /// 「発火を決めたのに Unreadable」と報告される。
     /// </remarks>
     private static ClauseReading[] ReadingsOf(TriggerRuntime rt)
     {
@@ -1851,13 +2241,8 @@ public sealed class TriggerMonitor : IAsyncDisposable
                 continue;
             }
             ClauseValue value = rt.LastValues[i];
-            ClauseOutcome outcome = !value.IsSupported
-                ? ClauseOutcome.Unreadable
-                : ClauseEvaluator.MatchesClause(rt.Clauses[i], value)
-                    ? ClauseOutcome.Matched
-                    : ClauseOutcome.NotMatched;
             readings[i] = new ClauseReading(
-                rt.ClauseNames[i], value.IsSupported ? value.Text : ComparisonString.None, outcome);
+                rt.ClauseNames[i], value.IsSupported ? value.Text : ComparisonString.None, rt.LastOutcomes[i]);
         }
         return readings;
     }
@@ -1869,7 +2254,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
     /// 比較用文字列であり、表示用に整形したものではない (docs/DESIGN.md L4)。
     /// </summary>
     private static ComparisonString LastValueOf(TriggerRuntime rt) =>
-        rt.Clauses.Count == 0 ? ComparisonString.None : LastValueOf(rt, rt.SlotOf(0), rt.SlotOf(0).LastSnapshot);
+        rt.Clauses.Count == 0 ? ComparisonString.None : LastValueOf(rt, rt.SlotOf(0), rt.SlotOf(0).Observations.Snapshot);
 
     private static ComparisonString LastValueOf(TriggerRuntime rt, ElementSlot slot, ElementPropertySnapshot? snapshot)
     {
@@ -1882,7 +2267,7 @@ public sealed class TriggerMonitor : IAsyncDisposable
 
     /// <summary>イベントに載せるスナップショット。最初の句が属するスロットのもの。</summary>
     private static ElementPropertySnapshot? CurrentSnapshot(TriggerRuntime rt) =>
-        rt.Clauses.Count == 0 ? rt.Slots[0].LastSnapshot : rt.SlotOf(0).LastSnapshot;
+        rt.Clauses.Count == 0 ? rt.Slots[0].Observations.Snapshot : rt.SlotOf(0).Observations.Snapshot;
 
     private void Fire(
         TriggerRuntime rt, TriggerOn on, ComparisonString oldValue, ComparisonString newValue,

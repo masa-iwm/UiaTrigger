@@ -29,6 +29,11 @@ public sealed class InteropNullabilityTests
     [InlineData(nameof(IUIAutomation.ElementFromPoint))]
     [InlineData(nameof(IUIAutomation.ElementFromHandle))]
     [InlineData(nameof(IUIAutomation.GetFocusedElement))]
+    // 以下 3 つは未使用の宣言。使い始めた日に null 検査なしの経路が復活しないよう、
+    // 使っているものと同じ null 許容を先に縛っておく (A15)
+    [InlineData(nameof(IUIAutomation.GetFocusedElementBuildCache))]
+    [InlineData(nameof(IUIAutomation.ElementFromIAccessible))]
+    [InlineData(nameof(IUIAutomation.ElementFromIAccessibleBuildCache))]
     public void ElementLookups_DeclareTheirOutParameterAsNullable(string methodName)
     {
         NullabilityInfo info = OutParameterOf(methodName);

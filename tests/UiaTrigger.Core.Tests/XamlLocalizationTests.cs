@@ -69,7 +69,63 @@ public sealed class XamlLocalizationTests
         new("src/UiaTrigger.App.WinUI", ResourceLayout.Resw, UsesUid: true, HasXaml: true, ScanSource: false),
         new("src/UiaTrigger.App.Wpf", ResourceLayout.Resx, UsesUid: false, HasXaml: true, ScanSource: true),
         new("src/UiaTrigger.App.WinForms", ResourceLayout.Resx, UsesUid: false, HasXaml: false, ScanSource: true),
+
+        // 検証用コンソール。コントロールが無いので ScanSource の代入検査は掛かりようがなく、
+        // 直書きは LocalizationTests.NoSourceLiteralCarriesJapanese のほうが見る。
+        // ここに居る意味は「en/ja のキー集合・書式指定子・プライマリが英語であること」である
+        new("src/UiaTrigger.TestHost", ResourceLayout.Resx, UsesUid: false, HasXaml: false, ScanSource: false),
     ];
+
+    /// <summary>
+    /// この表に載せないプロジェクトと、その理由。
+    /// </summary>
+    /// <remarks>
+    /// **理由付きで載せないことと、忘れて載っていないことは区別できなければならない。**
+    /// 前者は判断であり、後者は穴である — 見た目はどちらも「表に無い」なので、
+    /// <see cref="EveryProjectIsEitherLocalizedOrExplicitlyExcluded"/> がここを突き合わせる。
+    /// </remarks>
+    private static readonly Dictionary<string, string> NotLocalized = new(StringComparer.Ordinal)
+    {
+        ["src/UiaTrigger.Core"] =
+            "ライブラリ本体のリソースは LocalizationTests が en/ja/zh の 3 面で見ている " +
+            "(この表より厳しい)。",
+        ["src/UiaTrigger.App.Shared"] =
+            "ユーザー向け文字列を持たない。ここが書くのは分類 3 (診断ログ) と " +
+            "プログラマ契約の例外だけで、どちらも英語固定である — 表に足しても " +
+            "resx が無く ScanSource の代入も無いので、検査ゼロの行が 1 つ増えるだけになる。",
+    };
+
+    /// <summary>
+    /// <c>src/</c> のプロジェクトが、検査対象の表か除外表のどちらかに必ず載っていること。
+    /// </summary>
+    /// <remarks>
+    /// docs/TESTING.md §2 が名指しする「表に載っていないから緑」を塞ぐ (台帳 L9)。実際に
+    /// TestHost がこの形で抜けており、ユーザー向け出力が全部日本語直書きのまま
+    /// どのゲートにも掛からなかった。**プロジェクトを足す側にこの判断を強制する。**
+    /// </remarks>
+    [Fact]
+    public void EveryProjectIsEitherLocalizedOrExplicitlyExcluded()
+    {
+        string[] projects = [.. Directory.GetDirectories(RepoPaths.Combine("src"))
+            .Where(d => Directory.GetFiles(d, "*.csproj").Length > 0)
+            .Select(d => $"src/{Path.GetFileName(d)}")
+            .Order(StringComparer.Ordinal)];
+
+        // **0 件で緑にしない。**src の場所が変われば、この検査は何も見ないまま通る
+        Assert.True(projects.Length >= 8, $"見つかったプロジェクトが {projects.Length} 件しかありません。");
+
+        HashSet<string> known = [.. Projects.Select(p => p.Path), .. NotLocalized.Keys];
+
+        string[] unaccounted = [.. projects.Where(p => !known.Contains(p))];
+        Assert.True(
+            unaccounted.Length == 0,
+            $"どちらの表にも載っていないプロジェクトがあります: {string.Join(", ", unaccounted)}。" +
+            "ローカライズの対象なら Projects へ、対象外なら NotLocalized へ理由付きで足してください。");
+
+        // 逆向き: 消えたプロジェクトの行が表に残り続けないこと (残ると検査 0 件で緑になる)
+        string[] stale = [.. known.Where(k => !projects.Contains(k, StringComparer.Ordinal))];
+        Assert.True(stale.Length == 0, $"実在しないプロジェクトが表に残っています: {string.Join(", ", stale)}");
+    }
 
     public static TheoryData<string> WithResources =>
         [.. Projects.Where(p => p.Layout != ResourceLayout.None).Select(p => p.Path)];
@@ -235,9 +291,18 @@ public sealed class XamlLocalizationTests
     [MemberData(nameof(WithScannedSource))]
     public void NoSourceAssignsAUserFacingLiteral(string project)
     {
-        // Text = "…" のような代入。空文字は対象外 (表示するものが無い)
+        // Text = "…" のような代入。空文字は対象外 (表示するものが無い)。
+        //
+        // **語彙は「画面か支援技術に出るもの」で選ぶ。**AccessibleName / SetName は
+        // 目には見えないが読み上げには出るので、直書きすれば同じく英語圏で日本語が読まれる。
+        // Title も同様 (窓の題)。補間文字列 ($"…") まで見るのは、直書きを 1 つ変数に
+        // したくらいで検査を抜けられては意味が無いからである
         var assignment = new Regex(
-            @"\b(Text|Content|Header|ToolTipText|Caption)\s*=\s*""(?<value>[^""]+)""",
+            @"\b(Text|Content|Header|ToolTipText|Caption|Title|AccessibleName|AccessibleDescription)\s*=\s*\$?""(?<value>[^""]+)""",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(5));
+        var accessibilityCall = new Regex(
+            @"AutomationProperties\.Set(?:Name|HelpText)\s*\([^,]+,\s*\$?""(?<value>[^""]+)""",
             RegexOptions.CultureInvariant,
             TimeSpan.FromSeconds(5));
 
@@ -257,10 +322,13 @@ public sealed class XamlLocalizationTests
                 {
                     continue;
                 }
-                Match match = assignment.Match(line);
-                if (match.Success)
+                foreach (Regex pattern in new[] { assignment, accessibilityCall })
                 {
-                    offenders.Add($"{Path.GetFileName(path)}:{i + 1}: {match.Value.Trim()}");
+                    Match match = pattern.Match(line);
+                    if (match.Success)
+                    {
+                        offenders.Add($"{Path.GetFileName(path)}:{i + 1}: {match.Value.Trim()}");
+                    }
                 }
             }
         }

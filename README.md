@@ -1,6 +1,6 @@
 # UiaTrigger
 
-*[日本語版 README](README.ja.md)*
+*[日本語版 README](https://github.com/masa-iwm/UiaTrigger/blob/main/README.ja.md)*
 
 A .NET library that watches other applications' UI elements for appearance, removal and property
 changes through UI Automation, and raises an event when a condition is met.
@@ -212,6 +212,27 @@ There are four firing triggers:
 | `ElementRemoved` | The target element disappears, or is replaced by something else |
 | `PropertyChanged` | Every time a watched property changes and the clauses hold |
 | `WhileMatching` | Only at the moment the clauses start holding (rising edge) |
+
+`WhileMatching` can also report the *falling* edge. Set `NotifyOnStoppedMatching` on the definition
+and the trigger fires a second time, with `On = TriggerOn.StoppedMatching` on the event arguments,
+at the moment the clauses stop holding:
+
+```csharp
+var definition = new TriggerDefinition
+{
+    On = TriggerOn.WhileMatching,
+    NotifyOnStoppedMatching = true,   // also fire when it stops matching
+    // …
+};
+```
+
+`StoppedMatching` is a value the event reports, not one you record: putting it in `On` is rejected,
+and so is setting the flag on any other lifecycle — it cannot sit unnoticed on a definition it does
+not affect. The falling edge is exempt from `MinInterval`, because dropping it would leave the host
+believing the condition still holds.
+
+A clause with `Always` holds exactly while its element is resolved, so `WhileMatching` plus this flag
+reports one element appearing and disappearing with a single trigger.
 
 Comparison operators for a clause (`PropertyClause`):
 

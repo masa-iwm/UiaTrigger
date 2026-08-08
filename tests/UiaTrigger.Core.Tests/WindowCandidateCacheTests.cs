@@ -69,6 +69,22 @@ public sealed class WindowCandidateCacheTests
         Assert.Equal(2, cache.ImagePathLookupCount);
     }
 
+    /// <summary>
+    /// 手編集 JSON の <c>"ProcessName": null</c> が候補計算を落とさないこと。
+    /// ProcessName は宣言上 non-null だが STJ は null をそのまま入れる。落ちると
+    /// 壊れた定義 1 件が (キャッシュ共有のため) 全トリガーの sweep を毎回中断させる。
+    /// </summary>
+    [Fact]
+    public void GetCandidates_WithANullProcessName_DoesNotThrow()
+    {
+        var cache = new WindowCandidateCache(ThreeWindows(), Options);
+        var identity = new WindowIdentity { ProcessName = null!, ProcessNameMatch = MatchStrength.Preferred };
+
+        IReadOnlyList<nint> candidates = cache.GetCandidates(identity);
+
+        Assert.NotNull(candidates);
+    }
+
     /// <summary>同じ識別なら候補計算そのものが再利用されること。</summary>
     [Fact]
     public void GetCandidates_ReturnsTheSameResultForAnEquivalentIdentity()

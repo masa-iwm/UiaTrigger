@@ -69,10 +69,25 @@ public static class TriggerComposer
     /// </param>
     /// <returns>A result carrying either a localized reason, or the composite definition.</returns>
     /// <remarks>
+    /// <para>
     /// The sources are left untouched; the composite carries copies of their clauses, each clause
     /// naming its own window and locator, which is what lets one trigger span several applications.
     /// A source with no clause of its own contributes "the element is there". The composite fires
     /// on <see cref="TriggerOn.WhileMatching"/>: once, when the combined condition becomes true.
+    /// </para>
+    /// <para>
+    /// The clauses are copies, but each copy's <see cref="PropertyClause.Window"/> and
+    /// <see cref="PropertyClause.Locator"/> are the **same objects** the sources hold — mutating
+    /// one afterwards changes both. Add the composite to a monitor and it takes its own copy
+    /// (see <see cref="Monitoring.TriggerMonitor.AddAsync"/>); pass it anywhere else and the
+    /// sharing is yours to keep in mind.
+    /// </para>
+    /// <para>
+    /// A source that is itself a composite — one carrying an expression, or several clauses
+    /// combined with <see cref="ClauseCombinator.Any"/> — is refused. Its expression is not
+    /// carried over, so combining it again would silently turn an "or" into an "and". Take it
+    /// apart with <see cref="Decompose"/> first and combine the pieces.
+    /// </para>
     /// </remarks>
     public static TriggerCompositionResult Compose(
         IReadOnlyList<TriggerDefinition> sources,
@@ -103,6 +118,15 @@ public static class TriggerComposer
         var clauses = new List<PropertyClause>();
         foreach (TriggerDefinition source in sources)
         {
+            // 複合を素材にまとめ直すことは許さない (docs/DESIGN.md §4 — 黙って意味が変わる
+            // 設定を残さない)。式は持ち込まれず、OR 結合の句は All/式の下で AND に化ける —
+            // 元の ∨/¬ が警告なしで消える。先にほどいて (Decompose) 部品をまとめ直すこと
+            if (source.Expression is not null ||
+                (source.Combine == ClauseCombinator.Any && source.Clauses.Count > 1))
+            {
+                return new TriggerCompositionResult(
+                    Message.Format(Strings.Compose_SourceIsComposite, source.Id), null);
+            }
             // id をそのまま名前に使えないことがある (空白や括弧を含む場合)。
             // そのときは位置由来の名前に落とし、式のほうもそれを指す
             string name = TriggerDraftValidator.IsValidClauseName(source.Id)
@@ -172,6 +196,13 @@ public static class TriggerComposer
             // On が WhileMatching で固定なので、ここで立てた旗は必ず監視が受け付ける
             NotifyOnStoppedMatching = notifyOnStoppedMatching,
         };
+        // 完成品を単一の全域検証 (docs/DESIGN.md C20) に通す。ここで通った複合は AddAsync も
+        // 必ず受け付ける — 規則が増えた日に「保存はできるのに監視だけが弾く」複合を作らない
+        // (C18 と同じ形の穴の再発防止)
+        if (TriggerDefinitionRules.Validate(composite, new TriggerMonitorOptions().RegexTimeout) is { } invalid)
+        {
+            return new TriggerCompositionResult(invalid, null);
+        }
         return new TriggerCompositionResult(null, composite);
     }
 
@@ -273,6 +304,11 @@ public static class TriggerComposer
         updated.Expression = trimmed;
         updated.PollInterval = pollInterval is { Ticks: > 0 } ? pollInterval : null;
         updated.NotifyOnStoppedMatching = notifyOnStoppedMatching;
+        // Compose と同じ理由で完成品を全域検証に通す (docs/DESIGN.md C20)
+        if (TriggerDefinitionRules.Validate(updated, new TriggerMonitorOptions().RegexTimeout) is { } invalid)
+        {
+            return new TriggerCompositionResult(invalid, null);
+        }
         return new TriggerCompositionResult(null, updated);
     }
 

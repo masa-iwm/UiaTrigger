@@ -83,7 +83,7 @@
     <value>Expression (&amp;&amp;, ||, !, parentheses; blank = require all):</value>
   </data>
   <data name="UnwatchedLabel.Text" xml:space="preserve">
-    <value>Only narrow, never fire (names, comma separated):</value>
+    <value>Only narrow, never fire (trigger ids, comma separated):</value>
   </data>
 
   <data name="TriggerCount" xml:space="preserve">

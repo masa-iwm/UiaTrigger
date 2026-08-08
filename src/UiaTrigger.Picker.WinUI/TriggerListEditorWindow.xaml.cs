@@ -196,8 +196,11 @@ public sealed partial class TriggerListEditorWindow : Window, ITriggerListEditor
     /// あれはユーザーが選択を変えたのではない。
     /// </summary>
     /// <remarks>
-    /// この変種だけは通知が遅れて (抑止が解けた後に) 来ることがありうるが、そのときの選択は
-    /// 空なので presenter は何も埋めず、文言を書き直すだけである — 打ちかけの式は消えない。
+    /// **抑止が解けた後に遅れて届くと、下段の 4 欄が空になる。**選択が空のとき presenter は
+    /// 「まとめる」の空の状態へ戻すので (`ShowCombineFields(-1)`)、打ちかけの式もそこで消える。
+    /// 下段は常に「いま押したら何が起きるか」を表すという決定の側が正で、そちらは曲げない —
+    /// 前に選んだ複合の式が残っているほうが危ない。**遅延配送は実証されていない**ので、
+    /// いまは選択を読み直す手当てを入れていない。踏んだらここに実測を書くこと。
     /// </remarks>
     private void OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {

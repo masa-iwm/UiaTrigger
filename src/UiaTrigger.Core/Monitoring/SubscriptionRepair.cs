@@ -87,9 +87,18 @@ internal sealed class SubscriptionRepair : IDisposable
     private void Fire()
     {
         // 次の間隔を先に伸ばす。呼び出し先が同期で Schedule() を呼び返しても、
-        // 伸びた値が使われる
-        long doubled = Volatile.Read(ref _nextTicks) * 2;
-        Volatile.Write(ref _nextTicks, doubled > _maxTicks || doubled < 0 ? _maxTicks : doubled);
+        // 伸びた値が使われる。
+        //
+        // CAS なのは Recovered (ディスパッチャスレッド) との競合対策である — タイマースレッドの
+        // ここが read→write の間に Recovered の initial 書き込みを挟むと、素朴な Write では
+        // リセットを上書きしてしまい、次の故障の初回再試行が 2 秒ではなく最大 30 秒後になる。
+        // 負けたら「戻した」が正なので、そのまま進む。この競合は FakeTimeProvider で決定的に
+        // 再現できないため、実行時テストは置かない (docs/TESTING.md §2 — 検出力を示せない
+        // テストは書かない)。既存の SubscriptionRepairTests が意味論の回帰網である
+        long current = Volatile.Read(ref _nextTicks);
+        long doubled = current * 2;
+        long next = doubled > _maxTicks || doubled < 0 ? _maxTicks : doubled;
+        Interlocked.CompareExchange(ref _nextTicks, next, current);
         Volatile.Write(ref _scheduled, 0);
         _onElapsed();
     }

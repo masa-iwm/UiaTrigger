@@ -264,7 +264,7 @@ public sealed class PropertyClause
     /// <see cref="TriggerDefinition.Combine"/> never refers to one. Name them once an expression
     /// does: the positional fallback still parses after a clause is reordered or removed, and
     /// quietly means something else, whereas a name does not. Must be unique within one trigger and
-    /// cannot contain whitespace or any of <c>( ) ! &amp; |</c>.
+    /// cannot contain whitespace or any of <c>( ) ! &amp; | ,</c>.
     /// </remarks>
     public string? Name { get; set; }
 

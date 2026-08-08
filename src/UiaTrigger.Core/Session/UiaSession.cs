@@ -59,6 +59,9 @@ public sealed class UiaSession : IAsyncDisposable
         // なると、呼び出し元には「なぜか動かない」としか見えない
         _options.Validate();
         _dispatcher = new UiaDispatcher(_options.ThreadName);
+        // Post 経路の失敗は UnhandledException 購読者が居なければ完全無音になる。
+        // 診断の出口 (C9) として、購読の有無に関わらずログには必ず残す
+        _dispatcher.UnhandledException += ex => Log.DispatcherError(_options.Logger, ex);
 
         // ホストが PerMonitorV2 かどうかは座標を渡すすべての API の前提 (docs/DESIGN.md A19 / C13)。
         // 破れていても例外にはならず「別の要素が返る」だけなので、ここで必ず記録する
@@ -82,6 +85,11 @@ public sealed class UiaSession : IAsyncDisposable
     /// <summary>
     /// Raised for exceptions on the automation thread that have nowhere else to go.
     /// </summary>
+    /// <remarks>
+    /// Exceptions thrown by a handler are swallowed: this event is raised from the automation
+    /// thread's entry point, where anything escaping would take the process down. Handlers also run
+    /// on that thread — return quickly and do not call back into the session from them.
+    /// </remarks>
     public event Action<Exception>? UnhandledException
     {
         add => _dispatcher.UnhandledException += value;
@@ -128,18 +136,19 @@ public sealed class UiaSession : IAsyncDisposable
     /// "no element" for some coordinates without failing, so null is a normal answer.
     /// </remarks>
     public Task<UiaElement?> ElementFromPointAsync(int x, int y) =>
-        _dispatcher.InvokeAsync<UiaElement?>(() => ElementFromPointCore(x, y));
+        LookupAsync<UiaElement?>(nameof(ElementFromPointAsync), null, () => ElementFromPointCore(x, y));
 
     /// <summary>The element under the mouse cursor, or null when there is none.</summary>
     /// <inheritdoc cref="ElementFromPointAsync" path="/remarks"/>
-    public Task<UiaElement?> ElementFromCursorAsync() => _dispatcher.InvokeAsync<UiaElement?>(() =>
-    {
-        if (!NativeMethods.GetCursorPos(out System.Drawing.Point point))
+    public Task<UiaElement?> ElementFromCursorAsync() =>
+        LookupAsync<UiaElement?>(nameof(ElementFromCursorAsync), null, () =>
         {
-            return null;
-        }
-        return ElementFromPointCore(point.X, point.Y);
-    });
+            if (!NativeMethods.GetCursorPos(out System.Drawing.Point point))
+            {
+                return null;
+            }
+            return ElementFromPointCore(point.X, point.Y);
+        });
 
     /// <summary>
     /// The children of an element in the given tree view, read in one cross-process call.
@@ -149,23 +158,20 @@ public sealed class UiaSession : IAsyncDisposable
     /// <param name="max">
     /// Maximum number to return, or null for <see cref="UiaSessionOptions.MaxChildren"/>.
     /// </param>
-    /// <returns>The children, or an empty list when the element is gone or has none.</returns>
-    public Task<IReadOnlyList<UiaElement>> GetChildrenAsync(UiaElement parent, TreeViewMode view = TreeViewMode.Control, int? max = null)
+    /// <returns>
+    /// The children — an empty list when the element genuinely has none — or null when UI
+    /// Automation failed to enumerate them (the element is gone, or its provider did not answer).
+    /// Null and empty are deliberately distinct: a caller that cleared its tree on null would lose
+    /// state over a transient failure.
+    /// </returns>
+    public Task<IReadOnlyList<UiaElement>?> GetChildrenAsync(UiaElement parent, TreeViewMode view = TreeViewMode.Control, int? max = null)
     {
         ArgumentNullException.ThrowIfNull(parent);
         int limit = max ?? _options.MaxChildren;
-        return _dispatcher.InvokeAsync<IReadOnlyList<UiaElement>>(() =>
+        return LookupAsync<IReadOnlyList<UiaElement>?>(nameof(GetChildrenAsync), null, () =>
         {
-            try
-            {
-                using UiaElement.Borrowed borrowed = parent.Borrow();
-                return GetChildrenCore(borrowed.Element, view, limit);
-            }
-            catch (COMException ex)
-            {
-                Log.LookupFailed(_options.Logger, nameof(GetChildrenAsync), ex);
-                return [];
-            }
+            using UiaElement.Borrowed borrowed = parent.Borrow();
+            return GetChildrenCore(borrowed.Element, view, limit);
         });
     }
 
@@ -180,37 +186,35 @@ public sealed class UiaSession : IAsyncDisposable
     /// the same ancestor — overlapping elements found by a hit test, for instance.
     /// </param>
     /// <returns>
-    /// The chain, first the top-level window and last the element. Empty when it could not be
+    /// The chain, first the top-level window and last the element. Null when it could not be
     /// walked.
     /// </returns>
-    public Task<IReadOnlyList<UiaElement>> GetAncestorChainAsync(
+    public Task<IReadOnlyList<UiaElement>?> GetAncestorChainAsync(
         UiaElement element, TreeViewMode view = TreeViewMode.Control, bool normalize = true)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return _dispatcher.InvokeAsync<IReadOnlyList<UiaElement>>(() =>
+        return LookupAsync<IReadOnlyList<UiaElement>?>(nameof(GetAncestorChainAsync), null, () =>
         {
-            try
-            {
-                using UiaElement.Borrowed borrowed = element.Borrow();
-                return BuildChain(borrowed.Element, view, normalize);
-            }
-            catch (COMException ex)
-            {
-                Log.LookupFailed(_options.Logger, nameof(GetAncestorChainAsync), ex);
-                return [];
-            }
+            using UiaElement.Borrowed borrowed = element.Borrow();
+            return BuildChain(borrowed.Element, view, normalize);
         });
     }
 
     /// <summary>
     /// Every element that covers a physical screen point, bottom-most first.
     /// </summary>
+    /// <returns>
+    /// The stack — an empty list when no window covers the point — or null when UI Automation
+    /// failed while building it.
+    /// </returns>
     /// <remarks>
     /// <para>
     /// Spans windows and processes: for each visible top-level window containing the point, the hit
     /// chain inside it is appended, with the window first and the deepest element last. Windows of
     /// the calling process are skipped when
-    /// <see cref="UiaSessionOptions.SkipOwnProcessElements"/> is set.
+    /// <see cref="UiaSessionOptions.SkipOwnProcessElements"/> is set, and so are windows cloaked by
+    /// the Desktop Window Manager (another virtual desktop, a suspended UWP shell) — they report
+    /// visible bounds that cover the point while nothing is on the screen.
     /// </para>
     /// <para>
     /// The front-most window uses UI Automation's own hit test, which is authoritative. Windows
@@ -218,19 +222,8 @@ public sealed class UiaSession : IAsyncDisposable
     /// only hit-tests what is on top.
     /// </para>
     /// </remarks>
-    public Task<IReadOnlyList<UiaElement>> GetOverlapStackAsync(int x, int y) =>
-        _dispatcher.InvokeAsync<IReadOnlyList<UiaElement>>(() =>
-        {
-            try
-            {
-                return BuildOverlapStack(x, y);
-            }
-            catch (COMException ex)
-            {
-                Log.LookupFailed(_options.Logger, nameof(GetOverlapStackAsync), ex);
-                return [];
-            }
-        });
+    public Task<IReadOnlyList<UiaElement>?> GetOverlapStackAsync(int x, int y) =>
+        LookupAsync<IReadOnlyList<UiaElement>?>(nameof(GetOverlapStackAsync), null, () => BuildOverlapStack(x, y));
 
     /// <summary>
     /// Whether two handles refer to the same element.
@@ -308,18 +301,10 @@ public sealed class UiaSession : IAsyncDisposable
     public Task<ElementPropertySnapshot?> ReadSnapshotAsync(UiaElement element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return _dispatcher.InvokeAsync<ElementPropertySnapshot?>(() =>
+        return LookupAsync<ElementPropertySnapshot?>(nameof(ReadSnapshotAsync), null, () =>
         {
-            try
-            {
-                using UiaElement.Borrowed borrowed = element.Borrow();
-                return PropertyReader.ReadSnapshot(Context, borrowed.Element);
-            }
-            catch (COMException ex)
-            {
-                Log.LookupFailed(_options.Logger, nameof(ReadSnapshotAsync), ex);
-                return null;
-            }
+            using UiaElement.Borrowed borrowed = element.Borrow();
+            return PropertyReader.ReadSnapshot(Context, borrowed.Element);
         });
     }
 
@@ -340,34 +325,38 @@ public sealed class UiaSession : IAsyncDisposable
     public Task<TriggerDefinition?> BuildDefinitionAsync(UiaElement element, TreeViewMode view = TreeViewMode.Control)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return _dispatcher.InvokeAsync<TriggerDefinition?>(() =>
+        return LookupAsync<TriggerDefinition?>(nameof(BuildDefinitionAsync), null, () =>
         {
-            try
-            {
-                using UiaElement.Borrowed borrowed = element.Borrow();
-                return DefinitionBuilder.Build(Context, borrowed.Element, view);
-            }
-            catch (COMException ex)
-            {
-                Log.LookupFailed(_options.Logger, nameof(BuildDefinitionAsync), ex);
-                return null;
-            }
+            using UiaElement.Borrowed borrowed = element.Borrow();
+            return DefinitionBuilder.Build(Context, borrowed.Element, view, _options.Resolver);
         });
     }
 
     /// <summary>Records a trigger definition for the element at a physical screen point.</summary>
-    /// <exception cref="InvalidOperationException">No element was found at that point.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// No element was found at that point, the element belongs to the calling process while
+    /// <see cref="UiaSessionOptions.SkipOwnProcessElements"/> is set, or UI Automation failed while
+    /// recording (the inner exception carries the failure).
+    /// </exception>
     /// <inheritdoc cref="BuildDefinitionAsync" path="/remarks"/>
     public Task<TriggerDefinition> BuildDefinitionFromPointAsync(int x, int y, TreeViewMode view = TreeViewMode.Control) =>
         _dispatcher.InvokeAsync(() => BuildDefinitionAtCore(x, y, view));
 
     /// <summary>Records a trigger definition for the element under the mouse cursor.</summary>
-    /// <exception cref="InvalidOperationException">No element was found under the cursor.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The cursor position could not be read, or recording at it failed — see
+    /// <see cref="BuildDefinitionFromPointAsync"/>.
+    /// </exception>
     /// <inheritdoc cref="BuildDefinitionAsync" path="/remarks"/>
     public Task<TriggerDefinition> BuildDefinitionFromCursorAsync(TreeViewMode view = TreeViewMode.Control) =>
         _dispatcher.InvokeAsync(() =>
         {
-            NativeMethods.GetCursorPos(out System.Drawing.Point point);
+            if (!NativeMethods.GetCursorPos(out System.Drawing.Point point))
+            {
+                // 位置が読めないまま (0,0) を記録すると「なぜか画面左上の要素の定義ができる」に
+                // なる。黙って既定へ落とさず、宣言済みの例外型で理由を言う
+                throw new InvalidOperationException(Strings.Error_CursorPositionUnavailable);
+            }
             return BuildDefinitionAtCore(point.X, point.Y, view);
         });
 
@@ -391,6 +380,10 @@ public sealed class UiaSession : IAsyncDisposable
     /// Monitor settings, or null for the defaults. <see cref="TriggerMonitorOptions.Session"/> is
     /// ignored — this session's settings apply.
     /// </param>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// A duration in <paramref name="options"/> is out of range —
+    /// <see cref="TriggerMonitorOptions.Debounce"/> must not be negative.
+    /// </exception>
     /// <remarks>
     /// Preferred over <c>new TriggerMonitor(...)</c> whenever the host also inspects elements: a
     /// standalone monitor starts a second automation thread and a second set of automation objects.
@@ -403,10 +396,17 @@ public sealed class UiaSession : IAsyncDisposable
         return new TriggerMonitor(this, options);
     }
 
-    /// <summary>Stops the automation thread and releases the session's automation objects.</summary>
+    /// <summary>Stops accepting work; the automation thread drains what was already queued and exits.</summary>
     /// <remarks>
+    /// <para>
     /// Dispose the monitors created from this session first: they run their UI Automation work on
     /// this session's thread, and once it is gone they can neither resolve nor unsubscribe.
+    /// </para>
+    /// <para>
+    /// This neither waits for the thread to finish nor releases automation objects itself — queued
+    /// work runs to completion, and the session's automation objects are reclaimed by the garbage
+    /// collector. Element handles you obtained are unaffected; dispose those individually.
+    /// </para>
     /// </remarks>
     public ValueTask DisposeAsync()
     {
@@ -420,6 +420,33 @@ public sealed class UiaSession : IAsyncDisposable
     }
 
     // ---- 以下はすべて UiaDispatcher スレッド上 ----
+
+    /// <summary>
+    /// 探索 API 共通の失敗正規化 (docs/DESIGN.md §3 / G-4)。
+    /// COMException は「結果なし」へ倒し、理由はログに残す。倒し先はここ 1 箇所で決まる —
+    /// per-site の catch を増やすと「失敗」と「無い」の区別がサイトごとの癖に戻る。
+    /// </summary>
+    private Task<T> LookupAsync<T>(string operation, T fallback, Func<T> body) =>
+        _dispatcher.InvokeAsync(() =>
+        {
+            try
+            {
+                return body();
+            }
+            catch (COMException ex)
+            {
+                Log.LookupFailed(_options.Logger, operation, ex);
+                return fallback;
+            }
+        });
+
+    private static void DisposeAll(List<UiaElement> elements)
+    {
+        foreach (UiaElement element in elements)
+        {
+            element.Dispose();
+        }
+    }
 
     private static UiaElement Wrap(IUIAutomationElement element) => UiaElement.FromCached(element, releasable: true);
 
@@ -462,6 +489,65 @@ public sealed class UiaSession : IAsyncDisposable
         {
             return null;
         }
+        // COMException の正規化は LookupAsync が行う。ここに catch を戻さないこと (G-4)
+        Context.Automation.ElementFromPointBuildCache(
+            new System.Drawing.Point(x, y), Context.ElementCacheRequest, out nint pointer);
+        var element = UiaFactory.WrapUnique<IUIAutomationElement>(pointer);
+        if (element is null)
+        {
+            // UIA は「どの要素にも属さない座標」に対して S_OK + null を返す (docs/DESIGN.md A15)
+            return null;
+        }
+        UiaElement wrapped = Wrap(element);
+        if (_options.SkipOwnProcessElements && wrapped.ProcessId == _ownProcessId)
+        {
+            wrapped.Dispose();
+            return null;
+        }
+        if (wrapped.BoundingRectangle.Contains(x, y))
+        {
+            return wrapped;
+        }
+
+        // ヒットテストが**その点を含まない要素**を返した (docs/DESIGN.md §9)。
+        //
+        // 実測では、デスクトップのアイコンの上で、シェルは隣の項目を返す
+        // ことがある (点 (150,47) に対して (0,5)-(100,70) の「ごみ箱」)。ピッカーはそれを
+        // 忠実に表示するので、**カーソルを隣のアイコンへ動かしても選択が変わらない**。
+        // 例外は出ず、同じ操作でも出たり出なかったりする。
+        //
+        // **矛盾はこちらで検出できる。**「その点の要素」を訊いたのだから、
+        // 返ってきた矩形はその点を含んでいなければならない。含まないなら、
+        // 窓から下りる素朴なヒットテストで引き直す — 重なり切替 (←/→) が使っていて
+        // 実際に届く経路と同じものである。
+        UiaElement? better;
+        try
+        {
+            better = DeepestContaining(x, y);
+        }
+        catch (COMException)
+        {
+            wrapped.Dispose(); // 引き直しで失敗したら、元の答えの在庫を手放してから正規化へ
+            throw;
+        }
+        if (better is null)
+        {
+            // 引き直しても見つからないなら、元の答えを返す。**null にはしない** —
+            // 「何も無い」は「捕捉しない」を意味し、症状が変わらないまま原因が隠れる
+            return wrapped;
+        }
+        wrapped.Dispose();
+        return better;
+    }
+
+    private TriggerDefinition BuildDefinitionAtCore(int x, int y, TreeViewMode view)
+    {
+        // 自プロセスの点は UIA へ訊く**前**に打ち切る (docs/DESIGN.md A24)。lookup 系と同じ理由 —
+        // 問い合わせ自体が自分のプロバイダーへ届き、ホストの窓が活性化される
+        if (_options.SkipOwnProcessElements && IsOwnProcessWindowAt(x, y))
+        {
+            throw new InvalidOperationException(Message.Format(Strings.Error_NoElementAtPoint, x, y));
+        }
         try
         {
             Context.Automation.ElementFromPointBuildCache(
@@ -469,64 +555,30 @@ public sealed class UiaSession : IAsyncDisposable
             var element = UiaFactory.WrapUnique<IUIAutomationElement>(pointer);
             if (element is null)
             {
-                // UIA は「どの要素にも属さない座標」に対して S_OK + null を返す (docs/DESIGN.md A15)
-                return null;
+                throw new InvalidOperationException(Message.Format(Strings.Error_NoElementAtPoint, x, y));
             }
-            UiaElement wrapped = Wrap(element);
-            if (_options.SkipOwnProcessElements && wrapped.ProcessId == _ownProcessId)
+            try
             {
-                wrapped.Dispose();
-                return null;
+                // 呼び出し後の二重チェック (ElementFromPointCore と同じ形):
+                // ヒットテストは点の下のウィンドウとは別プロセスの要素を返しうる
+                element.get_CachedProcessId(out int processId);
+                if (_options.SkipOwnProcessElements && processId == _ownProcessId)
+                {
+                    throw new InvalidOperationException(Message.Format(Strings.Error_NoElementAtPoint, x, y));
+                }
+                return DefinitionBuilder.Build(Context, element, view, _options.Resolver);
             }
-            if (wrapped.BoundingRectangle.Contains(x, y))
+            finally
             {
-                return wrapped;
+                UiaFactory.ReleaseUnique(element);
             }
-
-            // ヒットテストが**その点を含まない要素**を返した (docs/DESIGN.md §9)。
-            //
-            // 実測では、デスクトップのアイコンの上で、シェルは隣の項目を返す
-            // ことがある (点 (150,47) に対して (0,5)-(100,70) の「ごみ箱」)。ピッカーはそれを
-            // 忠実に表示するので、**カーソルを隣のアイコンへ動かしても選択が変わらない**。
-            // 例外は出ず、同じ操作でも出たり出なかったりする。
-            //
-            // **矛盾はこちらで検出できる。**「その点の要素」を訊いたのだから、
-            // 返ってきた矩形はその点を含んでいなければならない。含まないなら、
-            // 窓から下りる素朴なヒットテストで引き直す — 重なり切替 (←/→) が使っていて
-            // 実際に届く経路と同じものである。
-            UiaElement? better = DeepestContaining(x, y);
-            if (better is null)
-            {
-                // 引き直しても見つからないなら、元の答えを返す。**null にはしない** —
-                // 「何も無い」は「捕捉しない」を意味し、症状が変わらないまま原因が隠れる
-                return wrapped;
-            }
-            wrapped.Dispose();
-            return better;
         }
         catch (COMException ex)
         {
-            Log.LookupFailed(_options.Logger, nameof(ElementFromPointAsync), ex);
-            return null;
-        }
-    }
-
-    private TriggerDefinition BuildDefinitionAtCore(int x, int y, TreeViewMode view)
-    {
-        Context.Automation.ElementFromPointBuildCache(
-            new System.Drawing.Point(x, y), Context.ElementCacheRequest, out nint pointer);
-        var element = UiaFactory.WrapUnique<IUIAutomationElement>(pointer);
-        if (element is null)
-        {
-            throw new InvalidOperationException(Message.Format(Strings.Error_NoElementAtPoint, x, y));
-        }
-        try
-        {
-            return DefinitionBuilder.Build(Context, element, view);
-        }
-        finally
-        {
-            UiaFactory.ReleaseUnique(element);
+            // この API は null を返す形ではないので、宣言済みの例外型 (InvalidOperationException)
+            // へ包む。COMException を素通しすると doc の宣言と漏れる型が食い違う
+            Log.LookupFailed(_options.Logger, nameof(BuildDefinitionFromPointAsync), ex);
+            throw new InvalidOperationException(Message.Format(Strings.Error_RecordAtPointFailed, x, y), ex);
         }
     }
 
@@ -549,11 +601,15 @@ public sealed class UiaSession : IAsyncDisposable
         {
             return [];
         }
+        var children = new List<UiaElement>();
         try
         {
             array.get_Length(out int length);
             int count = Math.Min(length, max);
-            var children = new List<UiaElement>(Math.Max(count, 0));
+            if (children.Capacity < count)
+            {
+                children.Capacity = count;
+            }
             for (int i = 0; i < count; i++)
             {
                 array.GetElement(i, out nint childPointer);
@@ -564,6 +620,12 @@ public sealed class UiaSession : IAsyncDisposable
                 }
             }
             return children;
+        }
+        catch
+        {
+            // 途中まで包んだ子をファイナライザ任せにしない (docs/DESIGN.md B6/§7)
+            DisposeAll(children);
+            throw;
         }
         finally
         {
@@ -583,24 +645,32 @@ public sealed class UiaSession : IAsyncDisposable
         // 正規化していない (または正規化で何も返らなかった) 場合は、呼び出し元の要素から
         // 表示用の値を読み直したハンドルを作る。呼び出し元の要素の解放責任はここには無い
         var chain = new List<UiaElement> { start is not null ? Wrap(start) : BuildUpdated(element) };
-
-        using UiaElement.Borrowed start0 = chain[0].Borrow();
-        IUIAutomationElement current = start0.Element;
-        for (int depth = 1; depth < _options.MaxDepth; depth++)
+        try
         {
-            walker.GetParentElementBuildCache(current, Context.ElementCacheRequest, out nint parentPointer);
-            var parent = UiaFactory.WrapUnique<IUIAutomationElement>(parentPointer);
-            if (parent is null)
+            using UiaElement.Borrowed start0 = chain[0].Borrow();
+            IUIAutomationElement current = start0.Element;
+            for (int depth = 1; depth < _options.MaxDepth; depth++)
             {
-                break;
+                walker.GetParentElementBuildCache(current, Context.ElementCacheRequest, out nint parentPointer);
+                var parent = UiaFactory.WrapUnique<IUIAutomationElement>(parentPointer);
+                if (parent is null)
+                {
+                    break;
+                }
+                if (Context.AreSame(parent, Context.Root))
+                {
+                    UiaFactory.ReleaseUnique(parent);
+                    break;
+                }
+                chain.Add(Wrap(parent));
+                current = parent;
             }
-            if (Context.AreSame(parent, Context.Root))
-            {
-                UiaFactory.ReleaseUnique(parent);
-                break;
-            }
-            chain.Add(Wrap(parent));
-            current = parent;
+        }
+        catch
+        {
+            // 途中まで積んだ祖先をファイナライザ任せにしない (docs/DESIGN.md B6/§7)
+            DisposeAll(chain);
+            throw;
         }
         chain.Reverse(); // 先頭 = トップレベルウィンドウ
         return chain;
@@ -633,8 +703,10 @@ public sealed class UiaSession : IAsyncDisposable
     {
         foreach (nint hwnd in NativeMethods.EnumTopLevelWindows())
         {
-            if (!NativeMethods.IsWindowVisible(hwnd))
+            if (!NativeMethods.IsWindowVisible(hwnd) || NativeMethods.IsWindowCloaked(hwnd))
             {
+                // cloaked (別仮想デスクトップ・休止 UWP) は IsWindowVisible が真のまま
+                // 画面に存在しない。矩形は点を含むので、弾かないと見えない窓が答えになる
                 continue;
             }
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint processId);
@@ -680,8 +752,9 @@ public sealed class UiaSession : IAsyncDisposable
             {
                 break;
             }
-            if (!NativeMethods.IsWindowVisible(hwnd))
+            if (!NativeMethods.IsWindowVisible(hwnd) || NativeMethods.IsWindowCloaked(hwnd))
             {
+                // DeepestContaining と同じ規則 (cloaked は画面に存在しない)
                 continue;
             }
             NativeMethods.GetWindowThreadProcessId(hwnd, out uint processId);
@@ -699,6 +772,21 @@ public sealed class UiaSession : IAsyncDisposable
 
         // EnumWindows は Z 順 (最前面が先頭)。下 → 上 に並べるため逆順に処理する
         var nodes = new List<UiaElement>();
+        try
+        {
+            AppendOverlapChains(x, y, windows, nodes);
+        }
+        catch
+        {
+            // 途中まで積んだ窓ぶんの要素をファイナライザ任せにしない (B6/§7)
+            DisposeAll(nodes);
+            throw;
+        }
+        return nodes;
+    }
+
+    private void AppendOverlapChains(int x, int y, List<nint> windows, List<UiaElement> nodes)
+    {
         for (int i = windows.Count - 1; i >= 0; i--)
         {
             // 自プロセスが最前面にある点では ElementFromPoint を呼ばない。窓の一覧からは
@@ -723,7 +811,6 @@ public sealed class UiaSession : IAsyncDisposable
             }
             AppendHitChain(windows[i], x, y, nodes);
         }
-        return nodes;
     }
 
     /// <summary>
@@ -734,18 +821,27 @@ public sealed class UiaSession : IAsyncDisposable
     {
         var walker = Context.GetWalker(TreeViewMode.Raw);
         var chain = new List<UiaElement> { deepest };
-        using UiaElement.Borrowed deepestBorrowed = deepest.Borrow();
-        IUIAutomationElement current = deepestBorrowed.Element;
-        for (int depth = 1; depth < _options.MaxDepth && chain[^1].NativeWindowHandle != hwnd; depth++)
+        try
         {
-            walker.GetParentElementBuildCache(current, Context.ElementCacheRequest, out nint pointer);
-            var parent = UiaFactory.WrapUnique<IUIAutomationElement>(pointer);
-            if (parent is null)
+            using UiaElement.Borrowed deepestBorrowed = deepest.Borrow();
+            IUIAutomationElement current = deepestBorrowed.Element;
+            for (int depth = 1; depth < _options.MaxDepth && chain[^1].NativeWindowHandle != hwnd; depth++)
             {
-                break;
+                walker.GetParentElementBuildCache(current, Context.ElementCacheRequest, out nint pointer);
+                var parent = UiaFactory.WrapUnique<IUIAutomationElement>(pointer);
+                if (parent is null)
+                {
+                    break;
+                }
+                chain.Add(Wrap(parent));
+                current = parent;
             }
-            chain.Add(Wrap(parent));
-            current = parent;
+        }
+        catch
+        {
+            // 途中まで積んだ祖先 (受け取った deepest 含む) をファイナライザ任せにしない (B6/§7)
+            DisposeAll(chain);
+            throw;
         }
         chain.Reverse(); // ウィンドウ → … → 最深要素
         nodes.AddRange(chain);
@@ -770,9 +866,15 @@ public sealed class UiaSession : IAsyncDisposable
             return;
         }
 
-        for (int depth = 0; depth < _options.MaxDepth; depth++)
+        for (int depth = 0; ; depth++)
         {
             nodes.Add(current);
+            if (depth + 1 >= _options.MaxDepth)
+            {
+                // 深さ上限。ここで次の子を探し始めると、見つけた子を結果にも載せられず
+                // 解放もされないまま抜けることになる (R-005) — 探さずに打ち切る
+                break;
+            }
 
             // 座標を含む「文書順で最後の」子 (後の兄弟ほど上に描画される近似) へ降りる
             UiaElement? next = null;

@@ -12,6 +12,12 @@ env:
   DOTNET_CLI_TELEMETRY_OPTOUT: "true"
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
 
+# CI は読むだけである。宣言しておくと、リポジトリ側の既定が変わっても
+# GITHUB_TOKEN の権限がここで固定される (実測ではリポジトリ設定が read なので現状は同値だが、
+# 実態と宣言を一致させておくのが供給網の基本形である)
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------
   # 常時必須のゲート (docs/TESTING.md §1 T1 / T2)
@@ -20,9 +26,9 @@ jobs:
     name: build & unit tests
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -52,19 +58,24 @@ jobs:
   real-uia:
     name: real UIA tests
     runs-on: windows-latest
+    # 応答しない対象アプリを扱う一群なので、ハングは「起こりうる失敗形」である。
+    # 既定の 360 分ランナーを占有させない (T4/T5 と同じ扱い)
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
       - name: Build
         run: dotnet build UiaTrigger.slnx -c Release
 
-      # 直列実行 (AssemblyInfo.cs で並列を止めてある)。1 回 2 分程度
+      # 直列実行 (AssemblyInfo.cs で並列を止めてある)。1 回 2 分程度。
+      # --blame-hang-timeout は T4/T5 と同じ理由で付ける — 塞がれた対象アプリを扱うので、
+      # ハングしたときに「どのテストで止まったか」が要る (無いとログだけが残る)
       - name: Test (T3)
-        run: dotnet test tests/UiaTrigger.RealUia.Tests -c Release --no-build
+        run: dotnet test tests/UiaTrigger.RealUia.Tests -c Release --no-build --blame-hang-timeout 5m
 
   # ---------------------------------------------------------------
   # ピッカーの UI テスト (docs/TESTING.md §1 T4)
@@ -84,9 +95,9 @@ jobs:
     name: picker UI tests
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -170,9 +181,9 @@ jobs:
     name: synthetic input tests
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -192,9 +203,9 @@ jobs:
     name: AOT publish & localization
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -253,7 +264,17 @@ jobs:
           if ($ja -notmatch '必須') {
             throw "ja-JP: サテライトリソースが解決されていません (AOT 発行でローカライズが壊れています)."
           }
-          Write-Host "OK: neutral / satellite ともに AOT 発行後も解決されました"
+
+          # **TestHost 自身のサテライトも見る。**上の 2 つは Core の resx が引けたことしか
+          # 言っていない。TestHost は自前の resx を持つ最初の AOT 発行物であり、
+          # そちらだけ落ちても上の検査は緑のままである
+          if ($en -notmatch 'Invalid definition') {
+            throw "en-US: TestHost 自身の neutral リソースが解決されていません."
+          }
+          if ($ja -notmatch '定義エラー') {
+            throw "ja-JP: TestHost 自身のサテライトが解決されていません."
+          }
+          Write-Host "OK: Core / TestHost とも neutral / satellite が AOT 発行後も解決されました"
 
           # GitHub Actions の pwsh シェルは、最後に走ったネイティブコマンドの $LASTEXITCODE を
           # そのままステップの結果にする。このステップは**意図的に**失敗する定義を渡すので、
@@ -355,9 +376,9 @@ jobs:
     name: ARM64 build (no execution)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -393,7 +414,7 @@ jobs:
     name: conventions
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       # 合成入力の規則は 2 本ある (docs/TESTING.md §2 / §3)。
       #
@@ -413,8 +434,16 @@ jobs:
         shell: pwsh
         run: |
           $forbidden = 'keybd_event|mouse_event|PostMessage|SendMessage'
-          $hits = Get-ChildItem -Path tests -Recurse -Include *.cs -ErrorAction SilentlyContinue |
-            Select-String -Pattern $forbidden
+          $files = Get-ChildItem -Path tests -Recurse -Include *.cs
+          # **走査対象が 0 件なら緑にしない** (docs/TESTING.md §2)。改名・実行場所の誤り・
+          # Include の打ち間違いのどれでも「1 つもヒットしなかったから緑」になる形を塞ぐ。
+          # publish-packages が 5 パッケージを数え直すのと同じ規律であり、この規律は
+          # 「合否を出すもの」すべてに掛かる — lint 自身も例外ではない
+          if ($files.Count -lt 50) {
+            throw "走査できた .cs が $($files.Count) 件しかありません。tests/ の場所か Include が壊れています (0 件でも緑になる形を塞ぐため、下限で落としています)。"
+          }
+          Write-Host "走査対象: $($files.Count) ファイル"
+          $hits = $files | Select-String -Pattern $forbidden
           if ($hits) {
             $hits | ForEach-Object { Write-Host "::error file=$($_.Path),line=$($_.LineNumber)::入力経路を迂回する API はテストで使用禁止です: $($_.Line.Trim())" }
             throw @"
@@ -438,9 +467,18 @@ jobs:
         shell: pwsh
         run: |
           $allowed = '[\\/]UiaTrigger\.Input\.Tests[\\/]'
-          $hits = Get-ChildItem -Path tests -Recurse -Include *.cs -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -notmatch $allowed } |
-            Select-String -Pattern 'SendInput'
+          $files = Get-ChildItem -Path tests -Recurse -Include *.cs
+          if ($files.Count -lt 50) {
+            throw "走査できた .cs が $($files.Count) 件しかありません (上のステップと同じ理由の下限)。"
+          }
+          # **陽性対照。**T5 の中では SendInput が実際にヒットするはずである —
+          # ヒットしないなら、この検査は「探せていない」まま緑を出している
+          $inside = $files | Where-Object { $_.FullName -match $allowed } | Select-String -Pattern 'SendInput'
+          if (-not $inside) {
+            throw "tests/UiaTrigger.Input.Tests の中で SendInput が 1 件も見つかりません。合成入力の実装が移動・改名したか、この検査の探し方が壊れています (陽性対照 — docs/TESTING.md §2)。"
+          }
+          Write-Host "陽性対照: T5 の中で SendInput を $($inside.Count) 件検出"
+          $hits = $files | Where-Object { $_.FullName -notmatch $allowed } | Select-String -Pattern 'SendInput'
           if ($hits) {
             $hits | ForEach-Object { Write-Host "::error file=$($_.Path),line=$($_.LineNumber)::合成入力は tests/UiaTrigger.Input.Tests の中だけで使えます: $($_.Line.Trim())" }
             throw @"
@@ -451,3 +489,35 @@ jobs:
           "@
           }
           Write-Host "OK: 合成入力は T5 の外で使われていません"
+
+      # (3) **ファイルの置き場所だけでは足りない。**上の 2 つはどのファイルに書いてあるかを
+      #     見るが、どのアセンブリにコンパイルされるかは見ない。このリポジトリは
+      #     <Compile Include> のリンク共有を常用しており (写しを作らずリンクせよ、が規約)、
+      #     T5 のファイルを他のプロジェクトがリンクすれば、解禁 4 条件 (docs/TESTING.md §3) の
+      #     外で合成入力が走る。SendInput の実装は自己完結でリンク可能なので、
+      #     これは机上の穴ではない。逆方向 (T5 が T4 のハーネスをリンクする) は正しい形なので、
+      #     見るのは「T5 の外のプロジェクトが T5 配下を引いていないか」だけである。
+      - name: Forbid linking the input test sources into other projects
+        shell: pwsh
+        run: |
+          $projects = Get-ChildItem -Path tests, src -Recurse -Include *.csproj
+          if ($projects.Count -lt 10) {
+            throw "走査できた csproj が $($projects.Count) 件しかありません (0 件でも緑になる形を塞ぐための下限)。"
+          }
+          Write-Host "走査対象: $($projects.Count) プロジェクト"
+          $offenders = @()
+          foreach ($project in $projects) {
+            if ($project.FullName -match '[\\/]UiaTrigger\.Input\.Tests[\\/]') { continue }
+            $links = Select-String -Path $project.FullName -Pattern '<Compile\s+Include="[^"]*UiaTrigger\.Input\.Tests[^"]*"'
+            if ($links) { $offenders += $links }
+          }
+          if ($offenders) {
+            $offenders | ForEach-Object { Write-Host "::error file=$($_.Path),line=$($_.LineNumber)::T5 のソースを他のプロジェクトへリンクできません: $($_.Line.Trim())" }
+            throw @"
+          tests/UiaTrigger.Input.Tests のソースが、別のプロジェクトへ <Compile Include> で
+          リンクされています。ファイルの置き場所は変わらないので上の 2 つの検査は通りますが、
+          合成入力が T5 の外のアセンブリで走ることになり、解禁の条件
+          (docs/TESTING.md §3) がどれも保証されません。
+          "@
+          }
+          Write-Host "OK: T5 のソースは他のプロジェクトへリンクされていません"

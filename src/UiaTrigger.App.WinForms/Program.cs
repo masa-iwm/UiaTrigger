@@ -34,17 +34,8 @@ internal static class Program
         Application.Run(new MainForm());
     }
 
-    internal static void Log(string message)
-    {
-        try
-        {
-            File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {message}{Environment.NewLine}");
-        }
-        catch (IOException)
-        {
-        }
-        catch (UnauthorizedAccessException)
-        {
-        }
-    }
+    /// <summary>
+    /// 診断ログ。時刻の書式は App.Shared が invariant で握る (docs/DESIGN.md L7)。
+    /// </summary>
+    internal static void Log(string message) => HostLog.Append(LogPath, message);
 }

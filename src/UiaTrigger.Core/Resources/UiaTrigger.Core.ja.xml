@@ -48,9 +48,20 @@
         <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.TriggerFired" /> / <see cref="E:UiaTrigger.Monitoring.TriggerMonitor.ResolutionChanged" />
         のハンドラーが投げた例外の 2 つ。
       </summary>
+      <remarks>
+        2 つの発生源は別のスレッド (オートメーションスレッドと配送ワーカー) で走るので、
+        このイベントは並行に発生しうる — ハンドラーはスレッドセーフであること。
+        このイベントのハンドラー自身が投げた例外は握り潰される — ここは最後の通知先であり、
+        漏らすと報告先の無いままプロセスが落ちるためである。
+      </remarks>
     </member>
     <member name="E:UiaTrigger.UiaSession.UnhandledException">
       <summary>オートメーションスレッド上で発生した、他に行き場のない例外を通知する。</summary>
+      <remarks>
+        ハンドラーが投げた例外は握り潰される。このイベントはオートメーションスレッドの
+        入口から発生し、そこで漏れた例外はプロセスを落とすためである。ハンドラーも
+        そのスレッド上で走る — 速やかに戻り、ハンドラーの中からセッションを呼び返さないこと。
+      </remarks>
     </member>
 
     <!-- ================= 列挙メンバー・定数 ================= -->
@@ -358,11 +369,28 @@
       </param>
       <returns>ローカライズ済みの理由か、複合の定義のどちらかを運ぶ結果。</returns>
       <remarks>
-        元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
-        経路を名指す — これが 1 つのトリガーを複数のアプリケーションにまたがらせる。
-        自分の条件を持たない元トリガーは「その要素が在ること」を持ち込む。複合は
-        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する:
-        まとめた条件が成立した瞬間に 1 回である。
+        <para>
+          元トリガーには触れない。複合はそれぞれの条件の写しを持ち、各条件が自分のウィンドウと
+          経路を名指す — これが 1 つのトリガーを複数のアプリケーションにまたがらせる。
+          自分の条件を持たない元トリガーは「その要素が在ること」を持ち込む。複合は
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> で発火する:
+          まとめた条件が成立した瞬間に 1 回である。
+        </para>
+        <para>
+          条件は写しだが、写しの <see cref="P:UiaTrigger.Models.PropertyClause.Window" /> と
+          <see cref="P:UiaTrigger.Models.PropertyClause.Locator" /> は元トリガーが持つ
+          **同じオブジェクト**である — 後から一方を書き換えると両方が変わる。複合を監視へ
+          追加すればモニターが自分の写しを取る
+          (<see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />)
+          が、それ以外へ渡すときは共有していることを承知しておくこと。
+        </para>
+        <para>
+          元トリガー自身が複合 (式を持つ、または <see cref="F:UiaTrigger.Models.ClauseCombinator.Any" />
+          で結合された複数条件) の場合は断る。式は持ち込まれないので、まとめ直すと
+          「または」が黙って「かつ」に変わるためである。先に
+          <see cref="M:UiaTrigger.Models.TriggerComposer.Decompose(UiaTrigger.Models.TriggerDefinition,System.Collections.Generic.IEnumerable{System.String})" />
+          でほどいてから、部品をまとめ直すこと。
+        </para>
       </remarks>
     </member>
     <member name="M:UiaTrigger.Models.TriggerComposer.Update(UiaTrigger.Models.TriggerDefinition,System.String,System.Collections.Generic.IReadOnlyCollection{System.String},System.Nullable{System.TimeSpan},System.Boolean)">
@@ -478,7 +506,7 @@
     <member name="M:UiaTrigger.Models.TriggerDraftValidator.IsValidClauseName(System.String)">
       <summary>その文字列を <see cref="P:UiaTrigger.Models.PropertyClause.Name" /> に使えるか。</summary>
       <remarks>
-        名前は空にできず、空白と <c>( ) ! &amp; |</c> も含められない。含められると
+        名前は空にできず、空白と <c>( ) ! &amp; | ,</c> も含められない。含められると
         <see cref="P:UiaTrigger.Models.TriggerDefinition.Expression" /> がそこで
         2 つのものとして読んでしまうためである。入力し終えてからではなく入力中に示すこと —
         名前は一度決めると、以後のすべての式がそれを指す。
@@ -576,6 +604,10 @@
         設定。null なら既定値。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session" /> が
         このモニターの作るセッションの設定になる。
       </param>
+      <exception cref="T:System.ArgumentOutOfRangeException">
+        <paramref name="options" /> の時間が範囲外である —
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Debounce" /> は負であってはならない。
+      </exception>
       <remarks>
         ホストが既にセッションを持っているなら <see cref="M:UiaTrigger.UiaSession.CreateMonitor(UiaTrigger.Monitoring.TriggerMonitorOptions)" />
         を使うこと。セッションが 1 つ増えるごとにオートメーションスレッドと UIA オブジェクト一式が 1 組増える。
@@ -585,7 +617,8 @@
       <summary>トリガーを 1 件追加する。監視が既に開始されていれば即座に解決を試みる。</summary>
       <remarks>
         トリガーの増減はそのトリガーの購読しか触らない。他のトリガーの動いている購読は
-        そのまま維持される。
+        そのまま維持される。モニターは定義の深い写しを取る — この呼び出しの後に定義を
+        書き換えても監視には反映されない。変えるなら削除して追加し直すこと。
       </remarks>
       <exception cref="T:System.ArgumentException">
         定義が不正であるか、その <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> が既に監視されている。
@@ -625,6 +658,7 @@
       <param name="triggers">
         トリガー定義。null なら空で開始し、<see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />
         で足していく。各 <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は空でなく一意であること。
+        モニターは各定義の深い写しを取る — この呼び出しの後に定義を書き換えても監視には反映されない。
       </param>
       <param name="cancellationToken">
         開始要求がまだ待ち行列にある間だけキャンセルできる。オートメーションスレッド上で
@@ -633,6 +667,10 @@
     </member>
     <member name="M:UiaTrigger.Monitoring.TriggerMonitor.StopAsync(System.Threading.CancellationToken)">
       <summary>監視を停止し、UIA の購読をすべて解放する。</summary>
+      <remarks>
+        すべてのトリガーが破棄される。監視開始前に <see cref="M:UiaTrigger.Monitoring.TriggerMonitor.AddAsync(UiaTrigger.Models.TriggerDefinition,System.Threading.CancellationToken)" />
+        で足した分も含む — 再開時は定義を渡し直すこと。
+      </remarks>
     </member>
     <member name="M:UiaTrigger.Persistence.AtomicFile.Write(System.String,System.Action{System.IO.Stream})">
       <summary>
@@ -668,6 +706,11 @@
     </member>
     <member name="M:UiaTrigger.UiaElement.Dispose">
       <summary>要素のクロスプロセス参照を解放する。複数回呼んでも安全。</summary>
+      <remarks>
+        どのスレッドから呼んでも安全である。セッションのオートメーションスレッドが
+        この要素への呼び出しの最中なら、解放はその呼び出しが戻るまで遅延される —
+        使用中の COM オブジェクトを足元から引き抜くことはない。
+      </remarks>
     </member>
     <member name="M:UiaTrigger.UiaElement.ToString">
       <summary>
@@ -706,7 +749,10 @@
     </member>
     <member name="M:UiaTrigger.UiaSession.BuildDefinitionFromCursorAsync(UiaTrigger.Models.TreeViewMode)">
       <summary>マウスカーソル下の要素からトリガー定義を記録する。</summary>
-      <exception cref="T:System.InvalidOperationException">カーソル下に要素が見つからなかった。</exception>
+      <exception cref="T:System.InvalidOperationException">
+        カーソル位置を読めなかった、またはその位置での記録に失敗した —
+        <see cref="M:UiaTrigger.UiaSession.BuildDefinitionFromPointAsync(System.Int32,System.Int32,UiaTrigger.Models.TreeViewMode)" /> を参照。
+      </exception>
       <remarks>
         返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
         句は空である。監視にかける前にどちらも埋めること。
@@ -714,7 +760,11 @@
     </member>
     <member name="M:UiaTrigger.UiaSession.BuildDefinitionFromPointAsync(System.Int32,System.Int32,UiaTrigger.Models.TreeViewMode)">
       <summary>物理スクリーン座標にある要素からトリガー定義を記録する。</summary>
-      <exception cref="T:System.InvalidOperationException">その座標に要素が見つからなかった。</exception>
+      <exception cref="T:System.InvalidOperationException">
+        その座標に要素が見つからなかった、<see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" />
+        が有効なまま呼び出し元プロセスの要素を指した、または記録中に UI Automation が失敗した
+        (失敗の内容は内部例外に載る)。
+      </exception>
       <remarks>
         返る定義の <see cref="P:UiaTrigger.Models.TriggerDefinition.Id" /> は一意ではあるが任意の値で、
         句は空である。監視にかける前にどちらも埋めること。
@@ -726,6 +776,10 @@
         モニターの設定。null なら既定値。<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Session" /> は
         無視される — このセッションの設定が使われる。
       </param>
+      <exception cref="T:System.ArgumentOutOfRangeException">
+        <paramref name="options" /> の時間が範囲外である —
+        <see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Debounce" /> は負であってはならない。
+      </exception>
       <remarks>
         ホストが要素の調査も行うなら <c>new TriggerMonitor(...)</c> よりこちらを使うこと。
         単独のモニターは 2 本目のオートメーションスレッドと 2 組目の UIA オブジェクトを作る。
@@ -734,10 +788,17 @@
       </remarks>
     </member>
     <member name="M:UiaTrigger.UiaSession.DisposeAsync">
-      <summary>オートメーションスレッドを停止し、セッションの UIA オブジェクトを解放する。</summary>
+      <summary>以後の投入を断る。オートメーションスレッドは投入済みの仕事を流し切って終了する。</summary>
       <remarks>
-        このセッションから作ったモニターを先に破棄すること。モニターは UI Automation の処理を
-        このセッションのスレッド上で行っており、スレッドが無くなると解決も購読解除もできなくなる。
+        <para>
+          このセッションから作ったモニターを先に破棄すること。モニターは UI Automation の処理を
+          このセッションのスレッド上で行っており、スレッドが無くなると解決も購読解除もできなくなる。
+        </para>
+        <para>
+          スレッドの終了は待たず、UIA オブジェクトの解放も自分では行わない — 投入済みの仕事は
+          完走し、セッションの UIA オブジェクトはガベージコレクターが回収する。取得済みの
+          要素ハンドルには影響しない。あちらは個別に破棄すること。
+        </para>
       </remarks>
     </member>
     <member name="M:UiaTrigger.UiaSession.ElementFromCursorAsync">
@@ -766,7 +827,7 @@
         重なり合う要素などのとき — は false にする。
       </param>
       <returns>
-        先頭がトップレベルウィンドウ、末尾が要素となる鎖。辿れなかった場合は空。
+        先頭がトップレベルウィンドウ、末尾が要素となる鎖。辿れなかった場合は null。
       </returns>
     </member>
     <member name="M:UiaTrigger.UiaSession.GetChildrenAsync(UiaTrigger.UiaElement,UiaTrigger.Models.TreeViewMode,System.Nullable{System.Int32})">
@@ -776,16 +837,26 @@
       <param name="max">
         返す最大件数。null なら <see cref="P:UiaTrigger.UiaSessionOptions.MaxChildren" />。
       </param>
-      <returns>子要素。要素が消えている場合や子が無い場合は空のリスト。</returns>
+      <returns>
+        子要素 — 本当に子が無い場合は空のリスト。UI Automation が列挙に失敗した場合
+        (要素が消えた、プロバイダーが応答しない) は null。null と空は意図的に別である —
+        null で木を消す呼び出し元は、一過性の失敗で状態を失うことになる。
+      </returns>
     </member>
     <member name="M:UiaTrigger.UiaSession.GetOverlapStackAsync(System.Int32,System.Int32)">
       <summary>物理スクリーン座標を覆っているすべての要素を、下にあるものから順に返す。</summary>
+      <returns>
+        スタック — どのウィンドウも座標を覆っていない場合は空のリスト。構築中に
+        UI Automation が失敗した場合は null。
+      </returns>
       <remarks>
         <para>
           ウィンドウとプロセスをまたぐ。その座標を含む可視のトップレベルウィンドウごとに、
           ウィンドウを先頭・最も深い要素を末尾としたヒット鎖を連結する。
           <see cref="P:UiaTrigger.UiaSessionOptions.SkipOwnProcessElements" /> が有効なときは
-          呼び出し元プロセスのウィンドウを飛ばす。
+          呼び出し元プロセスのウィンドウを飛ばす。DWM に cloak されたウィンドウ
+          (別の仮想デスクトップ、休止中の UWP シェル) も飛ばす — 画面に何も出ていないのに
+          可視のまま座標を含む矩形を報告するためである。
         </para>
         <para>
           最前面のウィンドウには UI Automation 自身のヒットテストを使う (これが正である)。
@@ -999,7 +1070,7 @@
         まとめるトリガーが句を指すことはないためである。式が指すようになったら名前を付けること —
         位置由来の名前は、句を並べ替えても削っても構文としては通ってしまい、黙って別の意味になる。
         名前ならそうはならない。1 つのトリガーの中で一意であること。空白と
-        <c>( ) ! &amp; |</c> は名前に使えない。
+        <c>( ) ! &amp; | ,</c> は名前に使えない。
       </remarks>
     </member>
     <member name="P:UiaTrigger.Models.PropertyClause.Op">
@@ -1332,11 +1403,16 @@
       <remarks>
         したがって値が入らないのは次の場合である:
         <see cref="F:UiaTrigger.Models.TriggerOn.ElementAppeared" /> (変化前の値が存在しない)、
-        <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> (条件全体が成立したことで鳴るので、
-        1 つの値の変化ではない)、そして
-        <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
+        そして <see cref="F:UiaTrigger.Models.TriggerOn.PropertyChanged" /> のトリガーが
         **最初以外の条件**の変化で鳴ったとき (その条件が変わったことは、
         最初の条件が何だったかを何も語らない)。
+        <para>
+          <see cref="F:UiaTrigger.Models.TriggerOn.WhileMatching" /> と
+          <see cref="F:UiaTrigger.Models.TriggerOn.StoppedMatching" /> は、
+          そのエッジを何が動かしたかによる。プロパティの変化が動かしたなら変化前の値が入り、
+          遷移がそのまま読める。要素の解決・消滅が動かしたエッジには値が入らない —
+          変わった値が無いからである。
+        </para>
       </remarks>
     </member>
     <member name="P:UiaTrigger.Monitoring.TriggerFiredEventArgs.On">
@@ -1523,6 +1599,22 @@
     </member>
     <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxChildrenPerLevel">
       <summary>1 つの段で調べる子要素の最大数。</summary>
+      <remarks>
+        記録側が兄弟を走査する上限でもある。解決が見ることのない位置の兄弟インデックスを
+        記録すると、記録はできるのに解決できない定義が出来上がる
+        (<see cref="P:UiaTrigger.Resolution.ResolverOptions.RecordingSiblingScan" /> を参照)。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.Resolution.ResolverOptions.RecordingSiblingScan">
+      <summary>記録側が、段の兄弟インデックスを決めるために走査する兄弟の数。</summary>
+      <remarks>
+        <see cref="P:UiaTrigger.Resolution.ResolverOptions.MaxChildrenPerLevel" /> を超えない。
+        解決側の候補上限を超えた位置に記録された段は、解決側が決して採れないので、
+        その定義はエラーを出さずに別の要素へ解決される (docs/DESIGN.md A30)。
+        数えられなかった兄弟は
+        <see cref="F:UiaTrigger.Models.ElementPathStep.UnknownSiblingIndex" /> として記録される —
+        誤った index ではなく、明示的な「不明」である (A7)。
+      </remarks>
     </member>
     <member name="P:UiaTrigger.Resolution.ResolverOptions.MaxSearchDepth">
       <summary>
@@ -1735,6 +1827,19 @@
         既定で有効なのは、呼び出し元が通常ピッカーだからである。無効だと、
         ピッカーの上にカーソルを乗せたときにピッカー自身が選択されてしまう。
         自分のウィンドウを調べたいときは無効にすること。
+      </remarks>
+    </member>
+    <member name="P:UiaTrigger.UiaSessionOptions.Resolver">
+      <summary>
+        記録が解決と共有する上限: 段の兄弟をどこまで探すか、トップレベルウィンドウまで
+        何段遡るか。
+      </summary>
+      <remarks>
+        モニターが解決に使うのと同じ設定である
+        (<see cref="P:UiaTrigger.Monitoring.TriggerMonitorOptions.Resolver" />)。
+        解決が見る範囲を超えて記録すると、記録は綺麗に通るのに別の要素へエラーなく
+        解決される定義ができるので、両側で 1 つのポリシーを共有する (docs/DESIGN.md A30)。
+        記録中にスコアは使わない。使うのは上限だけである。
       </remarks>
     </member>
     <member name="P:UiaTrigger.UiaSessionOptions.ThreadName">

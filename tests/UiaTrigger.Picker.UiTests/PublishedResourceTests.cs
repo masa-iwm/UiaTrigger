@@ -313,7 +313,8 @@ public sealed class PublishedResourceTests
     }
 
     /// <summary>
-    /// 発行レイアウトのホストを起動し、各ラベルが**リソースファイルの値と一致する**こと。
+    /// 発行レイアウトのホストを起動し、各ラベルが**リソースファイルの値と一致する**こと
+    /// (docs/DESIGN.md L5 — 表示は <c>CurrentUICulture</c> に従う)。
     /// </summary>
     /// <remarks>
     /// カルチャを 2 つ回すのは、<c>ja-JP</c> でしか落ちない失敗形があるからである —

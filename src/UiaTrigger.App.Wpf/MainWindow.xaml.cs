@@ -78,15 +78,19 @@ public partial class MainWindow : Window, IDisposable
 
     private void Reload()
     {
-        try
+        // 拾う例外の顔ぶれは App.Shared に 1 つだけ置く (docs/DESIGN.md §12)。
+        // ここに写すと、TriggerStore が文書化した例外の追加に 3 変種とも追随できない —
+        // WPF では StartupUri の窓生成中に漏れると、窓が 1 つも出ないまま
+        // メッセージループだけが走り続ける (DispatcherUnhandledException が飲む)
+        _triggers.Clear();
+        if (HostTriggerFile.TryLoad(_filePath, out IReadOnlyList<TriggerDefinition> loaded, out string? error))
         {
-            _triggers.Clear();
-            _triggers.AddRange(TriggerStore.Load(_filePath));
+            _triggers.AddRange(loaded);
             StatusText.Text = AppStrings.Format("TriggerCount", _triggers.Count);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        else
         {
-            StatusText.Text = AppStrings.Format("LoadFailed", ex.Message);
+            StatusText.Text = AppStrings.Format("LoadFailed", error);
         }
         RefreshList();
     }
@@ -109,15 +113,9 @@ public partial class MainWindow : Window, IDisposable
 
     private void Save()
     {
-        try
-        {
-            TriggerStore.Save(_filePath, _triggers);
-            StatusText.Text = AppStrings.Format("TriggerCountSaved", _triggers.Count);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            StatusText.Text = AppStrings.Format("SaveFailed", ex.Message);
-        }
+        StatusText.Text = HostTriggerFile.TrySave(_filePath, _triggers, out string? error)
+            ? AppStrings.Format("TriggerCountSaved", _triggers.Count)
+            : AppStrings.Format("SaveFailed", error);
     }
 
     /// <summary>ピッカーを開く。既に開いていればそれを前面に出す。</summary>

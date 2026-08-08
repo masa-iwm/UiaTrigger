@@ -31,6 +31,19 @@
     <SatelliteResourceLanguages>en;ja</SatelliteResourceLanguages>
   </PropertyGroup>
 
+  <!--
+    WinUI 3 の pin (WindowsSdkPackageVersion / CsWinRTAotWarningLevel) は**ここに置けない**。
+
+    props は csproj 本体より先に評価されるので、`UseWinUI` を条件にしても常に偽になる
+    (Directory.Build.targets の README pack と同じ罠 — あちらは IsPackable で踏んだ)。
+    条件を外して全プロジェクトに掛けると、WinUI を使わない側にも Windows SDK 投影の
+    版が入る。targets へ移すのも駄目で、restore の段には間に合わない。
+
+    そこで pin は 2 つの csproj (Picker.WinUI / App.WinUI) に残し、**ずれないことを
+    テストで縛る** (WinUiPinTests)。守りたいのは「片方だけ更新して AOT 破壊の検出が
+    黙って外れる」ことなので、場所の一元化ではなく値の一致が本体である。
+  -->
+
   <!-- 警告はエラーとして扱う (docs/DESIGN.md D3) -->
   <PropertyGroup>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>

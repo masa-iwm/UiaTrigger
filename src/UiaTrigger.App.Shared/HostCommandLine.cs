@@ -61,6 +61,12 @@ internal sealed class HostCommandLine
     /// 黙って通常動作に落ちてはいけない。<c>--pick-at</c> が壊れていると
     /// 「捕捉が起きない」だけの症状になり、原因が読めなくなる。
     /// ログの出口を**引数で受ける**のは、書き忘れようがない形にするためである。
+    ///
+    /// <para>
+    /// **文面は英語固定である** (docs/LOCALIZATION.md §3 の分類 3)。行き先はホストの
+    /// 診断ログであり、画面ではない — 共有して grep するものなので、実行環境の言語で
+    /// 語彙が変わってはいけない。
+    /// </para>
     /// </remarks>
     public static HostCommandLine Parse(string[] args, Action<string> log)
     {
@@ -84,7 +90,7 @@ internal sealed class HostCommandLine
 
         if (ReadIntegers(value, 4) is not { } parts)
         {
-            log($"--place-windows の値を解釈できませんでした: '{value}' (期待する形式: left,top,width,height)");
+            log($"--place-windows: could not read '{value}' (expected left,top,width,height).");
             return null;
         }
 
@@ -92,7 +98,7 @@ internal sealed class HostCommandLine
         // 「窓が消えた」は原因が読めない症状なので、渡す前に落とす
         if (parts[2] <= 0 || parts[3] <= 0)
         {
-            log($"--place-windows の幅と高さは正の数である必要があります: '{value}'");
+            log($"--place-windows: width and height must be positive: '{value}'.");
             return null;
         }
 
@@ -117,7 +123,7 @@ internal sealed class HostCommandLine
             }
             else
             {
-                log($"--pick-at の値を解釈できませんでした: '{value}' (期待する形式: x,y)");
+                log($"--pick-at: could not read '{value}' (expected x,y).");
             }
         }
         return cursors;

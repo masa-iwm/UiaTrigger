@@ -82,8 +82,14 @@ internal static class ClauseEvaluator
     /// **2 つめが常に 1 つめの位置に解決される**。位置はここで分かっているのだから渡す。
     /// </para>
     /// </param>
+    /// <param name="onClauseMatched">
+    /// 句の成否が決まるたびに (添字, 成否) で呼ばれる。発火時に述語を当て直さずに
+    /// 「評価時の成否」をイベントへ載せるための口 — 当て直すと正規表現の制限時間切れが
+    /// 評価時と別の答えになりうる。省略可 (null なら何もしない)。
+    /// </param>
     public static bool Matches(
-        ClauseCombinator combine, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read)
+        ClauseCombinator combine, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read,
+        Action<int, bool>? onClauseMatched = null)
     {
         ArgumentNullException.ThrowIfNull(clauses);
         ArgumentNullException.ThrowIfNull(read);
@@ -95,6 +101,7 @@ internal static class ClauseEvaluator
         for (int i = 0; i < clauses.Count; i++)
         {
             bool matched = MatchesClause(clauses[i], read(i));
+            onClauseMatched?.Invoke(i, matched);
             if (combine == ClauseCombinator.All)
             {
                 if (!matched)
@@ -116,16 +123,23 @@ internal static class ClauseEvaluator
     /// </summary>
     /// <param name="expression">解析済みの式。</param>
     /// <param name="clauses">評価する句。</param>
-    /// <param name="read"><inheritdoc cref="Matches(ClauseCombinator, IReadOnlyList{CompiledClause}, Func{int, ClauseValue})" path="/param[@name='read']"/></param>
+    /// <param name="read"><inheritdoc cref="Matches(ClauseCombinator, IReadOnlyList{CompiledClause}, Func{int, ClauseValue}, Action{int, bool})" path="/param[@name='read']"/></param>
+    /// <param name="onClauseMatched"><inheritdoc cref="Matches(ClauseCombinator, IReadOnlyList{CompiledClause}, Func{int, ClauseValue}, Action{int, bool})" path="/param[@name='onClauseMatched']"/></param>
     public static bool Matches(
-        ClauseExpressionNode expression, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read)
+        ClauseExpressionNode expression, IReadOnlyList<CompiledClause> clauses, Func<int, ClauseValue> read,
+        Action<int, bool>? onClauseMatched = null)
     {
         ArgumentNullException.ThrowIfNull(expression);
         ArgumentNullException.ThrowIfNull(clauses);
         ArgumentNullException.ThrowIfNull(read);
         // 短絡は木の側にある。ここで全句を先に評価してはならない —
         // Custom は 1 句あたりクロスプロセス呼び出しが 1 回かかる
-        return expression.Evaluate(i => MatchesClause(clauses[i], read(i)));
+        return expression.Evaluate(i =>
+        {
+            bool matched = MatchesClause(clauses[i], read(i));
+            onClauseMatched?.Invoke(i, matched);
+            return matched;
+        });
     }
 
     /// <summary>

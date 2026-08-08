@@ -55,11 +55,24 @@ internal sealed class TestTargetProcess : IDisposable
     private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(20);
 
     private readonly Process _process;
-    private readonly BlockingCollection<string> _output = [];
+
+    /// <summary>
+    /// 対象アプリの 1 行と、**読み手のスレッドがそれを受け取った時刻**。
+    /// </summary>
+    /// <remarks>
+    /// 時刻を行に添えるのは、読み出し側が測ると観測のぶん遅れて見えるからである。
+    /// 「塞がっているあいだに別のことをした」を検算する側は、応答が**返った**時刻を
+    /// 知りたいのであって、テストがそれを**取り出した**時刻には意味が無い —
+    /// 取り出す前に UIA を何往復かすれば、その分だけ「塞がっていた」に化ける。
+    /// </remarks>
+    private readonly BlockingCollection<(string Line, DateTime ArrivedUtc)> _output = [];
     private bool _disposed;
 
     /// <summary>応答をまだ受け取っていないコマンド。<see cref="Post"/> の remarks を参照。</summary>
     private string? _pending;
+
+    /// <summary>直前の <see cref="AwaitResponse"/> が受けた応答が**到着した**時刻。</summary>
+    public DateTime? LastResponseArrivedUtc { get; private set; }
 
     /// <summary>ウィンドウタイトル。テストごとに一意なので、これでウィンドウを固定できる。</summary>
     public string Title { get; }
@@ -176,10 +189,11 @@ internal sealed class TestTargetProcess : IDisposable
             var data = new List<string>();
             while (true)
             {
-                if (!_output.TryTake(out string? line, ResponseTimeout))
+                if (!_output.TryTake(out (string Line, DateTime ArrivedUtc) received, ResponseTimeout))
                 {
                     throw new TimeoutException($"対象アプリが応答しません: '{command}'");
                 }
+                (string line, DateTime arrived) = received;
                 if (line.StartsWith("data ", StringComparison.Ordinal))
                 {
                     data.Add(line["data ".Length..]);
@@ -189,6 +203,7 @@ internal sealed class TestTargetProcess : IDisposable
                 {
                     throw new InvalidOperationException($"対象アプリがコマンドを拒否しました: '{command}' → {line}");
                 }
+                LastResponseArrivedUtc = arrived;
                 return data;
             }
         }
@@ -291,7 +306,9 @@ internal sealed class TestTargetProcess : IDisposable
         {
             while (_process.StandardOutput.ReadLine() is { } line)
             {
-                _output.Add(line);
+                // 到着時刻はここで採る。取り出し側で採ると、取り出すまでに挟まった
+                // 観測の時間ぶん「遅れて返った」ことになる (docs/TESTING.md §2)
+                _output.Add((line, DateTime.UtcNow));
             }
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException or InvalidOperationException)

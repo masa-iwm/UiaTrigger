@@ -34,11 +34,11 @@ jobs:
     name: Build and draft the release
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "10.0.x"
 
@@ -161,6 +161,53 @@ jobs:
           }
           Write-Host ("OK: 英語 {0} ファイル / 日本語 {1} ファイルを配ります" -f $seenNeutral.Count, $seenJapanese.Count)
 
+      # D4「パッケージは全て MSIL」を機械で確かめる。
+      # ライブラリが特定の CPU で建ったまま配られると、利用者側で「参照できるのに
+      # 実行時に BadImageFormatException」という形で出る — 配ってからしか気づけない。
+      # ARM64 の PE 検査 (ci.yml の arm64-build) と同じ手を、こちらは nupkg の中身に掛ける。
+      - name: Check the packaged assemblies are MSIL
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $checked = 0
+          $bad = @()
+          foreach ($pkg in Get-ChildItem artifacts/packages/*.nupkg) {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+            try {
+              foreach ($e in @($zip.Entries | Where-Object { $_.FullName -like 'lib/*.dll' })) {
+                $temp = Join-Path $env:RUNNER_TEMP ("msil-" + [Guid]::NewGuid().ToString("N") + ".dll")
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($e, $temp)
+                try {
+                  # PE ヘッダの Machine を読む: 0x14C = I386 (MSIL は AnyCPU としてこれ)、
+                  # 0x8664 = x64、0xAA64 = ARM64
+                  $bytes = [System.IO.File]::ReadAllBytes($temp)
+                  $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+                  $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+                  $checked++
+                  if ($machine -ne 0x14C) {
+                    $bad += ("{0} -> {1} (machine=0x{2:X})" -f $pkg.Name, $e.FullName, $machine)
+                  } else {
+                    Write-Host ("  OK: {0} -> {1} (MSIL)" -f $pkg.Name, $e.FullName)
+                  }
+                } finally {
+                  Remove-Item $temp -Force -ErrorAction SilentlyContinue
+                }
+              }
+            } finally {
+              $zip.Dispose()
+            }
+          }
+          # **1 つも見ていないのに緑にしない** (docs/TESTING.md §2)。配る 5 パッケージが
+          # それぞれ lib/<TFM>/*.dll を 1 つ持つ
+          if ($checked -lt 5) {
+            throw "検査できた lib の dll が $checked 件しかありません (5 パッケージぶん在るはずです)。"
+          }
+          if ($bad) {
+            $bad | ForEach-Object { Write-Host "::error::MSIL ではないアセンブリを配ろうとしています: $_" }
+            throw "配布物に MSIL でないアセンブリがあります (docs/DESIGN.md D4): $($bad -join '; ')."
+          }
+          Write-Host "OK: 配布する $checked 個のアセンブリはすべて MSIL です"
+
       # 配布するホストは win-x64 だけである。
       # **ARM64 は出さない** — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と
       # 記録しており (C++ ARM64 ツールチェーン不在)、ここで建てていないものを配らない。
@@ -183,8 +230,16 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts/upload | Out-Null
-          foreach ($name in "TestHost", "App.WinUI", "App.Wpf", "App.WinForms") {
+          # **名前は中身に合わせる。**TestHost と App.WinUI は RID 付きの自己完結発行なので
+          # win-x64、WPF / WinForms は RID 無しのフレームワーク依存 (AnyCPU) なので付けない —
+          # 付けると「x64 専用の自己完結」と読めるが、実際は .NET Desktop Runtime が要る
+          foreach ($name in "TestHost", "App.WinUI") {
             $zip = "artifacts/upload/UiaTrigger.$name-$env:RELEASE_VERSION-win-x64.zip"
+            Compress-Archive -Path "artifacts/publish/$name/*" -DestinationPath $zip
+            Write-Host ("{0}  ({1:N1} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
+          }
+          foreach ($name in "App.Wpf", "App.WinForms") {
+            $zip = "artifacts/upload/UiaTrigger.$name-$env:RELEASE_VERSION.zip"
             Compress-Archive -Path "artifacts/publish/$name/*" -DestinationPath $zip
             Write-Host ("{0}  ({1:N1} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
           }
@@ -222,14 +277,17 @@ jobs:
 
           | File | Contents |
           |---|---|
-          | ``UiaTrigger.App.WinUI-*-win-x64.zip`` | Sample host (WinUI 3). Picker through to monitoring, end to end |
-          | ``UiaTrigger.App.Wpf-*-win-x64.zip`` | Sample host (WPF). Picker and JSON saving |
-          | ``UiaTrigger.App.WinForms-*-win-x64.zip`` | Sample host (Windows Forms). Same |
-          | ``UiaTrigger.TestHost-*-win-x64.zip`` | Console tool (``record`` / ``monitor``) |
+          | ``UiaTrigger.App.WinUI-*-win-x64.zip`` | Sample host (WinUI 3). Picker through to monitoring, end to end. Self-contained |
+          | ``UiaTrigger.App.Wpf-*.zip`` | Sample host (WPF). Picker and JSON saving. **Needs the .NET 10 Desktop Runtime** |
+          | ``UiaTrigger.App.WinForms-*.zip`` | Sample host (Windows Forms). Same, and the same runtime requirement |
+          | ``UiaTrigger.TestHost-*-win-x64.zip`` | Console tool (``record`` / ``monitor``). Self-contained |
           | ``*.nupkg`` / ``*.snupkg`` | The five NuGet packages and their symbols |
 
-          The sample hosts need no installation — unzip and run. To use the library from your own
-          application, take the packages from NuGet rather than from here.
+          Unzip and run: the WinUI host and the console tool carry their own runtime, while the WPF
+          and Windows Forms hosts are framework-dependent and need the
+          [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+          To use the library from your own application, take the packages from NuGet rather than
+          from here.
 
           **win-x64 only.** ARM64 builds are not attached because publishing for ARM64 has not been
           verified on this project's CI; shipping a binary that was never built here is not something
@@ -251,6 +309,10 @@ jobs:
             "release", "create", "v$env:RELEASE_VERSION"
             # --draft: 公開は人が中身を見てから押す
             "--draft"
+            # **タグが実在することを要求する** (fail-closed)。無いと gh は既定ブランチの
+            # 先頭にタグを作ってしまい、workflow_dispatch から回したときに
+            # 「成果物は版数 X、タグは main の先頭」という食い違いが黙って成立する
+            "--verify-tag"
             "--title", "UiaTrigger $env:RELEASE_VERSION"
             "--notes-file", $notesFile
           )

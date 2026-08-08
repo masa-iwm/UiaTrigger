@@ -94,15 +94,18 @@ public sealed partial class MainWindow : Window, IDisposable
 
     private void Reload()
     {
-        try
+        // 拾う例外の顔ぶれは App.Shared に 1 つだけ置く (docs/DESIGN.md §12)。
+        // ここは元から全捕捉で正しく動いていたが、3 変種で別々に書くと必ずずれる —
+        // 揃えるのは「答えが UI スタックに依らない」からである
+        _triggers.Clear();
+        if (HostTriggerFile.TryLoad(_filePath, out IReadOnlyList<TriggerDefinition> loaded, out string? error))
         {
-            _triggers.Clear();
-            _triggers.AddRange(TriggerStore.Load(_filePath));
+            _triggers.AddRange(loaded);
             StatusText.Text = AppStrings.Format("TriggerCount", _triggers.Count);
         }
-        catch (Exception ex)
+        else
         {
-            StatusText.Text = AppStrings.Format("LoadFailed", ex.Message);
+            StatusText.Text = AppStrings.Format("LoadFailed", error);
         }
         RefreshList();
     }
@@ -139,15 +142,9 @@ public sealed partial class MainWindow : Window, IDisposable
 
     private void Save()
     {
-        try
-        {
-            TriggerStore.Save(_filePath, _triggers);
-            StatusText.Text = AppStrings.Format("TriggerCountSaved", _triggers.Count);
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text = AppStrings.Format("SaveFailed", ex.Message);
-        }
+        StatusText.Text = HostTriggerFile.TrySave(_filePath, _triggers, out string? error)
+            ? AppStrings.Format("TriggerCountSaved", _triggers.Count)
+            : AppStrings.Format("SaveFailed", error);
     }
 
     /// <summary>ピッカーを開く。既に開いていればそれを前面に出す。</summary>
@@ -308,7 +305,17 @@ public sealed partial class MainWindow : Window, IDisposable
     /// </remarks>
     private async void OnEditList(object sender, RoutedEventArgs e)
     {
+        // **エディタが開いている間は、一覧を変えうる口をすべて塞ぐ。**モードレスなので
+        // 押せてしまい、しかも確定時の丸ごと置換 (下の _triggers.Clear + AddRange) が
+        // その間の変更を黙って捨てる:
+        //   ・監視を開始すると「画面のトリガーと監視しているトリガーが違う」状態になる
+        //     (この関数が先に StopMonitorAsync するのは、まさにそれを防ぐためである)
+        //   ・ピッカーで確定した分は追加も保存もされたのに、確定時の置換で消える
+        // 3 変種のうち WinUI だけの問題である (WPF / WinForms は ShowDialog)
         EditListButton.IsEnabled = false;
+        OpenPickerButton.IsEnabled = false;
+        OpenAnotherPickerButton.IsEnabled = false;
+        StartMonitorButton.IsEnabled = false;
         try
         {
             if (_monitor is not null)
@@ -332,6 +339,9 @@ public sealed partial class MainWindow : Window, IDisposable
         finally
         {
             EditListButton.IsEnabled = true;
+            OpenPickerButton.IsEnabled = true;
+            OpenAnotherPickerButton.IsEnabled = true;
+            StartMonitorButton.IsEnabled = true;
         }
     }
 

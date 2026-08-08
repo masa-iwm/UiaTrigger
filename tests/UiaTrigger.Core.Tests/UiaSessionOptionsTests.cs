@@ -10,6 +10,10 @@ namespace UiaTrigger.Tests;
 /// 呼び出し上限時間の設定が <c>TriggerMonitorOptions</c> 経由だけだと、
 /// ピッカー / インスペクタ経路は既定値しか使えない。1 セッション = 1 設定にまとめてある。
 /// </summary>
+// **TriggerMonitor / UiaSession を作る T1 なので直列化する** (docs/TESTING.md §5)。
+// 今のところ Context は遅延生成なので実際に CUIAutomation8 までは届かないが、
+// それは呼び先の都合であり、テストに 1 行足すだけで裏返る (RealUiaSerializationTests)。
+[Collection(RealUiaLiteTests.Name)]
 public sealed class UiaSessionOptionsTests
 {
     [Fact]

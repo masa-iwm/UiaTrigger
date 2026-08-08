@@ -20,7 +20,7 @@ public sealed class OwnProcessHitTestTests
     private static readonly TimeSpan SettleTime = TimeSpan.FromMilliseconds(400);
 
     /// <summary>
-    /// 自プロセスのウィンドウの上では、UIA へ問い合わせずに打ち切ること。
+    /// 自プロセスのウィンドウの上では、UIA へ問い合わせずに打ち切ること (docs/DESIGN.md A24)。
     /// </summary>
     [Fact]
     public async Task ElementFromPoint_OverAWindowOfTheCallingProcess_NeverReachesItsProvider()

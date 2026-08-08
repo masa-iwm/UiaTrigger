@@ -28,7 +28,9 @@ internal partial interface IUIAutomation
     // ポインタ 0 = 要素なし (ElementFromHandle 系は S_OK のまま null を返しうる / A15)。
     void ElementFromHandleBuildCache(nint hwnd, IUIAutomationCacheRequest cacheRequest, out nint element);
     void ElementFromPointBuildCache(Point pt, IUIAutomationCacheRequest cacheRequest, out nint element);
-    void GetFocusedElementBuildCache(IUIAutomationCacheRequest cacheRequest, out IUIAutomationElement element);
+    // 未使用だが、呼ばれる日に備えて lookup 系と同じ null 許容にしておく (docs/DESIGN.md A15)。
+    // 非 null 宣言のまま残すと、使い始めた日に null 検査なしの経路が静かに復活する
+    void GetFocusedElementBuildCache(IUIAutomationCacheRequest cacheRequest, out IUIAutomationElement? element);
     void CreateTreeWalker(IUIAutomationCondition pCondition, out IUIAutomationTreeWalker walker);
     void get_ControlViewWalker(out IUIAutomationTreeWalker walker);
     void get_ContentViewWalker(out IUIAutomationTreeWalker walker);
@@ -72,8 +74,9 @@ internal partial interface IUIAutomation
     void CheckNotSupported(ComVariant value, [MarshalAs(UnmanagedType.Bool)] out bool isNotSupported);
     void get_ReservedNotSupportedValue(out nint notSupportedValue);
     void get_ReservedMixedAttributeValue(out nint mixedAttributeValue);
-    void ElementFromIAccessible(nint accessible, int childId, out IUIAutomationElement element);
-    void ElementFromIAccessibleBuildCache(nint accessible, int childId, IUIAutomationCacheRequest cacheRequest, out IUIAutomationElement element);
+    // 未使用。lookup 系と同じ null 許容にしておく (A15 — 上の GetFocusedElementBuildCache と同じ理由)
+    void ElementFromIAccessible(nint accessible, int childId, out IUIAutomationElement? element);
+    void ElementFromIAccessibleBuildCache(nint accessible, int childId, IUIAutomationCacheRequest cacheRequest, out IUIAutomationElement? element);
 }
 
 /// <summary>

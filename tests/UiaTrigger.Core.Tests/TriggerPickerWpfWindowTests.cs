@@ -12,6 +12,7 @@
 // 実体化を伴う経路 (ExpandThenSelect / IsExpanded の TwoWay) はここでは扱わず、
 // T4 が引き取っている (docs/MANUAL-CHECKS.md §4.3.3)。
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Extensions.Time.Testing;
@@ -24,6 +25,34 @@ namespace UiaTrigger.Tests;
 
 public sealed class TriggerPickerWpfWindowTests
 {
+    /// <summary>
+    /// XAML の <c>{DynamicResource ...}</c> が書いているツールチップのキーを、XAML から読み取る。
+    /// </summary>
+    /// <remarks>
+    /// **供給側 (辞書) と消費側 (XAML) を突き合わせるためにある。**辞書に入れた綴りだけを
+    /// 見る検査は、XAML の参照が別の綴りでも緑になる — DynamicResource は解決できないと
+    /// 例外ではなく null に落ちるので、ツールチップが一度も出ないまま誰も気づかない
+    /// (実際にそうなっていた)。T4 でも捕まらない: ツールチップは UIA の Name / HelpText に
+    /// 出ないため (PublishedResourceTests の実測コメント)。
+    /// </remarks>
+    private static string XamlToolTipKey()
+    {
+        string xaml = File.ReadAllText(
+            RepoPaths.Combine("src", "UiaTrigger.Picker.Wpf", "TriggerPickerWindow.xaml"));
+        Match match = Regex.Match(
+            xaml,
+            @"ToolTip=""\{DynamicResource\s+(?<key>[^}""\s]+)\s*\}""",
+            RegexOptions.CultureInvariant,
+            TimeSpan.FromSeconds(1));
+
+        Assert.True(
+            match.Success,
+            "TriggerPickerWindow.xaml に ToolTip の DynamicResource 参照が見つかりません。" +
+            "参照の書き方が変わったのなら、この検査も一緒に運んでください " +
+            "(見つからないまま緑になると、供給と消費の突き合わせが何も守らなくなります)。");
+        return match.Groups["key"].Value;
+    }
+
     /// <summary>
     /// 実物の UIA セッションとオーバーレイを作らせずに View を組み立てる。
     /// </summary>
@@ -132,10 +161,10 @@ public sealed class TriggerPickerWpfWindowTests
                 Assert.Equal("Add trigger", window.CommitButton.Content);
                 Assert.Equal("Follow the mouse", window.AutoSelectLabel.Text);
                 Assert.Equal("Tree view", window.ViewComboLabel.Text);
-                // DataTemplate の中のボタンには掴めないので DynamicResource 経由で渡している
-                Assert.Equal(
-                    "Confirm this element",
-                    window.Resources[PickerStringKeys.ConfirmNodeButtonToolTip]);
+                // DataTemplate の中のボタンには掴めないので DynamicResource 経由で渡している。
+                // **引くのは XAML が書いているキーである** — 辞書側の綴りだけを見ると、
+                // 参照側とずれていても緑になる (R-057 がまさにそれだった)
+                Assert.Equal("Confirm this element", window.Resources[XamlToolTipKey()]);
             }
             finally
             {

@@ -10,6 +10,8 @@
 // 表示用は UIA の LocalizedControlType (= 相手アプリのロケール) をそのまま使う。
 // ここを「現在の UI カルチャでローカライズする」形にしてはならない —
 // 戻り値は DisplayName と条件評価の比較形に入っており、永続化される。
+using System.Globalization;
+
 namespace UiaTrigger;
 
 /// <summary>Maps a UI Automation control type id to its stable English name.</summary>
@@ -68,6 +70,9 @@ public static class UiaControlTypeNames
         50039 => "SemanticZoom",
         50040 => "AppBar",
         0 => "(unknown)",
-        _ => $"ControlType({controlTypeId})",
+        // 未知 ID の形も**識別子**であり永続化される (docs/DESIGN.md L6)。素の文字列補間は
+        // CurrentCulture で数値を書くので、桁区切りを使うカルチャでは同じ ID が別の綴りになり、
+        // 保存済み定義との比較が静かに外れる
+        _ => string.Create(CultureInfo.InvariantCulture, $"ControlType({controlTypeId})"),
     };
 }

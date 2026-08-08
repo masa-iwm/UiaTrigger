@@ -647,7 +647,9 @@ public sealed class TriggerListEditorViewTests
                 string before = JsonList(form.Result!);
 
                 // PerformClick は見えていないフォームでは何もしない (CanSelect が false)。
-                // ピッカーの Windows Forms テストと同じく先に出す
+                // ピッカーの Windows Forms テストと同じく先に出す。
+                // **画面の外へ退かす** — 既定位置で出すと T4/T5 の座標をまたぐ
+                form.Location = new System.Drawing.Point(-32000, -32000);
                 form.Show();
                 list.SelectedIndex = 0;
                 combine.PerformClick();
@@ -714,6 +716,8 @@ public sealed class TriggerListEditorViewTests
             CheckBox check = Assert.Single(
                 all.OfType<CheckBox>(), c => c.Name == "CombineStoppedMatchingCheck");
 
+            // 画面の外へ退かしてから出す (上のテストと同じ理由)
+            form.Location = new System.Drawing.Point(-32000, -32000);
             form.Show();
             // 選んでからチェックを入れる (WPF 側と同じ理由)
             list.SelectedIndices.Add(0);

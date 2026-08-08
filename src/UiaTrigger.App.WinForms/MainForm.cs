@@ -93,15 +93,19 @@ internal sealed class MainForm : Form
 
     private void Reload()
     {
-        try
+        // 拾う例外の顔ぶれは App.Shared に 1 つだけ置く (docs/DESIGN.md §12)。
+        // WinForms では Application.Run(new MainForm()) の引数評価がメッセージループの
+        // **開始前**なので、ここで漏れると Application.ThreadException の網の外で落ちる —
+        // 壊れた triggers.json を持つ利用者はサンプルを一度も起動できない
+        _triggers.Clear();
+        if (HostTriggerFile.TryLoad(_filePath, out IReadOnlyList<TriggerDefinition> loaded, out string? error))
         {
-            _triggers.Clear();
-            _triggers.AddRange(TriggerStore.Load(_filePath));
+            _triggers.AddRange(loaded);
             _status.Text = AppStrings.Format("TriggerCount", _triggers.Count);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        else
         {
-            _status.Text = AppStrings.Format("LoadFailed", ex.Message);
+            _status.Text = AppStrings.Format("LoadFailed", error);
         }
         RefreshList();
     }
@@ -123,15 +127,9 @@ internal sealed class MainForm : Form
 
     private void Save()
     {
-        try
-        {
-            TriggerStore.Save(_filePath, _triggers);
-            _status.Text = AppStrings.Format("TriggerCountSaved", _triggers.Count);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            _status.Text = AppStrings.Format("SaveFailed", ex.Message);
-        }
+        _status.Text = HostTriggerFile.TrySave(_filePath, _triggers, out string? error)
+            ? AppStrings.Format("TriggerCountSaved", _triggers.Count)
+            : AppStrings.Format("SaveFailed", error);
     }
 
     private void OpenPicker()

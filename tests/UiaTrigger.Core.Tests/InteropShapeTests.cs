@@ -23,21 +23,89 @@ public sealed class InteropShapeTests
             .OrderBy(m => m.MetadataToken)];
 
     /// <summary>
+    /// <c>IUIAutomation</c> のヘッダー順 (UIAutomationClient.h)。
+    /// </summary>
+    /// <remarks>
+    /// **数だけでは足りない。**数を変えない並べ替え (リファクタリングでは普通に起きる) は
+    /// コンパイルも AOT 発行も通り、実行時に別スロットを呼ぶ — このファイルの doc 自身が
+    /// 「静かに壊れる類の事故」と呼んでいる形そのものである。順序ごと固定する。
+    /// </remarks>
+    private static readonly string[] IUIAutomationOrder =
+    [
+        "CompareElements", "CompareRuntimeIds", "GetRootElement", "ElementFromHandle",
+        "ElementFromPoint", "GetFocusedElement", "GetRootElementBuildCache",
+        "ElementFromHandleBuildCache", "ElementFromPointBuildCache", "GetFocusedElementBuildCache",
+        "CreateTreeWalker", "get_ControlViewWalker", "get_ContentViewWalker", "get_RawViewWalker",
+        "get_RawViewCondition", "get_ControlViewCondition", "get_ContentViewCondition",
+        "CreateCacheRequest", "CreateTrueCondition", "CreateFalseCondition",
+        "CreatePropertyCondition", "CreatePropertyConditionEx", "CreateAndCondition",
+        "CreateAndConditionFromArray", "CreateAndConditionFromNativeArray", "CreateOrCondition",
+        "CreateOrConditionFromArray", "CreateOrConditionFromNativeArray", "CreateNotCondition",
+        "AddAutomationEventHandler", "RemoveAutomationEventHandler",
+        "AddPropertyChangedEventHandlerNativeArray", "AddPropertyChangedEventHandler",
+        "RemovePropertyChangedEventHandler", "AddStructureChangedEventHandler",
+        "RemoveStructureChangedEventHandler", "AddFocusChangedEventHandler",
+        "RemoveFocusChangedEventHandler", "RemoveAllEventHandlers", "IntNativeArrayToSafeArray",
+        "IntSafeArrayToNativeArray", "RectToVariant", "VariantToRect", "SafeArrayToRectNativeArray",
+        "CreateProxyFactoryEntry", "get_ProxyFactoryMapping", "GetPropertyProgrammaticName",
+        "GetPatternProgrammaticName", "PollForPotentialSupportedPatterns",
+        "PollForPotentialSupportedProperties", "CheckNotSupported",
+        "get_ReservedNotSupportedValue", "get_ReservedMixedAttributeValue",
+        "ElementFromIAccessible", "ElementFromIAccessibleBuildCache",
+    ];
+
+    /// <summary><c>IUIAutomationElement</c> のヘッダー順。</summary>
+    /// <inheritdoc cref="IUIAutomationOrder" path="/remarks"/>
+    private static readonly string[] IUIAutomationElementOrder =
+    [
+        "SetFocus", "GetRuntimeId", "FindFirst", "FindAll", "FindFirstBuildCache",
+        "FindAllBuildCache", "BuildUpdatedCache", "GetCurrentPropertyValue",
+        "GetCurrentPropertyValueEx", "GetCachedPropertyValue", "GetCachedPropertyValueEx",
+        "GetCurrentPatternAs", "GetCachedPatternAs", "GetCurrentPattern", "GetCachedPattern",
+        "GetCachedParent", "GetCachedChildren", "get_CurrentProcessId", "get_CurrentControlType",
+        "get_CurrentLocalizedControlType", "get_CurrentName", "get_CurrentAcceleratorKey",
+        "get_CurrentAccessKey", "get_CurrentHasKeyboardFocus", "get_CurrentIsKeyboardFocusable",
+        "get_CurrentIsEnabled", "get_CurrentAutomationId", "get_CurrentClassName",
+        "get_CurrentHelpText", "get_CurrentCulture", "get_CurrentIsControlElement",
+        "get_CurrentIsContentElement", "get_CurrentIsPassword", "get_CurrentNativeWindowHandle",
+        "get_CurrentItemType", "get_CurrentIsOffscreen", "get_CurrentOrientation",
+        "get_CurrentFrameworkId", "get_CurrentIsRequiredForForm", "get_CurrentItemStatus",
+        "get_CurrentBoundingRectangle", "get_CurrentLabeledBy", "get_CurrentAriaRole",
+        "get_CurrentAriaProperties", "get_CurrentIsDataValidForForm", "get_CurrentControllerFor",
+        "get_CurrentDescribedBy", "get_CurrentFlowsTo", "get_CurrentProviderDescription",
+        "get_CachedProcessId", "get_CachedControlType", "get_CachedLocalizedControlType",
+        "get_CachedName", "get_CachedAcceleratorKey", "get_CachedAccessKey",
+        "get_CachedHasKeyboardFocus", "get_CachedIsKeyboardFocusable", "get_CachedIsEnabled",
+        "get_CachedAutomationId", "get_CachedClassName", "get_CachedHelpText", "get_CachedCulture",
+        "get_CachedIsControlElement", "get_CachedIsContentElement", "get_CachedIsPassword",
+        "get_CachedNativeWindowHandle", "get_CachedItemType", "get_CachedIsOffscreen",
+        "get_CachedOrientation", "get_CachedFrameworkId", "get_CachedIsRequiredForForm",
+        "get_CachedItemStatus", "get_CachedBoundingRectangle", "get_CachedLabeledBy",
+        "get_CachedAriaRole", "get_CachedAriaProperties", "get_CachedIsDataValidForForm",
+        "get_CachedControllerFor", "get_CachedDescribedBy", "get_CachedFlowsTo",
+        "get_CachedProviderDescription", "GetClickablePoint",
+    ];
+
+    /// <summary>
     /// IUIAutomation2 の 6 メソッドは IUIAutomation の直後に並ぶ。
     /// つまり IUIAutomation の宣言数がずれると put_TransactionTimeout が別スロットを呼ぶ。
     /// (UIAutomationClient.h の IUIAutomation は 55 メソッド = IUnknown 込み 58 スロット)
     /// </summary>
     [Fact]
-    public void IUIAutomation_DeclaresExactlyTheMethodsOfTheHeader()
+    public void IUIAutomation_DeclaresTheMethodsOfTheHeaderInOrder()
     {
-        Assert.Equal(55, DeclaredInVtableOrder(typeof(IUIAutomation)).Count);
+        Assert.Equal(
+            IUIAutomationOrder,
+            DeclaredInVtableOrder(typeof(IUIAutomation)).Select(m => m.Name));
     }
 
-    /// <summary>IUIAutomationElement は IUnknown 込み 85 スロット。</summary>
+    /// <summary>IUIAutomationElement は IUnknown 込み 85 スロット。並びごと固定する。</summary>
     [Fact]
-    public void IUIAutomationElement_DeclaresExactlyTheMethodsOfTheHeader()
+    public void IUIAutomationElement_DeclaresTheMethodsOfTheHeaderInOrder()
     {
-        Assert.Equal(82, DeclaredInVtableOrder(typeof(IUIAutomationElement)).Count);
+        Assert.Equal(
+            IUIAutomationElementOrder,
+            DeclaredInVtableOrder(typeof(IUIAutomationElement)).Select(m => m.Name));
     }
 
     /// <summary>
@@ -94,5 +162,49 @@ public sealed class InteropShapeTests
         ParameterInfo output = method.GetParameters().Single(p => p.IsOut);
 
         Assert.Equal(typeof(IUIAutomationElement).MakeByRefType(), output.ParameterType);
+    }
+
+    /// <summary>
+    /// 共有 RCW は <c>ComInterfaceMarshaller&lt;T&gt;</c> でだけ作ること (docs/DESIGN.md B7)。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>UiaFactory</c> が自前の <c>StrategyBasedComWrappers</c> で共有 RCW を作ると、
+    /// 生成された marshalling stub とは**別のインスタンス**になり、同一性テーブルが
+    /// 2 系統に分裂する。同じ COM オブジェクトに対して RCW が 2 つでき、
+    /// <c>CompareElements</c> を通さない参照等価の判定が静かに嘘になる。
+    /// </para>
+    /// <para>
+    /// **一意 RCW 側 (B6) は逆に自前の <c>ComWrappers</c> でなければならない。**
+    /// 同一性テーブルに載せないことが決定的解放の前提だからである。
+    /// 2 つは似た名前の似た処理なので、取り違えても**コンパイルは通る**。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheSharedWrapperGoesThroughTheGeneratedMarshaller()
+    {
+        string source = File.ReadAllText(
+            RepoPaths.Combine("src", "UiaTrigger.Core", "Interop", "UiaFactory.cs"));
+
+        string shared = Between(source, "public static unsafe T? WrapShared<T>", "public static T? WrapUnique<T>");
+        string unique = Between(source, "public static T? WrapUnique<T>", "public static void ReleaseUnique");
+
+        // 先に「切り出せていること」を固定する。空振りしたまま不在を主張すると何も守らない
+        Assert.NotEmpty(shared);
+        Assert.NotEmpty(unique);
+
+        Assert.Contains("ComInterfaceMarshaller<T>.ConvertToManaged", shared, StringComparison.Ordinal);
+        Assert.DoesNotContain("UniqueWrappers", shared, StringComparison.Ordinal);
+
+        // 対照: 一意側はこの逆でなければならない
+        Assert.Contains("UniqueWrappers", unique, StringComparison.Ordinal);
+        Assert.DoesNotContain("ComInterfaceMarshaller", unique, StringComparison.Ordinal);
+    }
+
+    private static string Between(string source, string start, string end)
+    {
+        int from = source.IndexOf(start, StringComparison.Ordinal);
+        int to = source.IndexOf(end, StringComparison.Ordinal);
+        return from < 0 || to <= from ? string.Empty : source[from..to];
     }
 }

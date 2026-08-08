@@ -66,7 +66,14 @@ public sealed class ResolverOptions
     public int StepClassNameScore { get; set; } = 50;
 
     /// <summary>Penalty when the candidate carries a different, non-empty class name.</summary>
-    public int StepClassNameMismatchPenalty { get; set; } = -50;
+    /// <remarks>
+    /// Lighter than <see cref="StepControlTypeScore"/> on purpose: WinForms class names embed a
+    /// token that changes per process instance (the measurement behind A4), so a step identified by
+    /// nothing but its control type and class name must still be admitted after a restart. A
+    /// penalty that outweighs the control-type match rejects every candidate at that level and
+    /// makes the path permanently unresolvable — the same failure A4 removed at the window level.
+    /// </remarks>
+    public int StepClassNameMismatchPenalty { get; set; } = -30;
 
     /// <summary>Penalty when a class name was recorded but the candidate has none.</summary>
     public int StepClassNameMissingPenalty { get; set; } = -10;
@@ -101,7 +108,24 @@ public sealed class ResolverOptions
     public int BeamWidth { get; set; } = 3;
 
     /// <summary>Maximum number of children examined at one level.</summary>
+    /// <remarks>
+    /// Also the bound the recorder scans siblings with: recording a sibling index beyond what
+    /// resolution will ever look at would produce a definition that can be recorded but not
+    /// resolved (see <see cref="RecordingSiblingScan"/>).
+    /// </remarks>
     public int MaxChildrenPerLevel { get; set; } = 512;
+
+    /// <summary>
+    /// How many siblings the recorder scans to determine a step's sibling index.
+    /// </summary>
+    /// <remarks>
+    /// Never larger than <see cref="MaxChildrenPerLevel"/>: a step recorded past the resolver's
+    /// candidate limit is one the resolver can never admit, so the definition would resolve to a
+    /// different element without any error (docs/DESIGN.md A30). A sibling that cannot be counted
+    /// is recorded as <see cref="Models.ElementPathStep.UnknownSiblingIndex"/>, which is a
+    /// well-defined "not known" rather than a wrong index (A7).
+    /// </remarks>
+    public int RecordingSiblingScan => MaxChildrenPerLevel;
 
     /// <summary>
     /// Maximum number of levels walked upwards when <see cref="Models.ElementLocator.Search"/>

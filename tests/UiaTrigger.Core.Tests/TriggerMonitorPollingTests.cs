@@ -98,6 +98,62 @@ public sealed class TriggerMonitorPollingTests
         }
     }
 
+    /// <summary>
+    /// 監視は定義の深い写しを取ること (docs/DESIGN.md C19)。追加後に呼び出し元が POCO を
+    /// 書き換えても監視には反映されない — 反映される形だと、検証を通っていない値が
+    /// UIA スレッドから live に読まれ、「頼んでいないポーリング」のような黙った挙動変化になる。
+    /// </summary>
+    [Fact]
+    public async Task MutatingTheDefinitionAfterAddAsync_HasNoEffectOnMonitoring()
+    {
+        (TriggerMonitor monitor, FakeTimeProvider time) = Create();
+        await using (monitor)
+        {
+            TriggerDefinition definition = Definition("t", pollInterval: null);
+            await monitor.AddAsync(definition, Ct);
+
+            // 追加後の書き換え。写しを取らない実装ではこれが「頼んでいないポーリング」になる
+            definition.PollInterval = Interval;
+            await monitor.StartAsync(null, Ct);
+
+            await AdvanceAndDrain(monitor, time, TimeSpan.FromMinutes(10));
+            Assert.Equal(0, monitor.GetDiagnostics().PollCount);
+        }
+    }
+
+    /// <summary>
+    /// **共有セッションが先に破棄されても、モニターの破棄がポーラーを畳むこと。**
+    ///
+    /// <para>
+    /// doc は「モニターを先に破棄すること」と定めるが、型では守られていない。逆順のとき
+    /// StopCore はディスパッチャ上で走れない (ObjectDisposedException) — その経路で
+    /// ポーラーを畳み残すと、タイマーが生きたまま誰にも止められなくなる。
+    /// 登録簿 (_pollers) はこの経路のためだけにある。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task DisposingTheMonitorAfterItsSharedSession_StillDisposesThePollers()
+    {
+        var time = new FakeTimeProvider();
+        var session = new UiaSession(new UiaSessionOptions { TimeProvider = time });
+        TriggerMonitor monitor = session.CreateMonitor();
+        await monitor.StartAsync([Definition("t", Interval)], Ct);
+
+        SlotPoller poller = Assert.Single(PollersOf(monitor));
+
+        // doc の順序を破ってセッションを先に破棄する
+        await session.DisposeAsync();
+        await monitor.DisposeAsync();
+
+        Assert.Empty(PollersOf(monitor));
+        Assert.False(poller.IsScheduled);
+
+        static IReadOnlyCollection<SlotPoller> PollersOf(TriggerMonitor monitor) =>
+            (HashSet<SlotPoller>)typeof(TriggerMonitor)
+                .GetField("_pollers", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
+                .GetValue(monitor)!;
+    }
+
     /// <summary>頼めば、指定した間隔で回ること。</summary>
     [Fact]
     public async Task WhenAsked_ItPollsOnTheGivenInterval()
@@ -148,6 +204,11 @@ public sealed class TriggerMonitorPollingTests
     /// 基準線を取る前に**1 周空回しする**のが要点である。2 つの購読を張る時刻はわずかにずれ、
     /// その隙に来た変化は片方しか拾わない — 空回しでその予約を消化させてから数え始める。
     /// </para>
+    /// <para>
+    /// **終わりにも掃き出しを 1 度入れる。**最終周の直前に来た変化は、片方の掃引だけが
+    /// 予約済みのまま数えられて増分がずれる。時計は進めない — 進めるとポーリングの周が
+    /// 1 つ増え、検出力を示す側の数え (5 周) と食い違う。
+    /// </para>
     /// </summary>
     [Fact]
     public async Task Polling_DoesNotDriveResolution()
@@ -171,6 +232,10 @@ public sealed class TriggerMonitorPollingTests
             await AdvanceBoth(polled, control, time);
         }
 
+        // 時計は進めずに掃き出しだけ (上の remarks)。最終周の直前に来た変化を
+        // 両方に消化させてから数える
+        await DrainBoth(polled, control);
+
         TriggerMonitorDiagnostics after = polled.GetDiagnostics();
         TriggerMonitorDiagnostics reference = control.GetDiagnostics();
 
@@ -186,7 +251,15 @@ public sealed class TriggerMonitorPollingTests
     private static async Task AdvanceBoth(TriggerMonitor a, TriggerMonitor b, FakeTimeProvider time)
     {
         time.Advance(Interval);
-        // 掃き出しは 2 つとも要る。ディスパッチャは監視ごとに別で、FIFO はその中でしか効かない
+        await DrainBoth(a, b);
+    }
+
+    /// <summary>時計を進めずに、予約済みの work item だけを両方から掃き出す。</summary>
+    /// <remarks>
+    /// 掃き出しは 2 つとも要る。ディスパッチャは監視ごとに別で、FIFO はその中でしか効かない。
+    /// </remarks>
+    private static async Task DrainBoth(TriggerMonitor a, TriggerMonitor b)
+    {
         await a.GetTriggerIdsAsync(Ct);
         await b.GetTriggerIdsAsync(Ct);
     }

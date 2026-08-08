@@ -29,6 +29,47 @@ public sealed class TriggerMonitorValidationTests
         return await Record.ExceptionAsync(() => monitor.StartAsync([definition]));
     }
 
+    /// <summary>
+    /// 負の <see cref="TriggerMonitorOptions.Debounce"/> はモニター構築の時点で弾くこと。
+    /// SweepDebouncer まで届くと、負値はディスパッチャ上の ArgumentOutOfRangeException
+    /// (UnhandledException 行き) になり、-1ms ちょうどは Infinite = 掃引の恒久停止になる —
+    /// どちらも「黙って動かない」モニターである。
+    /// </summary>
+    [Theory]
+    [InlineData(-5)]
+    [InlineData(-1)]
+    public void Constructor_WithANegativeDebounce_ThrowsOnTheCallingThread(int milliseconds)
+    {
+        var options = new TriggerMonitorOptions { Debounce = TimeSpan.FromMilliseconds(milliseconds) };
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new TriggerMonitor(options));
+    }
+
+    /// <summary>共有セッション経路 (CreateMonitor) でも同じ検証が効くこと。</summary>
+    [Fact]
+    public async Task CreateMonitor_WithANegativeDebounce_ThrowsOnTheCallingThread()
+    {
+        await using var session = new UiaSession();
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => session.CreateMonitor(new TriggerMonitorOptions { Debounce = TimeSpan.FromMilliseconds(-1) }));
+    }
+
+    /// <summary>
+    /// 域外の列挙 (キャストや手編集 JSON で入る裸の整数) は理由付きで弾くこと
+    /// (docs/DESIGN.md C20)。素通りすると、評価の default 分岐が「永久不成立の句」や
+    /// 「Any 扱いの結合」を例外なしで作る — 黙って効かない設定の典型。
+    /// </summary>
+    [Fact]
+    public async Task StartAsync_WithAnUndefinedComparisonOp_ThrowsArgumentException()
+    {
+        Exception? error = await StartAsync(Definition(
+            new PropertyClause { Property = TriggerProperty.Name, Op = (ComparisonOp)99 }));
+
+        Assert.IsType<ArgumentException>(error);
+        Assert.Contains("99", error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task StartAsync_WithMalformedRegex_ThrowsArgumentException()
     {
@@ -41,7 +82,8 @@ public sealed class TriggerMonitorValidationTests
     /// <summary>
     /// 後読みは文法としては正しいが <c>NonBacktracking</c> では使えず、
     /// <see cref="NotSupportedException"/> になる。これを捕まえ損ねると、
-    /// 定義の誤りがローカライズされない別種の例外として呼び出し元へ漏れる。
+    /// 定義の誤りがローカライズされない別種の例外として呼び出し元へ漏れる
+    /// (docs/DESIGN.md A20)。
     /// </summary>
     [Theory]
     [InlineData("(?<=a)b")]     // 後読み

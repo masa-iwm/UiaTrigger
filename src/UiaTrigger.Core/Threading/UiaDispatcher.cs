@@ -119,7 +119,11 @@ internal sealed class UiaDispatcher : IDisposable
     // 呼び出し側の CancellationToken は「実行開始前に取り下げる」ためだけに使う。
     private void AddToQueue(Action action) => _queue.Add(action, CancellationToken.None);
 
-    /// <summary>Post された処理から漏れた例外の通知先 (未設定なら握りつぶす)。</summary>
+    /// <summary>
+    /// Post された処理から漏れた例外の通知先 (未設定なら握りつぶす)。
+    /// 通知先自身が投げた例外も握りつぶす (docs/DESIGN.md A28) — ここはスレッドの生エントリであり、
+    /// 漏らすとプロセスが落ちる。
+    /// </summary>
     public event Action<Exception>? UnhandledException;
 
     private void Run()
@@ -132,7 +136,16 @@ internal sealed class UiaDispatcher : IDisposable
             }
             catch (Exception ex)
             {
-                UnhandledException?.Invoke(ex);
+                // 通知先が投げてもここで止める (通知先の例外でプロセスを落とさない — docs/DESIGN.md A28)。
+                // ここはスレッドの生エントリなので、漏れると CLR の未処理例外 = プロセス終了になる。
+                // 受け側 (TriggerMonitor.RaiseUnhandledException / SerialEventQueue.Report) と同じ規律
+                try
+                {
+                    UnhandledException?.Invoke(ex);
+                }
+                catch
+                {
+                }
             }
         }
     }

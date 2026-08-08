@@ -118,7 +118,7 @@
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
   </data>
   <data name="Error_InvalidClauseName" xml:space="preserve">
-    <value>トリガー '{0}': '{1}' は句の名前として使えません。空にはできず、空白と ( ) ! &amp; | は含められません。</value>
+    <value>トリガー '{0}': '{1}' は句の名前として使えません。空にはできず、空白と ( ) ! &amp; | , は含められません。</value>
     <comment>{0} = trigger id, {1} = the offending clause name</comment>
   </data>
   <data name="Error_DuplicateClauseName" xml:space="preserve">
@@ -174,9 +174,33 @@
     <comment>{0} = option name, {1} = upper bound in milliseconds</comment>
   </data>
 
+  <data name="Error_DurationNegative" xml:space="preserve">
+    <value>'{0}' は 0 または正の時間でなければなりません。</value>
+    <comment>{0} = option name</comment>
+  </data>
+
+  <data name="Error_UndefinedEnumValue" xml:space="preserve">
+    <value>トリガー '{0}': {1} に未定義の値 {2} が入っています。定義が手書きされたか、より新しい形式で書かれた可能性があります。</value>
+    <comment>{0} = trigger key, {1} = property path, {2} = numeric value</comment>
+  </data>
+
+  <data name="Error_DefinitionShapeInvalid" xml:space="preserve">
+    <value>トリガー '{0}': {1} がありません (null)。</value>
+    <comment>{0} = trigger key, {1} = property path</comment>
+  </data>
+
   <data name="Error_NoElementAtPoint" xml:space="preserve">
     <value>スクリーン座標 ({0}, {1}) に UI 要素が見つかりませんでした。</value>
     <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_RecordAtPointFailed" xml:space="preserve">
+    <value>スクリーン座標 ({0}, {1}) での定義の記録に失敗しました。UI Automation がその位置の要素を読めませんでした。</value>
+    <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_CursorPositionUnavailable" xml:space="preserve">
+    <value>マウス カーソルの位置を読めなかったため、記録する座標がありません。</value>
   </data>
 
   <data name="Error_DpiUnaware" xml:space="preserve">
@@ -233,8 +257,20 @@
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>許容差に負の値は指定できません。</value>
   </data>
+  <data name="Draft_CustomNotSupported" xml:space="preserve">
+    <value>カスタムプロパティには UI Automation のプロパティ ID が必要ですが、この入力欄は ID を受け取りません。監視するには句を直接組み立ててください。</value>
+  </data>
+  <data name="Draft_UndefinedEnumValue" xml:space="preserve">
+    <value>条件にこのライブラリで定義されていない値が使われています。ライフサイクル・プロパティ・比較を選び直してください。</value>
+  </data>
+  <data name="Draft_MinIntervalTooLarge" xml:space="preserve">
+    <value>最小間隔が大きすぎて表現できません。より小さい秒数を入力してください。</value>
+  </data>
+  <data name="Draft_PollIntervalTooLarge" xml:space="preserve">
+    <value>ポーリング間隔が大きすぎて表現できません。より小さい秒数を入力してください。</value>
+  </data>
   <data name="Draft_InvalidClauseName" xml:space="preserve">
-    <value>'{0}' は条件の名前として使えません。空にはできず、空白と ( ) ! &amp; | は含められません。</value>
+    <value>'{0}' は条件の名前として使えません。空にはできず、空白と ( ) ! &amp; | , は含められません。</value>
     <comment>{0} = the offending clause name</comment>
   </data>
   <data name="Draft_DuplicateClauseName" xml:space="preserve">
@@ -252,6 +288,10 @@
   </data>
   <data name="Compose_PollIntervalNegative" xml:space="preserve">
     <value>ポーリング間隔に負の値は指定できません。</value>
+  </data>
+  <data name="Compose_SourceIsComposite" xml:space="preserve">
+    <value>'{0}' は既に複合です。式または OR 結合の句を持ち、そのまままとめ直すと OR が黙って AND に変わります。先にほどいてから、部品をまとめ直してください。</value>
+    <comment>{0} = the source trigger's id</comment>
   </data>
   <data name="Compose_UnknownName" xml:space="preserve">
     <value>'{0}' は、まとめようとしている条件のどれでもありません。</value>

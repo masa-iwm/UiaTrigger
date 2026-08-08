@@ -56,9 +56,13 @@ internal sealed class OverlayController : IOverlay
     private static readonly ConcurrentDictionary<HWND, OverlayController> _instancesByHwnd = new();
     private static readonly ConcurrentDictionary<int, OverlayController> _instancesByHookThread = new();
 
-    // ウィンドウクラスの登録はプロセスに 1 回だけ (2 回目は ERROR_CLASS_ALREADY_EXISTS になる)
+    // ウィンドウクラスの登録はプロセスに 1 回だけ (2 回目は ERROR_CLASS_ALREADY_EXISTS になる)。
+    // **クラス単位で覚える** — 片方だけ成功した後の再試行で、成功済みの側の
+    // 「既にある」を失敗と読むと、以後どのピッカーも開けなくなる
     private static readonly Lock _classLock = new();
     private static bool _classesRegistered;
+    private static bool _frameClassRegistered;
+    private static bool _iconClassRegistered;
     private static string? _classError;
 
     private readonly IDpiSource _dpi;
@@ -166,6 +170,12 @@ internal sealed class OverlayController : IOverlay
     }
 
     /// <summary>2 つのウィンドウクラスをプロセスに 1 回だけ登録する。</summary>
+    /// <remarks>
+    /// **クラス単位で覚えること。**2 つを 1 つの旗で管理すると、片方だけ登録できた失敗の後に
+    /// 再試行したとき、成功済みの側が <c>ERROR_CLASS_ALREADY_EXISTS</c> で失敗し、
+    /// **以後どのピッカーも開けなくなる** (しかも診断はその誤った理由を出す)。
+    /// 既に在るクラスの再登録失敗は「成功」と同じ意味である。
+    /// </remarks>
     private static void EnsureWindowClassesRegistered(HMODULE module)
     {
         lock (_classLock)
@@ -174,7 +184,9 @@ internal sealed class OverlayController : IOverlay
             {
                 return;
             }
-            if (!RegisterClass(module, WindowClassName) || !RegisterClass(module, IconWindowClassName))
+            _frameClassRegistered = _frameClassRegistered || RegisterClass(module, WindowClassName);
+            _iconClassRegistered = _iconClassRegistered || RegisterClass(module, IconWindowClassName);
+            if (!_frameClassRegistered || !_iconClassRegistered)
             {
                 return;
             }
@@ -238,10 +250,14 @@ internal sealed class OverlayController : IOverlay
         // これが付いた窓はヒットテストから丸ごと外れ、クリックは必ず下のウィンドウへ渡る。
         // ピクセルのアルファに左右されないので、不透明な枠線の上でも抜ける (docs/DESIGN.md §10)
         _hwnd = CreateOverlayWindow(module, WindowClassName, CommonExStyle | WINDOW_EX_STYLE.WS_EX_TRANSPARENT);
+        // 失敗の理由は**その呼び出しの直後**に取る。次の CreateWindowEx が成功すると
+        // GetLastPInvokeError は成功時の値 (0 など) に上書きされ、下の診断が嘘になる
+        int frameError = _hwnd == default ? Marshal.GetLastPInvokeError() : 0;
 
         // アイコンの窓。**WS_EX_TRANSPARENT を付けてはいけない** — 付けると確定アイコンが
         // 押せなくなる。全ピクセルが不透明なので、窓の矩形がそのまま当たり判定になる
         _iconHwnd = CreateOverlayWindow(module, IconWindowClassName, CommonExStyle);
+        int iconError = _iconHwnd == default ? Marshal.GetLastPInvokeError() : 0;
 
         // WndProc がこのインスタンスを引けるようにする (メッセージループ開始前に登録)。
         // **2 つとも同じインスタンスを指す**
@@ -256,8 +272,8 @@ internal sealed class OverlayController : IOverlay
         if (_hwnd == default || _iconHwnd == default)
         {
             CreationError = _classError ??
-                $"overlay window creation failed: frame=0x{(nint)_hwnd.Value:X} icon=0x{(nint)_iconHwnd.Value:X} " +
-                $"error={Marshal.GetLastPInvokeError()}";
+                $"overlay window creation failed: frame=0x{(nint)_hwnd.Value:X} (error={frameError}) " +
+                $"icon=0x{(nint)_iconHwnd.Value:X} (error={iconError})";
 
             // **窓が無いなら、フックを張らずにここで畳む** (docs/DESIGN.md A27)。
             //
@@ -303,8 +319,32 @@ internal sealed class OverlayController : IOverlay
         _hook?.Dispose();
     }
 
+    /// <summary>
+    /// 窓のメッセージ処理。**本体全体を try/catch で覆っている。**
+    /// </summary>
+    /// <remarks>
+    /// <c>UnmanagedCallersOnly</c> から managed 例外を漏らすと、アンマネージドの
+    /// 呼び出し元 (ここでは USER32 のメッセージポンプ) へ抜けてプロセスがその場で落ちる —
+    /// アプリのハンドラーには何も届かない。購読者は通常ディスパッチャへ投げるだけだが、
+    /// 「投げるだけ」の実装が閉じ際に投げうる (View の破棄ガードの TOCTOU) 以上、
+    /// 境界の側で止める。同じ規律が App.Shared の <c>HostWindowPlacer.OnWindowEvent</c> と
+    /// Core の <c>EnumWindowsCallback</c> にもある。
+    /// </remarks>
     [UnmanagedCallersOnly(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvStdcall)])]
     private static LRESULT WndProc(HWND hwnd, uint msg, WPARAM wParam, LPARAM lParam)
+    {
+        try
+        {
+            return WndProcCore(hwnd, msg, wParam, lParam);
+        }
+        catch
+        {
+            // 既定の処理へ倒す。窓のメッセージ 1 通を落とすほうが、プロセスを落とすより軽い
+            return PInvoke.DefWindowProc(hwnd, msg, wParam, lParam);
+        }
+    }
+
+    private static LRESULT WndProcCore(HWND hwnd, uint msg, WPARAM wParam, LPARAM lParam)
     {
         if (!_instancesByHwnd.TryGetValue(hwnd, out OverlayController? self))
         {
@@ -368,16 +408,27 @@ internal sealed class OverlayController : IOverlay
     [UnmanagedCallersOnly(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvStdcall)])]
     private static unsafe LRESULT HookProc(int code, WPARAM wParam, LPARAM lParam)
     {
-        _instancesByHookThread.TryGetValue(Environment.CurrentManagedThreadId, out OverlayController? self);
-        if (code >= 0 && self is { _hookEnabled: true } &&
-            (wParam.Value == PInvoke.WM_KEYDOWN || wParam.Value == PInvoke.WM_SYSKEYDOWN))
+        // **本体全体を try/catch で覆う** (WndProc と同じ理由)。ここはさらに悪い —
+        // 低レベルフックはデスクトップ全体のキー入力が通る道であり、漏れた例外は
+        // 「ピッカーが落ちる」ではなく「キーを打った瞬間にプロセスが落ちる」になる
+        try
         {
-            var info = (KBDLLHOOKSTRUCT*)lParam.Value;
-            if (info->vkCode is VK_LEFT or VK_RIGHT)
+            _instancesByHookThread.TryGetValue(Environment.CurrentManagedThreadId, out OverlayController? self);
+            if (code >= 0 && self is { _hookEnabled: true } &&
+                (wParam.Value == PInvoke.WM_KEYDOWN || wParam.Value == PInvoke.WM_SYSKEYDOWN))
             {
-                // 通知するだけでキー自体はパススルーする (他アプリの ←/→ を奪わない)
-                self.ArrowKeyPressed?.Invoke(info->vkCode == VK_RIGHT);
+                var info = (KBDLLHOOKSTRUCT*)lParam.Value;
+                if (info->vkCode is VK_LEFT or VK_RIGHT)
+                {
+                    // 通知するだけでキー自体はパススルーする (他アプリの ←/→ を奪わない)
+                    self.ArrowKeyPressed?.Invoke(info->vkCode == VK_RIGHT);
+                }
             }
+        }
+        catch
+        {
+            // 握り潰して**必ず次のフックへ渡す**。ここで抜けると、他アプリのキー入力まで
+            // 巻き添えで止まる (フックチェーンが切れる)
         }
         return PInvoke.CallNextHookEx(null, code, wParam, lParam);
     }

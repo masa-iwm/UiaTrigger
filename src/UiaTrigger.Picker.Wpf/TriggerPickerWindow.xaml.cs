@@ -27,6 +27,19 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
     /// <summary>確定アイコンの字形を DataTemplate へ渡すためのリソースキー。</summary>
     private const string ConfirmNodeGlyphKey = "ConfirmNodeGlyph";
 
+    /// <summary>
+    /// 行の確定ボタンのツールチップを DataTemplate へ渡すためのリソースキー。
+    /// </summary>
+    /// <remarks>
+    /// **XAML の <c>{DynamicResource ...}</c> が書く綴りと同じでなければならない。**
+    /// リソース文字列のキー (<c>PickerStringKeys.ConfirmNodeButtonToolTip</c>) をそのまま
+    /// 辞書のキーに使うと、値がドット付きの別の綴りなので XAML 側と一致しない —
+    /// DynamicResource は例外を出さず null に落ちるので、**ツールチップが一度も出ない**まま
+    /// 誰も気づかない。辞書側だけを見る検査では捕まらないため、
+    /// <c>TriggerPickerWpfWindowTests</c> が XAML の参照側と突き合わせる。
+    /// </remarks>
+    private const string ConfirmNodeToolTipKey = "ConfirmNodeButtonToolTip";
+
     private readonly TriggerPickerPresenter _presenter;
     private readonly IPickerStrings _strings;
 
@@ -163,8 +176,7 @@ public partial class TriggerPickerWindow : Window, IPickerView, IDisposable
         AutoSelectLabel.Text = _strings.GetString(PickerStringKeys.AutoSelectToggleHeader);
         // 行の確定ボタンは DataTemplate の中にあり、コードから掴めない。
         // DynamicResource 越しに渡すことで XAML には文字列リテラルを置かずに済む
-        Resources[PickerStringKeys.ConfirmNodeButtonToolTip] =
-            _strings.GetString(PickerStringKeys.ConfirmNodeButtonToolTip);
+        Resources[ConfirmNodeToolTipKey] = _strings.GetString(PickerStringKeys.ConfirmNodeButtonToolTip);
         // 確定アイコンの字形。翻訳の対象ではないが、XAML の Content に直接書くと
         // 「表示文字列の直書き」として検出される (XamlLocalizationTests)。
         // 検査に例外を足すより、字形をこちら側に置くほうが網を緩めずに済む

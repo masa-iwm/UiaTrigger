@@ -73,6 +73,11 @@ internal static unsafe partial class NativeWindowPlacement
     /// <summary>そのウィンドウがトップレベル (自分自身が根) か。</summary>
     internal static bool IsTopLevel(nint hwnd) => GetAncestor(hwnd, GA_ROOT) == hwnd;
 
+    /// <summary>そのウィンドウがまだ存在するか (破棄済みの台帳を捨てるために使う)。</summary>
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool IsWindow(nint hWnd);
+
     /// <summary>
     /// 置いてよい窓か。**可視で、最小化されていないトップレベル**だけが対象である。
     /// </summary>

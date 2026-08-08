@@ -80,7 +80,7 @@
     <value>式 (&amp;&amp;, ||, !, 括弧。空欄ならすべてを要求):</value>
   </data>
   <data name="UnwatchedLabel.Text" xml:space="preserve">
-    <value>絞るだけで発火させない条件 (名前をカンマ区切り):</value>
+    <value>絞るだけで発火させないトリガー (トリガー id をカンマ区切り):</value>
   </data>
 
   <data name="TriggerCount" xml:space="preserve">

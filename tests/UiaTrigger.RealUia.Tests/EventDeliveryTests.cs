@@ -20,6 +20,12 @@ public sealed class EventDeliveryTests
     private static readonly TimeSpan BetweenChanges = TimeSpan.FromMilliseconds(250);
 
     /// <summary>
+    /// 最終値を受けたあと、残っている発火を読み切るための猶予。
+    /// 配送の遅延 (<c>FiredHook</c> の 200ms) より十分長くとる。
+    /// </summary>
+    private static readonly TimeSpan DrainGrace = TimeSpan.FromSeconds(2);
+
+    /// <summary>
     /// 検出した順のまま届くこと (A2)。
     ///
     /// ハンドラをわざと遅くして配送待ちの列を作る。発火ごとに独立の work item を
@@ -58,6 +64,21 @@ public sealed class EventDeliveryTests
         while (received.Count == 0 || !string.Equals(received[^1], sent[^1], StringComparison.Ordinal))
         {
             received.Add(harness.WaitForFire().NewValue.Value);
+        }
+
+        // **最終値が届いた時点で読むのをやめないこと。**やめると「最後の値が先に来た」
+        // 形の順序逆転を、後続を一切見ないまま緑にする — 崩れているときだけ検出できない
+        // という、いちばん悪い形の穴になる。配送は 1 本のワーカーなので、詰まりが
+        // 明けたぶんの残りは短い猶予で出切る
+        // **型で受けずに時間で切ること。**Next は種類を問わず次の 1 件を返すので、
+        // 猶予の中に解決通知が 1 つ混じっただけでパターンが外れ、そこから先の発火を
+        // 読まずに終わる — 塞ぎたかった穴と同じ形が、この読み方の中に再現する
+        while (harness.Next(DrainGrace) is { } extra)
+        {
+            if (extra is TriggerFiredEventArgs fired)
+            {
+                received.Add(fired.NewValue.Value);
+            }
         }
 
         Assert.True(

@@ -498,18 +498,21 @@ internal sealed class FakePickerServices : IPickerServices
             await gate.Task.ConfigureAwait(true);
             ThrowIfReleasedInFlight(element, nameof(GetSnapshotAsync));
         }
-        if (SnapshotException is { } failure)
-        {
-            throw failure;
-        }
-        return NextSnapshot;
+        // **失敗は null で返す。**製品の適合層 (PickerServices) は UIA の失敗を
+        // セッション層の正規化 (null) のまま素通しし、例外を投げるのは「渡した要素が
+        // もう無い」(ObjectDisposedException — ThrowIfReleasedInFlight が演じる) ときだけである。
+        // ここで COMException を投げる形にすると、**製品には投げ手が居ない失敗形**を
+        // プレゼンターに食わせることになり、対応する catch は死んだ分岐のまま緑になる
+        // (docs/TESTING.md §2 — 偽の安心)
+        return SnapshotFails ? null : NextSnapshot;
     }
 
     /// <summary>
-    /// <see cref="GetSnapshotAsync"/> が投げるもの。null なら投げない。
-    /// 塞がれたアプリの「Operation timed out」(COMException) を演じるのに使う (docs/DESIGN.md §3 の B5)。
+    /// <see cref="GetSnapshotAsync"/> が「読めなかった」を返すか。
+    /// 塞がれたアプリ (docs/DESIGN.md B5 の「Operation timed out」) を演じるのに使う —
+    /// 製品ではその失敗が null になって届く。
     /// </summary>
-    public Exception? SnapshotException { get; set; }
+    public bool SnapshotFails { get; set; }
 
     public Task<TriggerDefinition?> BuildDefinitionAsync(IPickerElement element, TreeViewMode view)
     {

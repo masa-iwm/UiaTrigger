@@ -64,7 +64,7 @@ public sealed class ControlTypeNameScenarioTests
     /// <see cref="TriggerDefinition.DisplayName"/> は永続化される。ここが
     /// <c>LocalizedControlType</c> になると、対象アプリを別の言語で起動し直しただけで
     /// 保存済みの定義の見た目が変わり、条件に書いた <see cref="TriggerProperty.ControlType"/> の
-    /// 値とも食い違う。例外にはならないので、テストでしか捕まえられない。
+    /// 値とも食い違う。例外にはならないので、テストでしか捕まえられない (docs/DESIGN.md S3)。
     /// </summary>
     [Theory]
     [MemberData(nameof(TargetProfile.AllNames), MemberType = typeof(TargetProfile))]

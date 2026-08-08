@@ -82,6 +82,21 @@ internal sealed class TargetApp(string title)
                 Add(NewLabel(rest), Root.Controls.Count);
                 break;
 
+            case "add-password":
+            {
+                // IsPassword が立つ要素。伏字化 (docs/DESIGN.md C12/C21) を実 UIA で
+                // 確かめるために要る — 秘匿は「値が漏れていないこと」を見る検査なので、
+                // 本物のパスワード欄が無いと主張が空振りする。
+                // 値は Text ではなく引数の 2 つ目で与える (Name と値を別にしておくと、
+                // どちらの経路から漏れたかが区別できる)
+                (string name, string secret) = Two(rest);
+                TextBox box = NewTextBox(name);
+                box.UseSystemPasswordChar = true;
+                box.Text = secret;
+                Add(box, Root.Controls.Count);
+                break;
+            }
+
             case "insert-sibling-before":
             {
                 (string reference, string name) = Two(rest);

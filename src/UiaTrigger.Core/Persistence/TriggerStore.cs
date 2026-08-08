@@ -33,20 +33,77 @@ public static class TriggerStore
         }
 
         using FileStream stream = OpenShared(path);
+
+        // **版数だけ先に読む。**全体をデシリアライズしてから版数を見る形だと、
+        // 新版ファイルの典型 (列挙メンバーの追加) では版数の判定に**到達しない** —
+        // 未知の列挙名が JsonException になり、「新しい形式なので読めない」ではなく
+        // 「壊れている」と報告される。呼び出し元は前者なら更新を促せるが、後者では
+        // ファイルを捨てる判断に倒れかねない
+        int version = ReadVersion(stream);
+        if (version > TriggerJson.FormatVersion)
+        {
+            throw new NotSupportedException(string.Create(
+                CultureInfo.CurrentCulture,
+                $"'{path}' is version {version}; this build understands up to {TriggerJson.FormatVersion}."));
+        }
+        stream.Position = 0;
+
         var file = JsonSerializer.Deserialize(stream, TriggerJsonContext.Default.TriggerFile);
         if (file is null)
         {
             return [];
         }
-        // 読めないものを黙って空として扱わない。ここで気づかないと、
-        // 次の保存で新形式に上書きされて元のファイルが消える
-        if (file.Version > TriggerJson.FormatVersion)
+        // 形の検査 (docs/DESIGN.md C20)。列挙は文字列コンバーターでも**裸の整数を既定で
+        // 受理する**ため、"Op": 99 の手編集がデシリアライズを素通りし、例外を出さずに
+        // 「鳴らないトリガー / Any 扱い」へ化ける。域外の値は形式の誤りとしてここで弾く。
+        // 意味の検証 (窓の要求・オペランドの有無) は**しない** — 1 件の意味エラーで
+        // ファイル全体が読めなくなると、一覧表示だけしたいホストに対して過剰であり、
+        // 意味の合否は従来どおり AddAsync が言う
+        if (file.Triggers is null)
         {
-            throw new NotSupportedException(string.Create(
-                CultureInfo.CurrentCulture,
-                $"'{path}' is version {file.Version}; this build understands up to {TriggerJson.FormatVersion}."));
+            throw new JsonException(string.Create(CultureInfo.CurrentCulture, $"'{path}': Triggers is null."));
+        }
+        for (int i = 0; i < file.Triggers.Count; i++)
+        {
+            TriggerDefinition? definition = file.Triggers[i];
+            if (definition is null)
+            {
+                throw new JsonException(string.Create(
+                    CultureInfo.CurrentCulture, $"'{path}': trigger [{i}] is null."));
+            }
+            if (TriggerDefinitionRules.CheckShape(definition) is { } reason)
+            {
+                throw new JsonException(reason);
+            }
         }
         return file.Triggers;
+    }
+
+    /// <summary>
+    /// 形式版数だけを読む (本体はまだ解釈しない)。
+    /// </summary>
+    /// <remarks>
+    /// 未知の列挙名などで本体の解釈が落ちても、版数の判定はその**前**に済ませたい。
+    /// 版数が無い / 数値でない場合は 0 を返す — 「版数を持たないファイル」は
+    /// このライブラリが書いたものではないので、下流の解釈に任せて JsonException にする。
+    /// </remarks>
+    private static int ReadVersion(Stream stream)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(stream);
+            return document.RootElement.ValueKind == JsonValueKind.Object &&
+                   document.RootElement.TryGetProperty("Version", out JsonElement version) &&
+                   version.ValueKind == JsonValueKind.Number
+                ? version.GetInt32()
+                : 0;
+        }
+        catch (JsonException)
+        {
+            // 版数すら読めない = 形式として壊れている。理由は本体の解釈に言わせる
+            // (ここで投げると「新しすぎる」と「壊れている」を取り違える)
+            return 0;
+        }
     }
 
     /// <summary>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  検証用コンソール (TestHost) のユーザー向け文字列 (プライマリ = en-US)。
+
+  **ここに入るのは分類 2 (ユーザー向け表示) だけである** (docs/LOCALIZATION.md §3)。
+  使い方・利用ミスの理由・進捗・診断のまとめがそれにあたる。
+
+  監視中に出る発火ログ (`Log(...)` が書く行) は分類 3 = 開発者向けであり、
+  **英語直書きのままここには入れない**。あの行は条件を組み立てるための資料であって
+  画面表示ではなく、共有して grep するものなので言語で語彙が変わってはいけない。
+-->
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+
+  <data name="Usage" xml:space="preserve">
+    <value>Usage:
+  Common options: [--culture &lt;name&gt;] [--log &lt;Trace|Debug|Information|Warning|Error&gt;]
+                  e.g. --culture ja-JP / --log Debug (Core's diagnostic log to stderr)
+
+  UiaTrigger.TestHost [monitor] [--file &lt;path&gt;] [--duration &lt;sec&gt;]
+  UiaTrigger.TestHost record &lt;id&gt; [--file &lt;path&gt;] [--delay &lt;sec&gt;] [--point &lt;x&gt;,&lt;y&gt;]
+      [--on ElementAppeared|ElementRemoved|PropertyChanged|WhileMatching]
+      [--prop Name|AutomationId|ClassName|ControlType|BoundingRectangle|AccessKey|
+              AcceleratorKey|HelpText|IsEnabled|IsOffscreen|Value|RangeValue|
+              RangeValueMinimum|RangeValueMaximum]
+      [--op Always|Equals|NotEquals|Between|NotBetween|GreaterThan|LessThan|
+            LessOrEqual|GreaterOrEqual|RegexMatch|RegexNotMatch]
+      [--value &lt;num&gt;] [--low &lt;num&gt;] [--high &lt;num&gt;] [--text &lt;str&gt;] [--tolerance &lt;num&gt;]
+      [--min-interval &lt;sec&gt;] [--poll-interval &lt;sec&gt;] [--view Raw|Control|Content]
+
+  --poll-interval is the way out when the target application raises no UIA
+  notifications, so nothing ever fires. Disabled by default: monitoring is
+  event-driven. The PollCount / PolledReadCount printed on exit show what it
+  costs, and tell you whether "nothing fired" means "nothing was polled".</value>
+    <comment>The whole usage block. Keep the option names untranslated - they are typed on the command line.</comment>
+  </data>
+
+  <data name="UnknownCulture" xml:space="preserve">
+    <value>--culture: '{0}' is not a known culture name.</value>
+    <comment>{0} = the culture name the user typed</comment>
+  </data>
+  <data name="RecordNeedsId" xml:space="preserve">
+    <value>record needs a trigger Id.</value>
+  </data>
+  <data name="RecordCountdown" xml:space="preserve">
+    <value>Recording the element under the mouse cursor in {0} second(s). Point at the target…</value>
+    <comment>{0} = delay in seconds</comment>
+  </data>
+  <data name="ExistingTriggersUnreadable" xml:space="preserve">
+    <value>Not saving, because the existing trigger definitions cannot be read ({0}): {1}</value>
+    <comment>{0} = file path, {1} = exception message</comment>
+  </data>
+  <data name="Recorded" xml:space="preserve">
+    <value>Recorded: id='{0}' → {1}</value>
+    <comment>{0} = trigger id, {1} = file path</comment>
+  </data>
+
+  <data name="TriggersUnreadable" xml:space="preserve">
+    <value>Cannot read the trigger definitions ({0}): {1}</value>
+    <comment>{0} = file path, {1} = exception message</comment>
+  </data>
+  <data name="NoTriggers" xml:space="preserve">
+    <value>No trigger definitions: {0}</value>
+    <comment>{0} = file path</comment>
+  </data>
+  <data name="NoTriggersHint" xml:space="preserve">
+    <value>Create one with the record command.</value>
+  </data>
+  <data name="LoadedTriggers" xml:space="preserve">
+    <value>Loaded {0} definition(s) ({1}):</value>
+    <comment>{0} = number of definitions, {1} = file path</comment>
+  </data>
+  <data name="NoClauses" xml:space="preserve">
+    <value>(no condition)</value>
+  </data>
+  <data name="DefinitionError" xml:space="preserve">
+    <value>Invalid definition: {0}</value>
+    <comment>{0} = exception message from the library</comment>
+  </data>
+  <data name="MonitoringUntilDuration" xml:space="preserve">
+    <value>Monitoring… exiting in {0} second(s).</value>
+    <comment>{0} = duration in seconds, formatted in the current culture</comment>
+  </data>
+  <data name="MonitoringUntilCancel" xml:space="preserve">
+    <value>Monitoring… press Ctrl+C to exit.</value>
+  </data>
+  <data name="Diagnostics" xml:space="preserve">
+    <value>Diagnostics: sweeps={0} poll rounds={1} polled reads={2} resolved={3}/{4} suppressed fires={5}</value>
+    <comment>{0} = sweep count, {1} = poll rounds, {2} = polled reads, {3} = resolved elements, {4} = element slots, {5} = suppressed fires</comment>
+  </data>
+  <data name="Stopping" xml:space="preserve">
+    <value>Stopping…</value>
+  </data>
+</root>

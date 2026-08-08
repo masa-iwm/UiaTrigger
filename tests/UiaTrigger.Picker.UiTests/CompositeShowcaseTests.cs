@@ -1,4 +1,4 @@
-using System.Windows.Automation;
+﻿using System.Windows.Automation;
 using UiaTrigger.Models;
 using UiaTrigger.RealUia.Tests;
 using Xunit;
@@ -290,7 +290,7 @@ public sealed class CompositeShowcaseTests
                 Settle,
                 $"ピッカーが {button} を捕捉すること",
                 Diagnostics);
-            ConfirmButtonOf(row).Invoke();
+            row.ConfirmButtonOf().Invoke();
             _ = Ui.Until(
                 () => picker.ById("CommitButton") is { } b && b.Current.IsEnabled ? "ok" : null,
                 Settle,
@@ -489,31 +489,6 @@ public sealed class CompositeShowcaseTests
             }
         }
 
-        private static AutomationElement ConfirmButtonOf(AutomationElement row)
-        {
-            AutomationElement? nestedRow = row.FindFirst(
-                TreeScope.Children,
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.TreeItem));
-            foreach (AutomationElement button in row.FindAll(
-                TreeScope.Descendants,
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button)))
-            {
-                if (!button.TryGetCurrentPattern(InvokePattern.Pattern, out _))
-                {
-                    continue;
-                }
-                if (nestedRow is not null &&
-                    nestedRow.FindFirst(
-                        TreeScope.Descendants,
-                        new PropertyCondition(
-                            AutomationElement.RuntimeIdProperty, button.GetRuntimeId())) is not null)
-                {
-                    continue;
-                }
-                return button;
-            }
-            throw new InvalidOperationException($"行 '{row.NameOf()}' に確定ボタンがありません。");
-        }
 
         public void Dispose()
         {

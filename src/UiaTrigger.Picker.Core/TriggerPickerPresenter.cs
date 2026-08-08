@@ -11,7 +11,9 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using UiaTrigger.Models;
+using UiaTrigger.Serialization;
 
 namespace UiaTrigger.Picker;
 
@@ -455,8 +457,19 @@ public sealed class TriggerPickerPresenter : IDisposable
         }
         TriggerDraftValidator.Apply(_confirmedDef, draft, result);
 
-        TriggerCommitted?.Invoke(this, new TriggerCommittedEventArgs { Definition = _confirmedDef });
-        _view.CommitStatus = Format(PickerStringKeys.TriggerAdded, _confirmedDef.Id);
+        // **ホストへ渡すのは写しである** (docs/DESIGN.md C19)。_confirmedDef はコミット後も
+        // 手元に残り (§4 が明文化する「開いたまま何件でもコミット」のため)、次のコミットで
+        // Apply が同じインスタンスを in-place で書き換える — 写しを取らないと、
+        // **1 件目としてホストへ渡した定義がその瞬間に 2 件目へ化ける**。
+        // 同梱ホストは受け取った定義を一覧に保持して id で照合するので、症状は
+        // 「保存したはずの 1 件目がファイルから消える」という無警告のデータ消失になる。
+        // 写しは JSON 往復で取る (エディタの写しと同じ理由 — 手写しはモデルの成長で腐る)
+        var committed = JsonSerializer.Deserialize(
+            JsonSerializer.Serialize(_confirmedDef, TriggerJsonContext.Default.TriggerDefinition),
+            TriggerJsonContext.Default.TriggerDefinition)!;
+
+        TriggerCommitted?.Invoke(this, new TriggerCommittedEventArgs { Definition = committed });
+        _view.CommitStatus = Format(PickerStringKeys.TriggerAdded, committed.Id);
         // 閉じるのは**最後**。Close で自分を Dispose する View (WinForms の Form) があるので、
         // この後に _view へ触る行を置いてはいけない。閉じるのは編集セッションのコミットが
         // 成立したときだけ — 検証失敗の early return はこの行に来ない
@@ -663,22 +676,23 @@ public sealed class TriggerPickerPresenter : IDisposable
             // 捕まえなければ誰も観測しない faulted Task になる (docs/DESIGN.md §7)
             return;
         }
-        catch (System.Runtime.InteropServices.COMException)
+        if (!ReferenceEquals(node, _currentNode))
         {
-            // 相手から読めない (実測: 塞がれたアプリでは「Operation timed out」になる)。
-            // ここで faulted Task にして一覧を**古い値のまま**残すと
-            // 「読めている」ようにしか見えない — 最悪の形なので、一覧は空にする
-            // (docs/DESIGN.md §12)。
-            // 枠は消さない — 矩形は手元の値で出せており、消すと捕捉ごと壊れたように見える。
-            // 空のままにはならない: 次に選択や捕捉が動けば新しい読み取りが走る
-            if (ReferenceEquals(node, _currentNode))
-            {
-                _view.ShowProperties([]);
-            }
             return;
         }
-        if (snap is null || !ReferenceEquals(node, _currentNode))
+        if (snap is null)
         {
+            // 相手から読めない (実測: 塞がれたアプリでは「Operation timed out」になる)。
+            // **一覧を古い値のまま残さない** — 残すと「読めている」ようにしか見えず、
+            // §12 が名指しする「静かに間違う」形そのものになる。
+            //
+            // **失敗は null で届く。**継ぎ目 (IPickerServices) の実装が例外を投げるのは
+            // 「渡した要素がもう無い」(ObjectDisposedException) ときだけで、UIA の失敗は
+            // セッション層が null へ正規化する — かつてここに COMException の catch が
+            // あったが、製品経路には投げ手が存在せず**死んだ分岐**だった (偽の安心)。
+            // 枠は消さない: 矩形は手元の値で出せており、消すと捕捉ごと壊れたように見える。
+            // 空のままにはならない — 次に選択や捕捉が動けば新しい読み取りが走る
+            _view.ShowProperties([]);
             return;
         }
         // 対象ウィンドウが動いていれば要素の矩形は古い。スナップショットは現在値なので
@@ -753,6 +767,10 @@ public sealed class TriggerPickerPresenter : IDisposable
         }
         if (result is null)
         {
+            // 列挙に失敗した (相手が塞がっている等)。**「子 0 件」と区別できることが要点である** —
+            // 空リストとして扱うと、この行の部分木 (選択中の要素を含みうる) を消したうえ
+            // ChildrenLoaded=true / HasUnrealizedChildren=false で二度と列挙しなくなり、
+            // 塞ぎが明けても戻らない。子は触らず、再展開で再試行できる状態へ戻す
             node.ChildrenLoaded = false;
             return;
         }
@@ -948,6 +966,12 @@ public sealed class TriggerPickerPresenter : IDisposable
                 ApplyCapture(capture);
             }
         }
+        catch (ObjectDisposedException)
+        {
+            // 在庫中に掃き出しが起点の要素を解放した。出す先の状態がもう無いので静かに戻る。
+            // 生メッセージをヒント欄に出す形にしない — 内部の型名が画面に出るうえ、
+            // ユーザーには何も意味しない (RefreshPropsAsync / LoadChildrenAsync と同じ扱い)
+        }
         catch (Exception ex)
         {
             _view.Hint = Format(PickerStringKeys.OverlapFailed, ex.Message);
@@ -1016,6 +1040,10 @@ public sealed class TriggerPickerPresenter : IDisposable
             _suggestedDisplayName = suggestedDisplayName;
             _view.SetCommitEnabled(true);
         }
+        catch (ObjectDisposedException)
+        {
+            // 在庫中に掃き出しが対象を解放した (MoveStackAsync と同じ扱い)
+        }
         catch (Exception ex)
         {
             _view.ConfirmedText = Format(PickerStringKeys.ConfirmFailed, ex.Message);
@@ -1029,10 +1057,21 @@ public sealed class TriggerPickerPresenter : IDisposable
     // ---------- 要素ハンドルの所有 (docs/DESIGN.md §7) ----------
 
     /// <summary>継ぎ目から受け取ったハンドルを所有下に置く。</summary>
+    /// <remarks>
+    /// **破棄後は受け取ったものをその場で手放す。**閉じ際に在庫中だった捕捉は
+    /// <see cref="Dispose"/> の後に完了しうるが、そこで台帳へ載せても掃き出しはもう走らない —
+    /// 決定的解放 (docs/DESIGN.md §7) が閉窓後にだけ破れる形になる。GC は回収するので
+    /// 恒久リークではないが、「持っていたぶんは自分で返す」という §7 の規律の外に出る
+    /// </remarks>
     private void Own(IReadOnlyList<IPickerElement> received)
     {
         foreach (IPickerElement element in received)
         {
+            if (_disposed)
+            {
+                element.Dispose();
+                continue;
+            }
             _owned.Add(element);
         }
     }

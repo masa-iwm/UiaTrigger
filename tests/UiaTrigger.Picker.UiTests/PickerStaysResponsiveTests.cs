@@ -84,7 +84,6 @@ public sealed class PickerStaysResponsiveTests
     {
         using var scenario = FrozenScenario.Open();
 
-        var clock = Stopwatch.StartNew();
         scenario.HangTheTarget(Hang);
 
         scenario.SelectTheOtherRow();
@@ -106,7 +105,7 @@ public sealed class PickerStaysResponsiveTests
             FormattableString.Invariant($"枠が {Other} の矩形 {want} へ移ること"),
             scenario.Describe);
 
-        scenario.RequireTheTargetWasBlockedThroughout(clock, Hang);
+        scenario.RequireTheTargetWasBlockedThroughout(Hang);
     }
 
     /// <summary>
@@ -281,12 +280,16 @@ public sealed class PickerStaysResponsiveTests
                 host.Diagnostics);
         }
 
+        /// <summary>ping を送り出した時刻。検算はここから応答の**到着**までを測る。</summary>
+        private DateTime _pingPostedUtc;
+
         /// <summary>対象アプリの UI スレッドを塞ぐ。**応答は先に返る。**</summary>
         public void HangTheTarget(TimeSpan duration)
         {
             _target.Hang(duration);
             // 「この窓のあいだ塞がっていた」ことを固定するために先に送っておく
             _target.Post("ping");
+            _pingPostedUtc = DateTime.UtcNow;
         }
 
         /// <summary>
@@ -342,14 +345,23 @@ public sealed class PickerStaysResponsiveTests
         /// 観測の窓のあいだ、対象アプリが本当に応答していなかったこと。
         /// </summary>
         /// <remarks>
+        /// <para>
         /// **ハーネス自身の検証である** (docs/TESTING.md §4 の教訓 (b))。塞ぎが効いていなければ
         /// 「塞がっている最中でも選べた」は**何も言っていない** — 応答するアプリを相手に
         /// 普通に選べただけである。
+        /// </para>
+        /// <para>
+        /// **測るのは ping が到着した時刻であり、テストがそれを読んだ時刻ではない。**
+        /// 読み出し時刻で測ると、間に挟んだ観測の時間がそのまま「塞がっていた」に化ける —
+        /// 観測を 1 つ増やすたびに検算がゆるくなる形なので、検出力を静かに失う
+        /// (docs/TESTING.md §2)。到着時刻は読み手のスレッドが記録している。
+        /// </para>
         /// </remarks>
-        public void RequireTheTargetWasBlockedThroughout(Stopwatch clock, TimeSpan hang)
+        public void RequireTheTargetWasBlockedThroughout(TimeSpan hang)
         {
             _target.AwaitResponse();
-            TimeSpan elapsed = clock.Elapsed;
+            TimeSpan elapsed = (_target.LastResponseArrivedUtc
+                ?? throw new InvalidOperationException("応答の到着時刻が記録されていません。")) - _pingPostedUtc;
             TimeSpan least = hang * 0.8;
             Assert.True(
                 elapsed >= least,

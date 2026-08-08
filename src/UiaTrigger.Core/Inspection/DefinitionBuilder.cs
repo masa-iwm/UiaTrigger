@@ -8,26 +8,37 @@ namespace UiaTrigger.Inspection;
 /// <summary>選択された要素から永続化用の TriggerDefinition (経路+ウィンドウ識別) を構築する。</summary>
 internal static class DefinitionBuilder
 {
-    private const int MaxSiblingScan = 2048;
-
     /// <summary>
     /// 要素からトップレベルウィンドウまで指定ビューで遡り、経路とウィンドウ識別情報を記録する。
     /// UiaDispatcher スレッド上で呼ぶこと。
     /// </summary>
-    public static TriggerDefinition Build(UiaContext ctx, IUIAutomationElement element, TreeViewMode view)
+    /// <param name="ctx">UIA のセッション文脈。</param>
+    /// <param name="element">記録する対象の要素。</param>
+    /// <param name="view">経路を記録するツリービュー。</param>
+    /// <param name="options">
+    /// 走査上限と深さ防御。**解決側と同じものを渡すこと** (docs/DESIGN.md A30) —
+    /// 記録側だけ広い上限を持つと「記録できたのに解決側の候補集合に入らない」段ができ、
+    /// エラーを出さずに別の要素へ解決される定義が保存される。
+    /// </param>
+    public static TriggerDefinition Build(
+        UiaContext ctx, IUIAutomationElement element, TreeViewMode view, ResolverOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(ctx);
         // 呼び出し側で null を弾いておくこと。ここで chain が空になると chain[^1] が落ちる
         // (ElementFromPoint は null を返しうる — docs/DESIGN.md A15)
         ArgumentNullException.ThrowIfNull(element);
+        options ??= new ResolverOptions();
 
         var walker = ctx.GetWalker(view);
 
-        // 指定ビューに正規化してから祖先チェーンを構築 (先頭=対象要素, 末尾=トップレベルウィンドウ)
+        // 指定ビューに正規化してから祖先チェーンを構築 (先頭=対象要素, 末尾=トップレベルウィンドウ)。
+        // **深さ上限は解決側と同じ**。親が循環するプロバイダー (ResolverOptions.MaxSearchDepth の
+        // doc が根拠を書いている) では、上限が無いとここが永久に回り、例外も出さずに
+        // ピッカーと全モニターが共有する唯一の UIA スレッドが止まる
         walker.NormalizeElement(element, out var normalized);
         var chain = new List<IUIAutomationElement>();
         IUIAutomationElement? current = normalized ?? element;
-        while (current is not null)
+        while (current is not null && chain.Count < options.MaxSearchDepth)
         {
             walker.GetParentElement(current, out var parent);
             if (parent is null || ctx.AreSame(parent, ctx.Root))
@@ -51,7 +62,11 @@ internal static class DefinitionBuilder
         // トップレベル直下 → 対象要素 の順に記録
         for (int i = chain.Count - 2; i >= 0; i--)
         {
-            definition.Locator.Steps.Add(BuildStep(ctx, parent: chain[i + 1], child: chain[i], view));
+            definition.Locator.Steps.Add(BuildStep(
+                ctx, parent: chain[i + 1], child: chain[i], view, options,
+                // 対象の段だけは伏字化の要否を知っている (C21)。
+                // 上の段は経路の通過点であり、値を持つ欄ではない
+                redactName: i == 0 && targetSnapshot.IsPassword));
         }
 
         // 経路とは別に、一意な AutomationId があれば Search 方式も記録する。
@@ -182,15 +197,25 @@ internal static class DefinitionBuilder
     /// 0 を記録すると「先頭にあった」という誤った手掛かりが永続化され、以後の解決の
     /// タイブレークを静かに狂わせる (docs/DESIGN.md A7)。
     /// </summary>
-    private static ElementPathStep BuildStep(UiaContext ctx, IUIAutomationElement parent, IUIAutomationElement child, TreeViewMode view)
+    private static ElementPathStep BuildStep(
+        UiaContext ctx, IUIAutomationElement parent, IUIAutomationElement child, TreeViewMode view,
+        ResolverOptions options, bool redactName)
     {
         child.get_CurrentControlType(out int controlType);
         child.get_CurrentAutomationId(out string automationId);
         child.get_CurrentName(out string name);
         child.get_CurrentClassName(out string className);
 
+        // パスワード欄の Name は経路にも書かない (docs/DESIGN.md C12/C21)。プロバイダーに
+        // よっては値が Name 側に出るため、伏字化がスナップショット経路だけだと
+        // **平文が定義ファイルに残る** — 伏せた値は定義からも復活しない、が C12 の主張である
+        if (redactName)
+        {
+            name = ElementPropertySnapshot.RedactedMarker;
+        }
+
         int siblingIndex = ElementPathStep.UnknownSiblingIndex;
-        var siblings = ctx.Tree.GetChildren(UiaElementNode.ForNavigation(parent), view, MaxSiblingScan);
+        var siblings = ctx.Tree.GetChildren(UiaElementNode.ForNavigation(parent), view, options.RecordingSiblingScan);
         try
         {
             for (int i = 0; i < siblings.Count; i++)

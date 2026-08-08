@@ -6,6 +6,33 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
+## Unreleased
+
+### Changed
+
+- **`TriggerMonitorOptions.Debounce` now rejects a negative value** instead of accepting it and
+  behaving as if it were zero.
+- **A definition with an out-of-range enum value is now refused.** `TriggerOn`, `ClauseCombinator`,
+  `TriggerProperty`, `ComparisonOp`, `TreeViewMode` and the match strengths are checked when a
+  trigger is added and when a trigger file is read. A cast integer used to flow through evaluation
+  and silently never match.
+- **Definitions are copied when you hand them over.** `TriggerMonitor.AddAsync` / `StartAsync` and
+  the picker's `TriggerCommitted` event now carry a copy, so editing the object afterwards no longer
+  changes what is being monitored (or what a second commit reports).
+- **`StartAsync` can be called again after it failed.** A failure now leaves the monitor exactly as
+  it was before the call, instead of half-started.
+- **Disposing an element handle while it is borrowed now defers the release** until the borrow ends,
+  rather than freeing the underlying COM object out from under it.
+- **`UiaSession.GetChildrenAsync`, `GetAncestorChainAsync` and `GetOverlapStackAsync` return `null`
+  when the lookup fails**, and an empty list only when there genuinely is nothing. They used to
+  return an empty list for both, so a caller could not tell "nothing there" from "could not ask".
+
+### Fixed
+
+- **The test console (`UiaTrigger.TestHost`) is localized.** Its usage text, errors and status lines
+  follow `--culture`; before, they were Japanese whatever you asked for. Its firing log stays in
+  English on purpose — that output is meant to be shared and grepped.
+
 ## 0.1.0-preview.6
 
 ### Fixed

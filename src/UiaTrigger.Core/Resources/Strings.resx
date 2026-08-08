@@ -117,7 +117,7 @@
     <comment>{0} = trigger id, {1} = TriggerOn value</comment>
   </data>
   <data name="Error_InvalidClauseName" xml:space="preserve">
-    <value>Trigger '{0}': '{1}' cannot be used as a clause name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>
+    <value>Trigger '{0}': '{1}' cannot be used as a clause name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; | ,.</value>
     <comment>{0} = trigger id, {1} = the offending clause name</comment>
   </data>
   <data name="Error_DuplicateClauseName" xml:space="preserve">
@@ -173,9 +173,33 @@
     <comment>{0} = option name, {1} = upper bound in milliseconds</comment>
   </data>
 
+  <data name="Error_DurationNegative" xml:space="preserve">
+    <value>'{0}' must be zero or a positive duration.</value>
+    <comment>{0} = option name</comment>
+  </data>
+
+  <data name="Error_UndefinedEnumValue" xml:space="preserve">
+    <value>Trigger '{0}': {1} carries the undefined value {2}. The definition was probably written by hand or by a newer version of the format.</value>
+    <comment>{0} = trigger key, {1} = property path, {2} = numeric value</comment>
+  </data>
+
+  <data name="Error_DefinitionShapeInvalid" xml:space="preserve">
+    <value>Trigger '{0}': {1} is missing (null).</value>
+    <comment>{0} = trigger key, {1} = property path</comment>
+  </data>
+
   <data name="Error_NoElementAtPoint" xml:space="preserve">
     <value>No UI element was found at screen point ({0}, {1}).</value>
     <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_RecordAtPointFailed" xml:space="preserve">
+    <value>Recording a definition at screen point ({0}, {1}) failed: UI Automation could not read the element there.</value>
+    <comment>{0} = x, {1} = y (screen coordinates)</comment>
+  </data>
+
+  <data name="Error_CursorPositionUnavailable" xml:space="preserve">
+    <value>The mouse cursor position could not be read, so there is no point to record at.</value>
   </data>
 
   <data name="Error_DpiUnaware" xml:space="preserve">
@@ -232,8 +256,20 @@
   <data name="Draft_ToleranceNegative" xml:space="preserve">
     <value>The tolerance must not be negative.</value>
   </data>
+  <data name="Draft_CustomNotSupported" xml:space="preserve">
+    <value>A custom property needs its UI Automation property id, which this form does not collect. Build the clause directly to watch one.</value>
+  </data>
+  <data name="Draft_UndefinedEnumValue" xml:space="preserve">
+    <value>The condition uses a value this library does not define. Reselect the lifecycle, property and comparison.</value>
+  </data>
+  <data name="Draft_MinIntervalTooLarge" xml:space="preserve">
+    <value>The minimum interval is too large to represent. Enter a smaller number of seconds.</value>
+  </data>
+  <data name="Draft_PollIntervalTooLarge" xml:space="preserve">
+    <value>The polling interval is too large to represent. Enter a smaller number of seconds.</value>
+  </data>
   <data name="Draft_InvalidClauseName" xml:space="preserve">
-    <value>'{0}' cannot be used as a condition name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; |.</value>
+    <value>'{0}' cannot be used as a condition name. A name cannot be empty, and cannot contain whitespace or any of ( ) ! &amp; | ,.</value>
     <comment>{0} = the offending clause name</comment>
   </data>
   <data name="Draft_DuplicateClauseName" xml:space="preserve">
@@ -255,5 +291,9 @@
   </data>
   <data name="Compose_PollIntervalNegative" xml:space="preserve">
     <value>The poll interval cannot be negative.</value>
+  </data>
+  <data name="Compose_SourceIsComposite" xml:space="preserve">
+    <value>'{0}' is already a composite: it carries an expression or OR-combined clauses, and combining it again would silently turn that into AND. Take it apart first, then combine the pieces.</value>
+    <comment>{0} = the source trigger's id</comment>
   </data>
 </root>

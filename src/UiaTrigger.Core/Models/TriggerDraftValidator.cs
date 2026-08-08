@@ -198,6 +198,15 @@ public static class TriggerDraftValidator
         {
             return new TriggerDraftResult(Strings.Draft_IdRequired, null, null, null);
         }
+        // Custom は下書きから作れない。TriggerDraft は CustomPropertyId を持たないので、
+        // Apply が作る句は必ず CustomPropertyId=0 になり、その定義は TriggerMonitor が
+        // 必ず拒否する (Error_CustomPropertyIdRequired) — 「確定できたのに開始できない定義」を
+        // 作らない、というこの型の不変条件 (冒頭 doc) が破れる。同梱ピッカーは Custom を
+        // 選択肢に出さないので到達しないが、公開 API として第三者ピッカーからは到達する
+        if (draft.Property == TriggerProperty.Custom && NeedsClause(draft.On, draft.Op))
+        {
+            return new TriggerDraftResult(Strings.Draft_CustomNotSupported, null, null, null);
+        }
         if (IsOrderingOp(draft.Op) && !IsNumericProperty(draft.Property))
         {
             return new TriggerDraftResult(Strings.Draft_OrderingNeedsNumericProperty, null, null, null);
@@ -267,6 +276,26 @@ public static class TriggerDraftValidator
             }
             : null;
 
+        // 第三者ピッカー由来の域外列挙 ((ComparisonOp)99 等) にも理由を返す (docs/DESIGN.md C20)。
+        // 素通りすると、下の演算子分岐がどれにも入らず「条件なし」として確定してしまう
+        if (!Enum.IsDefined(draft.On) || !Enum.IsDefined(draft.Property) || !Enum.IsDefined(draft.Op))
+        {
+            return new TriggerDraftResult(Strings.Draft_UndefinedEnumValue, null, null, null);
+        }
+
+        // TimeSpan.FromSeconds の上限を超える有限値は OverflowException になる。この型の契約は
+        // 「入力は nonsense でありうる。Validate は句か理由に変える」(冒頭 doc) なので、
+        // 例外ではなく理由で返す。NaN は「未入力」(WinUI の空 NumberBox) なので理由にしない
+        if (draft.MinIntervalSeconds is { } minSeconds && minSeconds >= TimeSpan.MaxValue.TotalSeconds)
+        {
+            return new TriggerDraftResult(Strings.Draft_MinIntervalTooLarge, null, null, null);
+        }
+        if (UsesPollInterval(draft.On) &&
+            draft.PollIntervalSeconds is { } pollSeconds && pollSeconds >= TimeSpan.MaxValue.TotalSeconds)
+        {
+            return new TriggerDraftResult(Strings.Draft_PollIntervalTooLarge, null, null, null);
+        }
+
         TimeSpan? minInterval = draft.MinIntervalSeconds is { } seconds and > 0
             ? TimeSpan.FromSeconds(seconds)
             : null;
@@ -282,7 +311,7 @@ public static class TriggerDraftValidator
 
     /// <summary>Whether a string can be used as a <see cref="PropertyClause.Name"/>.</summary>
     /// <remarks>
-    /// A name cannot be empty, and cannot contain whitespace or any of <c>( ) ! &amp; |</c>, because
+    /// A name cannot be empty, and cannot contain whitespace or any of <c>( ) ! &amp; | ,</c>, because
     /// <see cref="TriggerDefinition.Expression"/> would otherwise read it as two things. Offer this
     /// while the user types rather than after: a name is chosen once and referred to from every
     /// expression that follows.

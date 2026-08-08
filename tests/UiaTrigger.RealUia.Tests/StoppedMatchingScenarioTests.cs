@@ -67,6 +67,15 @@ public sealed class StoppedMatchingScenarioTests
         Assert.Equal(TriggerOn.StoppedMatching, falling.On);
         Assert.Equal(definition.Id, falling.TriggerId);
         Assert.Equal("off", falling.NewValue.Value);
+
+        // **両エッジとも「その値が変わった」ときは前回値を載せること**
+        // (`TriggerFiredEventArgs.OldValue` の doc)。ここでのエッジはどちらも Name の変化が
+        // 起こしたものなので、遷移の前後が揃って読める。前回値を落とすと、受け手は
+        // 「いま何になったか」しか分からず、何から変わったかを別に覚えておく必要が出る。
+        // 解決・消滅が起こしたエッジでは値の変化が無いので absent になる — そちらは
+        // ElementDisappearsScenario 側の経路である
+        Assert.Equal("btnTarget", rising.OldValue.Value);
+        Assert.Equal("on", falling.OldValue.Value);
     }
 
     /// <summary>
@@ -183,6 +192,46 @@ public sealed class StoppedMatchingScenarioTests
         Assert.Equal(TriggerOn.WhileMatching, harness.WaitForFire().On);
 
         // 成立したまま消える。値の述語は最後の値 ("on") で成立し続け、立ち下がりは出ない
+        target.Send("remove btnTarget");
+        harness.AssertNoFire(NoFireWindow);
+    }
+
+    /// <summary>
+    /// **C16 は <see cref="TriggerProperty.Custom"/> の句にも適用されること。**
+    ///
+    /// <para>
+    /// Custom はスナップショット関門を通らない第二の読み取り経路である。消滅時の評価が
+    /// ここだけ生読みに落ちると、死んだ要素への読みが Unsupported に潰れ、
+    /// **Name (上のテスト) では出ない立ち下がりが Custom でだけ出る** —
+    /// 「成立したまま要素が入れ替わっただけで水準が揺れない」という C16 の約束が
+    /// プロパティ種別で割れる。評価はストアの最終値を読む。
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task AValueConditionsLevel_SurvivesTheElementsRemoval_WithACustomClause()
+    {
+        using var target = TestTargetProcess.Start();
+        target.Send("add-button btnTarget");
+        TriggerDefinition definition = (await Recording.RecordAsync(target, "btnTarget")).PinToWindow(target);
+        definition.On = TriggerOn.WhileMatching;
+        definition.Clauses.Clear();
+        definition.Clauses.Add(new PropertyClause
+        {
+            Property = TriggerProperty.Custom,
+            CustomPropertyId = UiaTrigger.Interop.UiaIds.NameProperty,
+            Op = ComparisonOp.Equals,
+            Text = "on",
+        });
+        definition.NotifyOnStoppedMatching = true;
+
+        await using var harness = new MonitorHarness();
+        await harness.StartAsync(definition);
+        harness.WaitForResolution(resolved: true);
+
+        target.Send("set-text btnTarget on");
+        Assert.Equal(TriggerOn.WhileMatching, harness.WaitForFire().On);
+
+        // 成立したまま消える。Custom の述語もストアの最終値 ("on") で成立し続け、立ち下がりは出ない
         target.Send("remove btnTarget");
         harness.AssertNoFire(NoFireWindow);
     }

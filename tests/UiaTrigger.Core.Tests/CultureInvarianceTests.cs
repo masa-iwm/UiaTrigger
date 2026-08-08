@@ -19,18 +19,9 @@ public sealed class CultureInvarianceTests
 
     private static void WithCulture(CultureInfo culture, Action action)
     {
-        CultureInfo originalCulture = CultureInfo.CurrentCulture;
-        CultureInfo originalUiCulture = CultureInfo.CurrentUICulture;
-        try
+        using (CultureScope.Enter(culture))
         {
-            CultureInfo.CurrentCulture = culture;
-            CultureInfo.CurrentUICulture = culture;
             action();
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = originalCulture;
-            CultureInfo.CurrentUICulture = originalUiCulture;
         }
     }
 
