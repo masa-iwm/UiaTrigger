@@ -15,10 +15,18 @@
 | `UiaTrigger.Picker.Wpf` / `.WinForms` | → `UiaTrigger.Picker.Core` |
 | `UiaTrigger.Picker.WinUI` | → `UiaTrigger.Picker.Core` + `Microsoft.WindowsAppSDK` + `CommunityToolkit.WinUI.Controls.Sizers` |
 
-**この表と README の依存表は同じものを指す。**README は利用者に「何が入ってくるか」を
-案内しており、ずれると案内が嘘になる。`Microsoft.Extensions.Logging.Abstractions` は
-`Core` 経由で**5 つ全部に届く** — 「第三者依存を持つのは `Picker.WinUI` だけ」と書くと、
-Microsoft 以外という意味であっても利用者はそう読み分けない。
+**この表と README の依存表は同じものを指し、nuget.org の Dependencies 欄とも一致する。**
+README は利用者に「何が入ってくるか」を案内しており、ずれると案内が嘘になる。
+`Microsoft.Extensions.Logging.Abstractions` は `Core` 経由で**5 つ全部に届く** —
+「第三者依存を持つのは `Picker.WinUI` だけ」と書くと、Microsoft 以外という意味であっても
+利用者はそう読み分けない。
+
+**この一致は `CentralPackageTransitivePinningEnabled` を切っていることで保たれている**
+(docs/DESIGN.md D10)。有効にすると、推移的に届いたパッケージのうち `PackageVersion` の項が
+あるものが直接参照へ昇格し、`Microsoft.Extensions.Logging.Abstractions` が 5 つ全部の
+**直接依存として nuspec に載る** — nuget.org は同梱 README の依存表と Dependencies 欄を
+同じページに並べるので、利用者の目の前で食い違う。切っても**利用者が入れるものは変わらない**
+(実測: 復元は同じ版に解決する)。配る nuspec の依存集合は release.yml が数える (§3)。
 
 **5 つ全部を配る。**README が「自分のアプリと同じ UI フレームワークの `Picker.*` を
 参照すればよい」と案内している以上、どれかを欠くと案内が嘘になる。
@@ -29,14 +37,28 @@ Microsoft 以外という意味であっても利用者はそう読み分けな�
 
 ### 5 つとも MSIL (AnyCPU) である
 
-- `UiaTrigger.slnx` は WinUI を `Platform=x64` に固定しているため、ソリューションビルドの
-  出力 (`bin\x64\...`) は Amd64 である。しかし `dotnet pack` は AnyCPU で建て直すので、
-  **パッケージの中身は 5 つとも MSIL** (実測)。利用者に x64 の制約は掛からない。
-  **`bin\x64` を見て「x64 のパッケージだ」と結論しないこと。**
+配るアセンブリはサテライトも含めて 7 つとも MSIL であり、利用者にアーキテクチャの
+制約は掛からない。**これは `UiaTrigger.slnx` が配るプロジェクトを `Platform` に
+固定していないことで保たれている。**
+
+- **配布物は `dotnet pack UiaTrigger.slnx` (ソリューション pack) が作る。**slnx の
+  `<Platform Project="x64" />` は pack にも効くので、**配るプロジェクトに付けた固定は
+  そのまま `lib/` の dll になる**。`lib/` は RID を持たないため、ARM64 / x86 の利用者は
+  **復元だけ通って読み込みで `BadImageFormatException`** になる — 復元時には警告も出ない。
+  固定してよいのは配らないアプリ (`App.WinUI`) だけである。
+  入口の網は T1 (`BuildInvariantTests.NoPackableProjectIsPinnedToAPlatformInTheSolution`)、
+  出口の網は §3 の PE 検査である。
+- **「WinUI 3 はアーキテクチャ固定を要求する」は誤りである** (実測)。WinUI 3 の
+  **ライブラリ**にその要求は無く、`Microsoft.WinUI.dll` 自身も CommunityToolkit の Sizers も
+  MSIL である。CI が毎 push で AOT 発行して起動している `App.WinUI` も、MSIL の
+  `Picker.WinUI` の上に建っている。
+- **測るなら配布物そのものを測る。**「`dotnet pack` は AnyCPU で建て直す」という実測が
+  かつてここに書かれていたが、それは**パイプラインが使っていない pack 経路**で取った
+  値だった。検査は必ず `.nupkg` の中身に掛ける。
 - 同じ罠の裏返し: App を `-p:Platform=ARM64` で建てると `Platform` が `ProjectReference` を
-  通って伝わり、`bin\ARM64\...\UiaTrigger.Core.dll` は ARM64 になる。これも配布物には
-  掛からない — パッケージは `Platform` 無指定の `dotnet pack` が作るので MSIL のままである。
-  **`bin\ARM64` を見て「Core が ARM64 になってしまった」と結論しないこと。**
+  通って伝わり、`bin\ARM64\...\UiaTrigger.Core.dll` は ARM64 になる。これは配布物には
+  掛からない (slnx が配るプロジェクトを固定していないため)。
+  **`bin\ARM64` や `bin\x64` を見て配布物の機種を結論しないこと。**
 
 ### README の同梱は props ではなく targets で行う
 
@@ -185,18 +207,24 @@ API キーへ交換する) を使う。あちらのポリシーは**ワークフ
   件数検査する。§1 の「5 つ全部を配る」という決定が、ここで機械が確かめる形になっている。
   zip はホストごとに分ける — App.WinUI は self-contained + AOT で単体で大きく、まとめると
   「WPF だけ欲しい人が WinUI ぶんも落とす」ことになる。
-- **配る `.dll` の PE ヘッダを読んで、期待したアーキテクチャであることを数える。**
-  `Picker.WinUI` だけが x64 で、残る 4 パッケージとサテライトは MSIL である (docs/DESIGN.md D4/D5)。
-  **WinUI を除外にせず「x64 であること」を要求する** — 除外にすると、うっかり AnyCPU で
-  建った日に黙って通る。アーキテクチャの取り違えは復元した先で
-  「そんなアセンブリは無い」という無関係な顔で出るので、配る前にここで止める。
+- **配る `.dll` の PE ヘッダを読んで、7 つとも MSIL であることを数える** (docs/DESIGN.md D4/D5)。
+  **件数の下限ではなく、期待する集合を名指しで数える** — lib の dll 5 + `Core` と
+  `Picker.Core` の ja サテライト 2 で 7 である。「5 件以上」にすると、ja サテライトが
+  黙って落ちても 5 件は残るので通ってしまう。欠けても余っても名指しで落とす。
+  アーキテクチャの取り違えは復元した先で `BadImageFormatException` という無関係な顔で
+  出るので、失敗メッセージには**パッケージ名だけでなく中のファイル名**を出す。
+- **配る nuspec の依存とメタデータも数える。**依存は csproj からは読めない
+  (推移的ピン留めで昇格したものが載るため — §1 / docs/DESIGN.md D10)。メタデータは
+  `title` / `readme` / `releaseNotes` / `description` / `projectUrl` / ライセンス /
+  `repository/@commit` と、`<version>` がタグと一致すること。**nuget.org は公開済みの版の
+  表示を後から直せない**ので、空のまま出すとその版は永久に空である。
 - **win-x64 のみ。**ARM64 は実行未確認なので配らない (§5)。ここで建てていないものは
   配らない。notes にもそう書く。
 - リリースノートは英語で書く (公開面の言語は README と同じ規則)。
 
 ## §4 罠の台帳
 
-- **S4 (発行レイアウトの 20 件 — `PublishedResourceTests` 14 + `HostPublishedResourceTests` 6) の緑は、発行物の新しさについて何も言わない。**
+- **S4 (発行レイアウトの 24 件 — `PublishedResourceTests` 18 + `HostPublishedResourceTests` 6) の緑は、発行物の新しさについて何も言わない。**
   S4 は `publish/` を起動するが、見るのはローカライズと発行レイアウトであり、枠も
   アイコンも押さない。**古い発行物のままでも緑になる。**一方、オーバーレイの検査 54 件は
   `bin/` 起動 = **AOT ではない**。つまり「T4 全緑」の内訳のうち、発行物 (AOT) の
@@ -296,3 +324,114 @@ nuget.org も同じ版を上書きできないので、直した時点で次の�
 **強調は `**…**` で書く。**コメントにも `///` doc にも HTML のタグを置かない。XML doc に
 強調の記法は無く、未知のタグは中身だけが表示されるので、**混ざると利用者の IntelliSense に
 そのまま出る**。
+
+## §7 nuget.org
+
+配布の最後の工程である。**§1〜§6 を全部通してからでないと押さない。**
+
+順序の根拠は §3 と同じ「後戻りできる側から通す」で、ここが終端である:
+Release は消せる → GitHub Packages は消せるが**版は使い切り** → nuget.org は
+**消せず、ID も版も使い切り**。unlist は検索と既定の復元から外すだけで、
+**版を明示した復元は通り続ける**。「unlist できるから消せる」と読まないこと。
+
+### §7.1 押す前に揃っていること
+
+- ドラフト Release を人が確認して**公開済み**である。ドラフトのままだと、nuget.org の
+  ページから来た利用者にリリースノートが**一切見えない** (ドラフトは push 権限を持つ相手に
+  しか見えない — §6 で実測した性質と同じ)
+- 添付は 14 個ちょうど / CI が緑 (**観測扱いのジョブが 1 つも無いことも見る** — §2)
+- 同じ版を GitHub Packages 経由で実アプリから復元して評価済み (§6)
+- T6 を**発行物 (AOT)** で実施済み (§4 — `bin/` では原理的に出ない不具合がある)
+- `Directory.Build.props` の `<Version>` = タグ名 − 先頭 `v` = これから押す版
+- **作業ディレクトリに古い `.nupkg` が無い。**`artifacts-*/` のような置き場を作らない —
+  `dotnet nuget push <dir>/*.nupkg` は打ち間違えても止まらない
+
+### §7.2 押すバイト列を取る
+
+**再 pack しない。**評価する意味があるのは出す当のバイト列である (§6 と同じ規律)。
+
+```powershell
+gh release download v0.1.0 --repo masa-iwm/UiaTrigger `
+  --pattern '*.nupkg' --pattern '*.snupkg' --dir <空のディレクトリ>
+```
+
+- **`.snupkg` も落とす。**`dotnet nuget push a.nupkg` が隣の `a.snupkg` を一緒に押すのは
+  **同じディレクトリに在るときだけ**である。落とし忘れると、**その版にシンボルは永久に付かない**。
+  `publish-packages.yml` の `--pattern '*.nupkg'` を写さないこと — あちらが `.snupkg` を
+  除いているのは GitHub Packages にシンボルサーバーが無いからで、nuget.org では逆になる。
+- 件数 (nupkg 5 + snupkg 5) と、ファイル名の版が `<Version>` と一致することを数える。
+- `Get-FileHash -Algorithm SHA256` で 5 つのハッシュを控える。**押したあとレジストリから
+  落とし直して突き合わせる**ため (§7.6)。
+
+### §7.3 API キー — 長期の秘密情報は持たない
+
+方針は §3 のままである。**API キーをリポジトリにも GitHub Secrets にも置かない。**
+
+- **手で押す (初回はこちら)**: nuget.org で**その場で作る**キーを使う。glob は
+  `UiaTrigger.*`、有効期限は最短、scope は push のみ。**押し終えたらその場で削除する。**
+  `dotnet nuget setapikey` は使わない (`%APPDATA%\NuGet\NuGet.Config` に平文で残る)。
+  `--api-key` は引数としてだけ渡し、PowerShell の履歴 (`ConsoleHost_history.txt`) から
+  当該行を消す。
+- **Trusted Publishing (将来)**: `workflow_dispatch` 専用のワークフローから OIDC を
+  1 時間だけ有効な API キーへ交換する。**あちらのポリシーはワークフローのファイル名に
+  紐づく**ので、「どのファイルが押してよいか」がレジストリ側にも書かれることになる。
+- **未測定として明記する**: Trusted Publishing が「**まだ存在しない ID の初回 push**」を
+  許すかは測っていない。許さなければ初回だけ手押しになる。**測ってからしか
+  「できる」と書かない。**
+
+### §7.4 押す
+
+```powershell
+$src = "https://api.nuget.org/v3/index.json"
+# **依存の順に押す。**逆にすると、索引に出た直後に依存が解決できないパッケージが
+# 公開される窓ができる
+foreach ($id in "UiaTrigger.Core", "UiaTrigger.Picker.Core",
+                "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms", "UiaTrigger.Picker.WinUI") {
+  dotnet nuget push "$dir\$id.$version.nupkg" --source $src --api-key $key
+  if ($LASTEXITCODE -ne 0) { throw "$id の push が失敗しました" }
+}
+```
+
+- **`--no-symbols` を付けない。**`publish-packages.yml` から写さないこと (§7.2 の理由)。
+- **`--skip-duplicate` を付けない。**既に在る版を黙って飛ばすと「いま押しているのは
+  このバイト列だ」という保証が消える (§6 と同じ)。
+- **V3 の口へ押す** (`api.nuget.org/v3/index.json`)。**シンボルの push は V3 でしか動かない** —
+  V2 (`www.nuget.org/api/v2/package`) へ押すと nupkg だけが上がり、`.snupkg` は
+  **エラーも出さずに落ちる**。`--symbol-source` は指定しない (V3 ならレジストリ側が回す)。
+- **ワイルドカードを渡さない。**`dotnet nuget push` は glob を展開しない (§6 で実測)。
+  1 件ずつ、どれで落ちたかが読める形で押す。
+
+### §7.5 押したあとに起きること
+
+- **nupkg は即座に永久である。**削除はできない。unlist しても版を明示した復元は通る。
+- **検証は非同期である。**push が返った時点ではまだ検証中で、索引に出るまで時間が要る。
+  **検証に失敗しても nupkg は戻らない。**
+- **`.snupkg` の検証は nupkg が確定したあとに走る。**シンボルだけが落ちて
+  (非ポータブル PDB / SourceLink 欠落 / nupkg と不一致)、**シンボルの無い版が永久に残る**
+  ことがある。**この経路はこのリポジトリで一度も通っていない** (§6 は `--no-symbols`) —
+  初通しであることを承知して押す。
+- **押した瞬間に ID の所有権と綴りが確定する。**打ち間違えた ID は取り戻せない。
+  押す前にファイル名を読み上げること。
+- 表示される README は**パッケージに入っているもの**である。あとでリポジトリの README を
+  直しても、公開済みの版の表示は変わらない。
+- **検索索引は遅れる。**検索に出ないことを「押せていない」と読まない —
+  registration / flat container が真である。
+
+### §7.6 押したあとに確かめること
+
+- `https://api.nuget.org/v3-flatcontainer/<id を小文字>/index.json` に **5 つとも**当の版が在る。
+- **落とし直してハッシュが §7.2 と一致する。**「押したものが配られている」をバイト列で確かめる。
+- 5 つのページで: README が描画される / **Dependencies パネルと README の依存表が一致する** /
+  ライセンスが MIT と出る / Source Repository のリンクが効く。
+- 数十分後に Symbols の状態を見る。落ちていたら**次の版で直す** (その版のシンボルは戻らない)。
+- **匿名で復元できること。GitHub Packages では一度も測れなかった経路である** (§6)。
+  素のディレクトリに新規プロジェクトを作り、nuget.org だけを見る `nuget.config` で
+  `dotnet add package UiaTrigger.Core` が通ること。**`--packages` で別のフォルダを指すか、
+  先にキャッシュを外す** — `%USERPROFILE%\.nuget\packages` に同じ版が残っていると、
+  レジストリから取れなくても緑になる。
+
+### §7.7 出したあとに直すには
+
+版は使い切りである。上書きも再 push もできない。**`Directory.Build.props` の `<Version>` を
+上げて §3 → §6 → §7 を通し直す。**誤って出したものは unlist する —
+unlist は「無かったこと」ではない。

@@ -43,6 +43,7 @@
   <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>UiaTrigger Picker for WinUI 3</Title>
     <Description>The WinUI 3 view for the UiaTrigger element picker (TriggerPickerWindow). Holds no behaviour of its own - all of it lives in UiaTrigger.Picker.Core. Use this package if your own application is WinUI 3 / Windows App SDK.</Description>
     <PackageTags>uiautomation;uia;automation;windows;picker;winui;windowsappsdk</PackageTags>
   </PropertyGroup>

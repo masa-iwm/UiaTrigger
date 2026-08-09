@@ -34,9 +34,9 @@ public sealed class PublicApiDocumentationTests
     ];
 
     /// <summary>
-    /// **このアセンブリだけは参照できない。**`Picker.WinUI` は slnx で `Platform=x64` に
-    /// 固定されており、参照すると AnyCPU のこのプロジェクトごと x64 になって
-    /// Windows App SDK を引き込む。T1 は「UIA にも GUI にも依らない」層なので、
+    /// **このアセンブリだけは参照できない。**`Picker.WinUI` は Windows App SDK に
+    /// 依存しており、参照するとこのプロジェクトごとそれを引き込む (アセンブリ自体は
+    /// **AnyCPU** である)。T1 は「UIA にも GUI にも依らない」層なので、
     /// そこを崩さずに検査だけ同じにするため、**ビルド出力をメタデータとして読む**
     /// (<see cref="AssemblyFor"/>)。
     /// </summary>
@@ -70,14 +70,14 @@ public sealed class PublicApiDocumentationTests
     /// <see cref="WinUiAssemblyName"/> のビルド出力フォルダ。
     ///
     /// **「いちばん新しいものを採る」形にしない。**単体プロジェクトのビルドが作る
-    /// <c>bin\Debug</c> をソリューションビルドの <c>bin\x64\...</c> と取り違える罠が
+    /// <c>bin\Debug</c> をソリューションビルドの <c>bin\Release\...</c> と取り違える罠が
     /// このリポジトリには実在する (.claude/rules/build.md)。テスト自身と同じ構成の、
     /// ソリューションビルドが出す場所だけを見て、無ければ場所を名指しして落とす。
     /// </summary>
     private static readonly Lazy<string> WinUiOutputDirectory = new(() =>
     {
         string configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
-        string root = RepoPaths.Combine("src", WinUiAssemblyName, "bin", "x64", configuration);
+        string root = RepoPaths.Combine("src", WinUiAssemblyName, "bin", configuration);
 
         string[] found = Directory.Exists(root)
             ? Directory.GetFiles(root, $"{WinUiAssemblyName}.dll", SearchOption.AllDirectories)
@@ -119,7 +119,7 @@ public sealed class PublicApiDocumentationTests
 
     /// <summary>
     /// <see cref="WinUiAssemblyName"/> のビルド出力を <c>MetadataLoadContext</c> で読む。
-    /// コードは動かさないので x64 でも Windows App SDK でも構わない — 見るのは可視性と
+    /// コードは動かさないので Windows App SDK に依存していても構わない — 見るのは可視性と
     /// 属性だけである。<see cref="PublicApiDoc"/> 側は <c>typeof</c> との比較を使わない形に
     /// してあるので、通常の <see cref="Assembly"/> と同じに扱える。
     /// </summary>
@@ -211,11 +211,9 @@ public sealed class PublicApiDocumentationTests
         string configuration = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
 
         // bin と同じ形で場所を絞る。**再帰で「見つかったもの」を採らない** — 単体ビルドが
-        // 残した別レイアウト (obj\Release\... と obj\x64\Release\... が並存する) を
+        // 残した別レイアウト (obj\Debug\... と obj\Release\... が並存する) を
         // 掴む罠が実在する (.claude/rules/build.md)
-        string root = assembly == WinUiAssemblyName
-            ? RepoPaths.Combine("src", assembly, "obj", "x64", configuration)
-            : RepoPaths.Combine("src", assembly, "obj", configuration);
+        string root = RepoPaths.Combine("src", assembly, "obj", configuration);
 
         string[] found = Directory.Exists(root)
             ? Directory.GetFiles(root, $"{assembly}.unfiltered.xml", SearchOption.AllDirectories)

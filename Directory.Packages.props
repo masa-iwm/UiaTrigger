@@ -1,8 +1,24 @@
 <Project>
 
+  <!--
+    **推移的ピン留めは切る** (docs/DESIGN.md D10)。
+
+    有効にすると、推移的に届いたパッケージのうち `PackageVersion` の項があるものが
+    直接参照へ昇格し、**配る nuspec に直接依存として載る**。実測: 有効だと
+    `Microsoft.Extensions.Logging.Abstractions` が 5 パッケージすべての直接依存になり、
+    「Core 経由で届く」という README の案内と nuget.org の Dependencies 欄が食い違う。
+
+    切っても利用者が入れるものは変わらない (実測: `Picker.Wpf` の復元は同じ 10.0.10 に
+    解決し、ビルドも T1/T2 も警告 0 で緑)。**このリポジトリにはピン留めで直したい
+    推移的依存が 1 つも無い** — 外部の推移辺は Sizers → WindowsAppSDK (>= 1.6) だけで、
+    `Picker.WinUI` が 2.3.1 を直に参照しているので解決はそちらが勝つ。
+
+    将来 recall の来た推移的依存を上げる必要が出たら、そのときは明示の
+    `PackageReference` を足す — 配る依存が増えることが差分に見える形で行う。
+  -->
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
   <ItemGroup>
@@ -37,8 +53,8 @@
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="10.8.0" />
     <!--
       UiaTrigger.Picker.WinUI の公開面をメタデータとして読む (docs/LOCALIZATION.md §5)。
-      あれは slnx で Platform=x64 に固定されており、参照すると AnyCPU の T1 ごと x64 になって
-      Windows App SDK を引き込む。コードを動かさずに可視性と属性だけ見たいので、
+      あれは Windows App SDK に依存しており、参照すると T1 ごとそれを引き込む
+      (アセンブリ自体は AnyCPU である)。コードを動かさずに可視性と属性だけ見たいので、
       参照ではなくメタデータで読む。
     -->
     <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.0" />

@@ -2,7 +2,7 @@
 //
 // WPF と Windows Forms の View は net10.0-windows / AnyCPU なので、ピッカーの View と同じく
 // ここで直接組み立てられる (docs/DESIGN.md §12 —「View はテストできない」は誤り)。
-// WinUI 版だけは x64 / WindowsAppSDK のため T1 から実体化できず、T4 の担当である。
+// WinUI 版だけは WindowsAppSDK のため T1 から実体化できず、T4 の担当である。
 //
 // ShowDialog は使わない。入れ子のメッセージループを回すのでテストが返らなくなる。
 // 確定の経路は internal な Accept / Result を直に叩いて見る。

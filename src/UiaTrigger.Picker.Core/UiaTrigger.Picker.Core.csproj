@@ -26,6 +26,7 @@
   <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>UiaTrigger Picker Core</Title>
     <Description>The UI-independent element picker for UiaTrigger: the presenter that drives hover capture and overlap stepping, the click-through overlay, and the seams a view implements. Reference this together with one of the UiaTrigger.Picker.* view packages, or implement IPickerView yourself.</Description>
     <PackageTags>uiautomation;uia;automation;windows;picker;element-picker;overlay</PackageTags>
   </PropertyGroup>

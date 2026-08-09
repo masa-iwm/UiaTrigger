@@ -12,7 +12,7 @@
     AOT 発行の対象は Core / Picker.Core と WinUI ホストのままである。
 
     net10.0-windows / AnyCPU なので、WinUI と違って**T1 から普通に参照できる**。
-    T1 に読み込めない障害は「View だから」ではなく WinUI3 / x64 / WindowsAppSDK に
+    T1 に読み込めない障害は「View だから」ではなく WinUI3 / WindowsAppSDK に
     由来する (docs/DESIGN.md §12)。だからこの View の中身は手動チェックではなく
     単体テストで覆える (TriggerPickerWpfWindowTests)。
   -->
@@ -26,6 +26,7 @@
   <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>UiaTrigger Picker for WPF</Title>
     <Description>The WPF view for the UiaTrigger element picker (TriggerPickerWindow). Holds no behaviour of its own - all of it lives in UiaTrigger.Picker.Core. Use this package if your own application is WPF.</Description>
     <PackageTags>uiautomation;uia;automation;windows;picker;wpf</PackageTags>
   </PropertyGroup>

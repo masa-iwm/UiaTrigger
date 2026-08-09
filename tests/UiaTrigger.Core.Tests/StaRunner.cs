@@ -3,7 +3,7 @@
 // xunit v3 (3.0.0) に [STAFact] は無いので自前で立てる。テスト本体を丸ごと STA スレッドで
 // 走らせ、例外は呼び出し側へ運び直す。
 //
-// 「T1 から参照できない」の原因は WinUI3 / x64 / WindowsAppSDK であって
+// 「T1 から参照できない」の原因は WinUI3 / WindowsAppSDK であって
 // 「View だから」ではない (docs/DESIGN.md §12)。
 // net10.0-windows / AnyCPU の WPF・WinForms View は**普通にプロジェクト参照できる**。
 using Xunit;

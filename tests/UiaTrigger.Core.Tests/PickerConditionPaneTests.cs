@@ -3,7 +3,7 @@
 // 縦の高さ上限は別に手当てされている (docs/DESIGN.md §12)。横は Disabled のままだと
 // 「WinUI で条件設定が左右にはみ出ているのに水平スクロールが出ない」(実測)。
 //
-// **WinUI の View は T1 から組み立てられない** (docs/DESIGN.md §12: WinUI3 / x64 / WindowsAppSDK)。
+// **WinUI の View は T1 から組み立てられない** (docs/DESIGN.md §12: WinUI3 / WindowsAppSDK)。
 // WPF に写して見ることもできない — あちらの行は WrapPanel で**折り返す**ので、
 // そもそも同じ壊れ方をしない。つまりこの変種には振る舞いを見る足場が T1 に無い。
 //

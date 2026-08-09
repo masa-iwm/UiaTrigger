@@ -33,14 +33,14 @@
     <!--
       ピッカーの UI 非依存部分 (docs/TESTING.md §1 T1 / docs/DESIGN.md §12)。
 
-      UiaTrigger.Picker.Core は net10.0-windows / AnyCPU なので、WinUI3 / x64 の View と違い
+      UiaTrigger.Picker.Core は net10.0-windows / AnyCPU なので、WinUI3 / WindowsAppSDK の View と違い
       普通のプロジェクト参照でテストできる。TriggerPickerPresenter もここに載る。
     -->
     <ProjectReference Include="..\..\src\UiaTrigger.Picker.Core\UiaTrigger.Picker.Core.csproj" />
     <!--
       WPF / WinForms の View (docs/DESIGN.md §12)。
 
-      「View は T1 から触れない」は WinUI3 / x64 / WindowsAppSDK の制約であって
+      「View は T1 から触れない」は WinUI3 / WindowsAppSDK の制約であって
       View 一般の話ではない。この 2 つは
       net10.0-windows / AnyCPU なので普通に参照でき、フレームワーク参照
       (WindowsDesktop.App.WPF / .WindowsForms) も推移的に流れてくる —

@@ -8,7 +8,7 @@ namespace UiaTrigger.Tests;
 /// ピッカー / ホストの UI 文字列に関する回帰テスト (docs/DESIGN.md L3 / docs/LOCALIZATION.md §4)。
 ///
 /// <para>
-/// WinUI3 / x64 のプロジェクトはテストから参照できないので、
+/// WinUI3 / WindowsAppSDK のプロジェクトはテストから参照できないので、
 /// **ソースとリソースを構造として検査する**。
 /// プロジェクトごとの違い (リソースの形式・<c>x:Uid</c> を使うか・
 /// XAML があるか) は表にして、テーマのほうを形式非依存にしてある。

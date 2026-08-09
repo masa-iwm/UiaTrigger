@@ -24,6 +24,7 @@
   <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>UiaTrigger Picker for Windows Forms</Title>
     <Description>The Windows Forms view for the UiaTrigger element picker (TriggerPickerForm). Holds no behaviour of its own - all of it lives in UiaTrigger.Picker.Core. Note that this variant confirms the selected row with a single button rather than a button inside each row, because the Windows Forms TreeView cannot host arbitrary controls in a row.</Description>
     <PackageTags>uiautomation;uia;automation;windows;picker;winforms</PackageTags>
   </PropertyGroup>

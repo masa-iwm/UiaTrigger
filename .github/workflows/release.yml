@@ -161,17 +161,35 @@ jobs:
           }
           Write-Host ("OK: 英語 {0} ファイル / 日本語 {1} ファイルを配ります" -f $seenNeutral.Count, $seenJapanese.Count)
 
-      # D4「パッケージは全て MSIL」を機械で確かめる。
-      # ライブラリが特定の CPU で建ったまま配られると、利用者側で「参照できるのに
-      # 実行時に BadImageFormatException」という形で出る — 配ってからしか気づけない。
-      # ARM64 の PE 検査 (ci.yml の arm64-build) と同じ手を、こちらは nupkg の中身に掛ける。
+      # D4/D5「配るアセンブリはすべて MSIL」を機械で確かめる。
+      # ライブラリが特定の CPU で建ったまま配られると、利用者側では**復元は通るのに
+      # 読み込みで BadImageFormatException** という形で出る。lib/ は RID を持たないので
+      # 復元時には警告ひとつ出ず、**配ってからしか気づけない**。
+      #
+      # **件数の下限ではなく、期待する集合を名指しで数える。**「5 件以上」にすると、
+      # ja サテライトが黙って落ちても 5 件は残るので通ってしまう。欠けても余っても落とす。
+      #
+      # 入口の側の網は T1 にある (BuildInvariantTests の
+      # NoPackableProjectIsPinnedToAPlatformInTheSolution) — あちらは毎 push 撃ち、
+      # slnx の Platform 固定を足した当日に落ちる。こちらは**配布物そのもの**を見る。
       - name: Check the packaged assemblies are MSIL
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.IO.Compression.FileSystem
-          $checked = 0
+          # 「<パッケージ ID>|<lib/<TFM>/ を除いたエントリ名>」で数える。
+          # TFM を含めないのは、TFM が上がった日にこの表を書き換えずに済ませるためである
+          $expected = @(
+            'UiaTrigger.Core|UiaTrigger.Core.dll',
+            'UiaTrigger.Core|ja/UiaTrigger.Core.resources.dll',
+            'UiaTrigger.Picker.Core|UiaTrigger.Picker.Core.dll',
+            'UiaTrigger.Picker.Core|ja/UiaTrigger.Picker.Core.resources.dll',
+            'UiaTrigger.Picker.Wpf|UiaTrigger.Picker.Wpf.dll',
+            'UiaTrigger.Picker.WinForms|UiaTrigger.Picker.WinForms.dll',
+            'UiaTrigger.Picker.WinUI|UiaTrigger.Picker.WinUI.dll')
+          $seen = @()
           $bad = @()
           foreach ($pkg in Get-ChildItem artifacts/packages/*.nupkg) {
+            $id = $pkg.Name -replace '\.\d+\.\d+\.\d+(-[0-9A-Za-z.\-]+)?\.nupkg$', ''
             $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
             try {
               foreach ($e in @($zip.Entries | Where-Object { $_.FullName -like 'lib/*.dll' })) {
@@ -183,16 +201,13 @@ jobs:
                   $bytes = [System.IO.File]::ReadAllBytes($temp)
                   $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
                   $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
-                  $checked++
-                  # **Picker.WinUI だけは x64 である** (docs/DESIGN.md D5)。WinUI 3 は
-                  # アーキテクチャ固定を要求するので、あれは Platform=x64 で建てている。
-                  # 除外にせず**逆を要求する**のは、うっかり AnyCPU で建った日にも
-                  # 気づくためである — 黙って通す穴を作らない
-                  $want = if ($pkg.Name -like 'UiaTrigger.Picker.WinUI.*') { 0x8664 } else { 0x14C }
-                  if ($machine -ne $want) {
-                    $bad += ("{0} -> {1} (machine=0x{2:X}, 期待 0x{3:X})" -f $pkg.Name, $e.FullName, $machine, $want)
+                  $seen += ("{0}|{1}" -f $id, ($e.FullName -replace '^lib/[^/]+/', ''))
+                  if ($machine -ne 0x14C) {
+                    # **中のファイル名まで出す。**症状は利用者側で無関係な顔をして出るので、
+                    # どのアセンブリだったかがここに残っていないと繋がらない
+                    $bad += ("{0} -> {1} (machine=0x{2:X}, 期待 0x14C)" -f $pkg.Name, $e.FullName, $machine)
                   } else {
-                    Write-Host ("  OK: {0} -> {1} (machine=0x{2:X})" -f $pkg.Name, $e.FullName, $machine)
+                    Write-Host ("  OK: {0} -> {1} (MSIL)" -f $pkg.Name, $e.FullName)
                   }
                 } finally {
                   Remove-Item $temp -Force -ErrorAction SilentlyContinue
@@ -202,16 +217,99 @@ jobs:
               $zip.Dispose()
             }
           }
-          # **1 つも見ていないのに緑にしない** (docs/TESTING.md §2)。配る 5 パッケージが
-          # それぞれ lib/<TFM>/*.dll を 1 つ持ち、サテライトのぶんが上乗せされる
-          if ($checked -lt 5) {
-            throw "検査できた lib の dll が $checked 件しかありません (5 パッケージぶん在るはずです)。"
+
+          $missing = @($expected | Where-Object { $seen -notcontains $_ })
+          $extra = @($seen | Where-Object { $expected -notcontains $_ })
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "::error::配るはずのアセンブリが入っていません: $_" }
+            throw "配布物に足りないアセンブリがあります ($($missing.Count) 件): $($missing -join '; ')."
           }
-          if ($bad) {
+          if ($extra.Count -gt 0) {
+            $extra | ForEach-Object { Write-Host "::error::想定していないアセンブリが入っています: $_" }
+            throw "配布物に余計なアセンブリがあります ($($extra.Count) 件): $($extra -join '; ')."
+          }
+          if ($bad.Count -gt 0) {
             $bad | ForEach-Object { Write-Host "::error::MSIL ではないアセンブリを配ろうとしています: $_" }
-            throw "配布物のアセンブリが期待したアーキテクチャではありません (docs/DESIGN.md D4/D5): $($bad -join '; ')."
+            throw "配布物のアセンブリが MSIL ではありません (docs/DESIGN.md D4/D5): $($bad -join '; ')."
           }
-          Write-Host "OK: 配布する $checked 個のアセンブリは期待どおりのアーキテクチャです"
+          Write-Host ("OK: 配布する {0} 個のアセンブリはすべて MSIL です" -f $seen.Count)
+
+      # 配る nuspec の依存とメタデータを見る (docs/DESIGN.md D10 / D4)。
+      #
+      # **依存はプロジェクトファイルからは読めない。**pack が何を書き出すかは復元の結果と
+      # CPM の設定に左右される — 推移的ピン留めを有効にするだけで、推移的に届いた
+      # パッケージが直接依存として載る (D10)。csproj を読む T1 では見えないので、
+      # **配る nuspec そのもの**を読んで期待と突き合わせる。
+      #
+      # メタデータの側は**版ごとに凍る**ものだけを見る。nuget.org は公開済みの版の
+      # 表示を後から直せないので、空のまま出すと永久に空である。
+      - name: Check the packaged dependencies and metadata
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          # docs/RELEASING.md §1 の表と README の依存表が指すものと同じである
+          $expectedDeps = @{
+            'UiaTrigger.Core' = @('Microsoft.Extensions.Logging.Abstractions')
+            'UiaTrigger.Picker.Core' = @('UiaTrigger.Core')
+            'UiaTrigger.Picker.Wpf' = @('UiaTrigger.Picker.Core')
+            'UiaTrigger.Picker.WinForms' = @('UiaTrigger.Picker.Core')
+            'UiaTrigger.Picker.WinUI' = @(
+              'CommunityToolkit.WinUI.Controls.Sizers', 'Microsoft.WindowsAppSDK', 'UiaTrigger.Picker.Core')
+          }
+          $checked = 0
+          $bad = @()
+          foreach ($pkg in Get-ChildItem artifacts/packages/*.nupkg) {
+            $id = $pkg.Name -replace '\.\d+\.\d+\.\d+(-[0-9A-Za-z.\-]+)?\.nupkg$', ''
+            $zip = [System.IO.Compression.ZipFile]::OpenRead($pkg.FullName)
+            try {
+              $entry = $zip.Entries | Where-Object { $_.FullName -eq "$id.nuspec" }
+              if (-not $entry) {
+                $bad += "$($pkg.Name): nuspec が見つかりません"
+                continue
+              }
+              $reader = New-Object System.IO.StreamReader($entry.Open())
+              $xml = [xml]$reader.ReadToEnd()
+              $reader.Dispose()
+              $meta = $xml.package.metadata
+              $checked++
+
+              $deps = @($xml.GetElementsByTagName('dependency') | ForEach-Object { $_.id } | Sort-Object -Unique)
+              $want = @($expectedDeps[$id] | Sort-Object)
+              if ($want.Count -eq 0) {
+                $bad += "$($pkg.Name): 期待する依存の表に載っていません"
+              } elseif (($deps -join ',') -ne ($want -join ',')) {
+                $bad += ("{0}: 依存が期待と違います (実際: {1} / 期待: {2})" -f $pkg.Name, ($deps -join ' '), ($want -join ' '))
+              } else {
+                Write-Host ("  OK: {0} -> 依存 {1} 件 ({2})" -f $pkg.Name, $deps.Count, ($deps -join ' '))
+              }
+
+              if ($meta.version -ne $env:RELEASE_VERSION) {
+                $bad += "$($pkg.Name): nuspec の version が $($meta.version) です (期待 $env:RELEASE_VERSION)"
+              }
+              foreach ($field in 'title', 'readme', 'releaseNotes', 'description', 'projectUrl') {
+                if (-not $meta.$field) {
+                  $bad += "$($pkg.Name): nuspec の $field が空です"
+                }
+              }
+              if ($meta.license.'#text' -ne 'MIT') {
+                $bad += "$($pkg.Name): ライセンスが MIT ではありません ($($meta.license.'#text'))"
+              }
+              if (-not $meta.repository.commit) {
+                $bad += "$($pkg.Name): repository/@commit がありません"
+              }
+            } finally {
+              $zip.Dispose()
+            }
+          }
+          # **1 つも見ていないのに緑にしない** (docs/TESTING.md §2)
+          if ($checked -ne 5) {
+            throw "nuspec を読めたパッケージが $checked 件です (5 件のはずです)。"
+          }
+          if ($bad.Count -gt 0) {
+            $bad | ForEach-Object { Write-Host "::error::$_" }
+            throw "配る nuspec に問題があります ($($bad.Count) 件): $($bad -join '; ')."
+          }
+          Write-Host "OK: 5 パッケージとも依存とメタデータが期待どおりです"
 
       # 配布するホストは win-x64 だけである。
       # **ARM64 は出さない** — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と

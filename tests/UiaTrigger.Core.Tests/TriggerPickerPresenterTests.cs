@@ -1,6 +1,6 @@
 // ピッカーの振る舞いの回帰テスト (docs/TESTING.md §1 T1 / docs/DESIGN.md §12)。
 //
-// 振る舞いが View (WinUI3 / x64 でテストから読み込めないアセンブリ) に埋まっていると、
+// 振る舞いが View (WinUI3 / WindowsAppSDK でテストから読み込めないアセンブリ) に埋まっていると、
 // 「動いているのを見た」以外の担保が無くなる。presenter に切り出してあるからここで回せる。
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;

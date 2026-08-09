@@ -2,7 +2,7 @@
 //
 // **ここでしか見られないもの:** WinUI3 の GridSplitter の繋ぎ。
 // WPF 側は T1 (TriggerPickerWpfWindowTests) が Grid.Column / ResizeDirection を直接見られるが、
-// WinUI3 の View は x64 / WindowsAppSDK のため T1 から組み立てられない。つまり
+// WinUI3 の View は WindowsAppSDK のため T1 から組み立てられない。つまり
 // 「Grid.Column を取り違えた」「ResizeDirection の推測が外れた」は、**実物を起こして
 // 位置を測る以外に見る手立てが無い**。どちらも例外にならず、置いたのに効かないだけである。
 // ホストの区切り (ListSplitter) も同じ理由でここに在る — 加えて、ホストのリソースは

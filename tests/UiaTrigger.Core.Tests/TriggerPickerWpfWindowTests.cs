@@ -1,6 +1,6 @@
 // WPF View (継ぎ目の向こう側) の回帰テスト (docs/DESIGN.md §12)。
 //
-// 「View は T1 から触れない」は**WinUI3 / x64 / WindowsAppSDK** の制約であって
+// 「View は T1 から触れない」は**WinUI3 / WindowsAppSDK** の制約であって
 // View 一般の話ではない (docs/DESIGN.md §12)。
 // net10.0-windows / AnyCPU の WPF View はここで直接組み立てて検査できる。
 //

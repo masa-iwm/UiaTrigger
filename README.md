@@ -21,6 +21,22 @@ changes through UI Automation, and raises an event when a condition is met.
   `TriggerMonitorDiagnostics.PollCount` and `PolledReadCount` report what it costs. Finding elements
   stays event driven either way; polling only re-reads ones already found
 
+## Install
+
+```powershell
+# Pick the one that matches your application's UI framework.
+dotnet add package UiaTrigger.Core             # the library itself, no UI
+dotnet add package UiaTrigger.Picker.WinUI     # + the element picker (WinUI 3)
+dotnet add package UiaTrigger.Picker.Wpf       # + the element picker (WPF)
+dotnet add package UiaTrigger.Picker.WinForms  # + the element picker (Windows Forms)
+```
+
+`UiaTrigger.Core` is all you need to define and monitor triggers from code. Each `Picker.*` package
+adds the on-screen element picker for one UI framework and brings `UiaTrigger.Core` with it, so you
+do not reference both. Every package is Windows-only (`net10.0-windows`; the WinUI 3 one needs
+Windows 10 build 19041 or later). Every shipped assembly is AnyCPU, so the packages put no
+architecture constraint on your application.
+
 ## Layout
 
 | Project | Contents |
@@ -34,6 +50,10 @@ changes through UI Automation, and raises an event when a condition is met.
 | `UiaTrigger.App.Wpf` | Sample host (WPF). Same |
 | `UiaTrigger.App.WinForms` | Sample host (Windows Forms). Same |
 | `UiaTrigger.TestHost` | Console app for exercising the library. `record` / `monitor` commands |
+
+**Only the first five ship as NuGet packages.** The three sample hosts and `UiaTrigger.TestHost` are
+there to read, run from source, or download from
+[Releases](https://github.com/masa-iwm/UiaTrigger/releases) as ready-to-run zips.
 
 ### What each package pulls in
 

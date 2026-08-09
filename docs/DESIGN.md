@@ -9,8 +9,8 @@
 | 項目 | 決定 |
 |---|---|
 | 対象 SKU | C# / .NET 10 / WinUI 3 / Native AOT 発行対応の、**他アプリ UI 要素監視ライブラリ**。変更しない |
-| 配布形態 | **NuGet パッケージ 5 つ**: `UiaTrigger.Core` (依存なし) / `UiaTrigger.Picker.Core` (→ Core) / `UiaTrigger.Picker.WinUI` / `.Wpf` / `.WinForms` (→ Picker.Core)。README が「自分のアプリと同じ UI フレームワークの `Picker.*` を参照する」と案内している以上、5 つとも配らないと案内が嘘になる。サンプルホスト 3 つと `TestHost` は NuGet では配れないので GitHub Releases の zip で配る |
-| パッケージの中身 | **5 つとも MSIL (AnyCPU)**。`dotnet pack` は AnyCPU で建て直すため、ソリューションビルドの `bin\x64` を見て「x64 のパッケージだ」と結論しないこと。利用者に x64 の制約は掛からない |
+| 配布形態 | **NuGet パッケージ 5 つ**: `UiaTrigger.Core` (→ `Microsoft.Extensions.Logging.Abstractions`) / `UiaTrigger.Picker.Core` (→ Core) / `UiaTrigger.Picker.WinUI` / `.Wpf` / `.WinForms` (→ Picker.Core)。README が「自分のアプリと同じ UI フレームワークの `Picker.*` を参照する」と案内している以上、5 つとも配らないと案内が嘘になる。サンプルホスト 3 つと `TestHost` は NuGet では配れないので GitHub Releases の zip で配る |
+| パッケージの中身 | **5 つとも MSIL (AnyCPU)**。利用者にアーキテクチャの制約は掛からない。**これは `UiaTrigger.slnx` が配るプロジェクトを `Platform` に固定していないことで保たれている** — 配布物は `dotnet pack UiaTrigger.slnx` (ソリューション pack) が作るので、固定すればそのまま `lib/` へ流れる。ソリューションビルドの `bin\x64` を見て「x64 のパッケージだ」と結論しないこと |
 | 版数 | `0.1.0-preview.1` から。**`1.0.0` で出すことは「安定している」という約束**であり、公開 API の再構成が続くうちは出さない。プレリリース札があれば利用者が明示的に選ばない限り復元されない |
 | 過去互換 | **0.x のあいだは持たない** (安定版で互換方針を立て直す)。旧形式の判別処理そのものを持たない — 読み替えるべき過去のファイルが公開版には存在しないため。代わりに**版数だけは最初から書き込む** (`TriggerJson.FormatVersion = 1`)。版数の無いファイルは後から見分けようがなく、それを増やさないことだけが将来の移行を可能にする。`FormatVersion` は 1 のままでよく、「既存 JSON がバイト単位で変わらない」は目標にしない |
 | `InternalsVisibleTo` | **製品アセンブリ向けは持たない** (テストアセンブリに限る)。詳細は §12 |
@@ -584,7 +584,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 ### AnyCPU と x64、AOT
 
 - ライブラリは**純 IL / AnyCPU** である。WinUI3 View だけが x64 / WindowsAppSDK の制約を持ち、そのため T1 から参照できない。**「View はテストできない」は誤り** — 制約は WinUI3 に固有で、WPF / WinForms の View は普通に `ProjectReference` できる
-- App の `RuntimeIdentifier` はハードコードせず `Platform` から導く (ARM64 指定で `win-arm64`)。App を ARM64 で建てると参照するライブラリ側も ARM64 で建つが、配布物には掛からない — パッケージは `Platform` 無指定の `dotnet pack` が作るので MSIL のままである (§1)。`bin\ARM64` や `bin\x64` の中身から配布物の機種を結論しないこと
+- App の `RuntimeIdentifier` はハードコードせず `Platform` から導く (ARM64 指定で `win-arm64`)。App を ARM64 で建てると参照するライブラリ側も ARM64 で建つが、配布物には掛からない — 配るプロジェクトは slnx で固定していないので、ソリューション pack でも MSIL のままである (§1)。`bin\ARM64` や `bin\x64` の中身から配布物の機種を結論しないこと
 - **WinRT の ABI に静的な型がそのまま載る層は黙って失敗する**: `ItemsSource` (ABI 上 `object`) へ `IReadOnlyList<素の列挙型>` を渡すと CCW を組めず `E_INVALIDARG` (捕まえるなら `ArgumentException`、`COMException` ではない)。配列に具象化して渡す。発行済みバイナリでは `VisualTreeHelper` が返す型が基底に落ち、`TreeView` は `ScrollViewer.*` 添付プロパティを中継しない — いずれも例外もバインドエラーも出ない
 - **AOT 発行でだけ壊れる層がある** (A23)。自アセンブリ外の WinRT 値型 (`GridLength` 等) は CsWinRT が vtable を生成せず、ABI を越える代入が**例外なく**動かなくなる。`[assembly: WinRT.GeneratedWinRTExposedExternalType(typeof(GridLength))]` は**`Picker.WinUI` に置く** — ライブラリ側に置けば、参照して自分のアプリを AOT 発行する利用者も同じ穴を踏まない。`CsWinRTAotWarningLevel=3` (前提: `WindowsSdkPackageVersion` を明示 — 既定 SDK の CsWinRT はこのプロパティを黙って無視する) はこの層をビルドで止めるが、**外部型は生成器の視野に入らないので A23 の代替にはならない。2 つは別の網である**
 
@@ -677,12 +677,13 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 | テストが ID で参照 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 | テストが ID で参照 |
 | D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — | テストが ID で参照 |
-| D4 | NuGet 5 パッケージ / MIT / プレリリース版数から。配るアセンブリは `Picker.WinUI` を除いて MSIL — あれだけは WinUI 3 の要求で x64 である (D5)。**除外ではなく逆を要求する**形でリリース時に検査する (うっかり AnyCPU で建った日にも気づくため) | §1 | テストが ID で参照 |
-| D5 | ライブラリは AnyCPU。App の RID は `Platform` から導き、ARM64 でも建つ | §12 | テストが ID で参照 |
+| D4 | NuGet 5 パッケージ / MIT。**配るアセンブリはサテライトも含めて全て MSIL** (D5)。WinUI 3 の**ライブラリ**にアーキテクチャの要求は無い — `Microsoft.WinUI.dll` 自身も MSIL である。リリース時は**期待する 7 エントリを名指しで数える** (件数の下限にすると、ja サテライトが落ちても通る) | §1 | テストが ID で参照 |
+| D5 | ライブラリは AnyCPU。App の RID は `Platform` から導き、ARM64 でも建つ。**`UiaTrigger.slnx` の `Platform` 固定は配るプロジェクトに付けない** — ソリューション pack がそれを拾い、アーキ非依存の `lib/` に特定 CPU の dll が入る (利用者は復元だけ通り、読み込みで `BadImageFormatException`)。固定してよいのは配らないアプリ (`App.WinUI`) だけである | §12 | テストが ID で参照 |
 | D6 | README は実装と一致させる。英語版が正である | docs/LOCALIZATION.md | 網なし — 散文と実装の一致に機械的な判定基準が無い。README が書いた決定の**実装側**は個別のテストが縛る |
 | D7 | サンプルは XAML 未処理例外を握り潰さない。`UnhandledException` はログへ出す | §12 | テストが ID で参照 |
 | D8 | 昇格アプリを監視できない制約は文書と実行時通知 (A10) の両方で明示する | §3 | テストが ID で参照 |
 | D9 | `App.WinUI` だけが Picker → Monitor の E2E ショーケースを兼ねる。意図的な非対称である | §12 | テストが ID で参照 |
+| D10 | **配る nuspec の依存は、そのプロジェクトが宣言したものだけである。**`CentralPackageTransitivePinningEnabled` は切る — 有効だと推移的に届いたパッケージが直接参照へ昇格し、`Microsoft.Extensions.Logging.Abstractions` が 5 つ全部の直接依存として nuspec に載って、「`Core` 経由で届く」という README の案内と nuget.org の Dependencies 欄が食い違う。切っても**利用者が入れるものは変わらない** (実測: 復元は同じ版に解決し、ビルドも T1/T2 も緑)。配る依存が増えるときは明示の `PackageReference` として差分に見えること | §1 | テストが ID で参照 |
 | L1 | 公開 API の XML doc は英語。実装内部のコメントは日本語のままでよい (経緯の記録として価値がある) | docs/LOCALIZATION.md | テストが ID で参照 |
 | L2 | 例外・診断メッセージはリソース経由 (en-US 中立 + ja サテライト)。ハードコードしない | docs/LOCALIZATION.md | テストが ID で参照 |
 | L3 | WinUI の UI 文字列は `.resw` + `x:Uid` + MRT Core | docs/LOCALIZATION.md | テストが ID で参照 |

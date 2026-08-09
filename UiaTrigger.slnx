@@ -14,9 +14,7 @@
     <Project Path="src/UiaTrigger.Picker.Core/UiaTrigger.Picker.Core.csproj" />
     <Project Path="src/UiaTrigger.Picker.WinForms/UiaTrigger.Picker.WinForms.csproj" />
     <Project Path="src/UiaTrigger.Picker.Wpf/UiaTrigger.Picker.Wpf.csproj" />
-    <Project Path="src/UiaTrigger.Picker.WinUI/UiaTrigger.Picker.WinUI.csproj">
-      <Platform Project="x64" />
-    </Project>
+    <Project Path="src/UiaTrigger.Picker.WinUI/UiaTrigger.Picker.WinUI.csproj" />
     <Project Path="src/UiaTrigger.TestHost/UiaTrigger.TestHost.csproj" />
   </Folder>
   <Folder Name="/tests/">

@@ -12,8 +12,12 @@
 
     PlatformTarget はここで強制しない。Core は純 IL なので AnyCPU として発行し、
     x64 固定でしか読み込めないアセンブリにしないため (docs/DESIGN.md D5)。
-    x64 が必要なプロジェクト (WinUI 3 の App / Picker) は UiaTrigger.slnx で
+    x64 が必要なのは WinUI 3 の**アプリ** (App.WinUI) だけである。UiaTrigger.slnx で
     Platform=x64 に固定しており、SDK が Platform から PlatformTarget を導出する。
+
+    **Picker.WinUI は固定しない。**WinUI 3 のライブラリにアーキテクチャの要求は無く
+    (実測: Microsoft.WinUI.dll も CommunityToolkit の Sizers も MSIL)、slnx で固定すると
+    ソリューション pack がそれを拾って**x64 の dll を lib/ に配る**ことになる (D4/D5)。
   -->
   <PropertyGroup>
     <Platforms>AnyCPU;x64;ARM64</Platforms>
@@ -85,6 +89,12 @@
     <Copyright>Copyright (c) 2026 masa-iwm</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!--
+      nuget.org の Release Notes 欄。**空のまま出すとその版は永久に空である** —
+      公開済みの版の表示は後から直せない。中身を写さずリンクにするのは、
+      CHANGELOG が正でありここに写しを作るとずれるためである。
+    -->
+    <PackageReleaseNotes>See the changelog for what changed in this version: https://github.com/masa-iwm/UiaTrigger/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/masa-iwm/UiaTrigger</PackageProjectUrl>
     <RepositoryUrl>https://github.com/masa-iwm/UiaTrigger</RepositoryUrl>
     <RepositoryType>git</RepositoryType>

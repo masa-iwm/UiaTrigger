@@ -108,7 +108,7 @@ public sealed class PublicApiTests
 
     /// <summary>
     /// ピッカーを公開 API だけで書けること (docs/DESIGN.md C2)。実際に Picker から使うメンバーが
-    /// 揃っているかを名前で押さえる (Picker は WinUI3 / x64 なのでこのテストからは参照できない — §12)。
+    /// 揃っているかを名前で押さえる (Picker は WinUI3 / WindowsAppSDK なのでこのテストからは参照できない — §12)。
     /// </summary>
     [Theory]
     [InlineData(nameof(UiaSession.ElementFromPointAsync))]

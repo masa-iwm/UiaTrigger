@@ -4,7 +4,7 @@
 //
 //   (1) **子ピッカーを開く経路** (ITriggerListEditorView.ShowPicker)。Show() を呼ぶので
 //       窓の表示が要り、T1 の担当ではない (WPF のコンテナ実体化を外したのと同じ線)。
-//   (2) **WinUI の ShowDraft**。WinUI View は x64 / WindowsAppSDK のため T1 から
+//   (2) **WinUI の ShowDraft**。WinUI View は WindowsAppSDK のため T1 から
 //       実体化できない。既存トリガーを読み込んだときに条件欄が埋まることは、
 //       実物を起こす以外に見る手立てが無い。
 //

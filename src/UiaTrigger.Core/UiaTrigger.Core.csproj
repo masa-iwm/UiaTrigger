@@ -10,6 +10,7 @@
   <!-- NuGet 配布 (docs/DESIGN.md D4 / docs/RELEASING.md §1)。共通のメタデータは Directory.Build.props -->
   <PropertyGroup>
     <IsPackable>true</IsPackable>
+    <Title>UiaTrigger Core</Title>
     <Description>Watches other applications' UI elements through UI Automation and raises events when conditions are met. The UI-independent core: element search and recording (UiaSession), the trigger model, beam-search element resolution, and TriggerMonitor. Native AOT compatible.</Description>
     <PackageTags>uiautomation;uia;automation;windows;trigger;monitoring;accessibility;aot</PackageTags>
   </PropertyGroup>

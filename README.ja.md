@@ -20,6 +20,22 @@
   どちらの場合も**要素を見つけるところはイベント駆動のまま**で、
   ポーリングが読み直すのは既に見つかっている要素だけである
 
+## 導入
+
+```powershell
+# 自分のアプリと同じ UI フレームワークのものを 1 つ選ぶ。
+dotnet add package UiaTrigger.Core             # ライブラリ本体 (UI なし)
+dotnet add package UiaTrigger.Picker.WinUI     # + 要素ピッカー (WinUI3)
+dotnet add package UiaTrigger.Picker.Wpf       # + 要素ピッカー (WPF)
+dotnet add package UiaTrigger.Picker.WinForms  # + 要素ピッカー (Windows Forms)
+```
+
+コードからトリガーを定義して監視するだけなら `UiaTrigger.Core` で足りる。`Picker.*` は
+UI フレームワーク 1 つぶんの要素ピッカーを足すもので、`UiaTrigger.Core` を連れてくるので
+両方を参照する必要は無い。5 つとも Windows 専用 (`net10.0-windows`。WinUI3 のものだけ
+Windows 10 build 19041 以降)。配るアセンブリは**すべて AnyCPU** なので、パッケージ側が
+アプリのアーキテクチャを縛ることはない。
+
 ## 構成
 
 | プロジェクト | 内容 |
@@ -33,6 +49,10 @@
 | `UiaTrigger.App.Wpf` | サンプルホスト (WPF)。同上 |
 | `UiaTrigger.App.WinForms` | サンプルホスト (Windows Forms)。同上 |
 | `UiaTrigger.TestHost` | ライブラリ検証用コンソール。`record` / `monitor` コマンド |
+
+**NuGet で配るのは上の 5 つだけである。**サンプルホスト 3 つと `UiaTrigger.TestHost` は
+読んで写すためのもので、ソースから実行するか
+[Releases](https://github.com/masa-iwm/UiaTrigger/releases) の zip をそのまま動かす。
 
 ### 各パッケージが引き込むもの
 
