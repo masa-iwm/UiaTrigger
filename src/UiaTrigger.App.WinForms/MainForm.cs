@@ -12,6 +12,24 @@ internal sealed class MainForm : Form
 {
     // --triggers があればそちら (docs/DESIGN.md §12)。無指定なら実ファイル。
     // 読み書きの両方がこの 1 つのフィールドを通る
+
+
+    /// <summary>96 DPI 基準で書いた寸法を、いまの表示スケールへ揃える。</summary>
+    /// <remarks>
+    /// **<c>AutoScaleMode</c> を宣言するだけでは伸びない** — 自動スケールは layout の再開で
+    /// 走るので、<c>SuspendLayout</c> … <c>ResumeLayout</c> で挟まないと一度も走らない (実測)。
+    /// その挟み方は配る側のピッカーでは採れない (<c>SplitContainer</c> が生きた幅を要る) ので、
+    /// 3 つの窓とも <c>Scale</c> で揃えてある。**子を足し終えてから呼ぶこと。**
+    /// </remarks>
+    private void ScaleToCurrentDpi()
+    {
+        float scale = DeviceDpi / 96f;
+        if (scale != 1f)
+        {
+            Scale(new SizeF(scale, scale));
+        }
+    }
+
     private readonly string _filePath = HostOptions.TriggerFile ?? TriggerFilePath.Default;
     private readonly List<TriggerDefinition> _triggers = [];
 
@@ -38,14 +56,13 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
-        // **`ClientSize` は物理ピクセルで、既定では DPI で伸びない。**この 900×600 は
-        // 96 DPI 基準の数字であり、WPF の `Width="900"` (DIP) と WinUI の
+        // **`ClientSize` も子コントロールの寸法も物理ピクセルで、既定では DPI で伸びない。**
+        // この 900×600 は 96 DPI 基準の数字であり、WPF の `Width="900"` (DIP) と WinUI の
         // `ResizeClient(Scale(900, dpi))` と同じものを指す (docs/DESIGN.md §12)。
-        // 宣言しないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
-        // ただ小さい。`AutoScaleDimensions` を 96 に置くと、この数字も子コントロールも
-        // 実 DPI へ揃って伸びる。
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
+        // 伸ばさないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
+        // ただ小さい。
+        //
+        // 伸ばし方と、`AutoScaleMode` では駄目な理由は `ScaleToCurrentDpi` に書いてある。
         ClientSize = new Size(900, 600);
 
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true };
@@ -61,6 +78,8 @@ internal sealed class MainForm : Form
         _reload.Text = AppStrings.Get("ReloadButton.Content");
         _editList.Text = AppStrings.Get("EditListButton.Content");
         _path.Text = _filePath;
+        // **子を足し終えてから**伸ばす。`Scale` はそのとき載っているものしか伸ばさない
+        ScaleToCurrentDpi();
 
         _openPicker.Click += (_, _) =>
         {

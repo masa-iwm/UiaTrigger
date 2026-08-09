@@ -156,8 +156,13 @@ public sealed class PickerWindowDefaultSizeTests
     /// 通ったまま 175% の画面で 1 つだけ小さく開く — 実際にそうなっていた。
     /// </para>
     /// <para>
-    /// <c>AutoScaleDimensions</c> を 96 に置くことが「この数字は 96 DPI 基準である」という
-    /// 宣言であり、WinUI 側の <c>Scale(widthAt96, dpi)</c> と対になる。
+    /// **<c>AutoScaleMode</c> では伸びない。**手書きのフォームには設計時の寸法が無く、
+    /// <c>Dpi</c> / <c>Font</c> のどちらを宣言しても 175% の画面で元の数字のまま開く
+    /// (実測: 窓 1100×700 のまま)。伸びるのは <c>Scale</c> のほうで、窓と子コントロールを
+    /// 同じ倍率で伸ばす (実測: 窓 1100→1925 / 幅 90 の欄→154)。**この 2 つを取り違えると、
+    /// 宣言を足したのに何も変わらないまま「直した」ことになる。**
+    /// </para>
+    /// <para>
     /// **実際にその大きさで開くことは人が見る** (docs/MANUAL-CHECKS.md §4.3.1)。
     /// </para>
     /// </summary>
@@ -165,10 +170,14 @@ public sealed class PickerWindowDefaultSizeTests
     [InlineData("src/UiaTrigger.Picker.WinForms/TriggerPickerForm.cs")]
     [InlineData("src/UiaTrigger.Picker.WinForms/TriggerListEditorForm.cs")]
     [InlineData("src/UiaTrigger.App.WinForms/MainForm.cs")]
-    public void TheWinFormsWindowsDeclareTheirSizeIsAt96Dpi(string relativePath)
+    public void TheWinFormsWindowsScaleTheirSizeToTheCurrentDpi(string relativePath)
     {
         string code = Read(relativePath);
-        Assert.Contains("AutoScaleDimensions = new SizeF(96F, 96F)", code, StringComparison.Ordinal);
-        Assert.Contains("AutoScaleMode = AutoScaleMode.Dpi", code, StringComparison.Ordinal);
+        Assert.Contains("ScaleToCurrentDpi();", code, StringComparison.Ordinal);
+        Assert.Contains("float scale = DeviceDpi / 96f;", code, StringComparison.Ordinal);
+        Assert.Contains("Scale(new SizeF(scale, scale));", code, StringComparison.Ordinal);
+        // **宣言しただけで満足しない。**AutoScaleMode は伸ばさないので、これが残っていたら
+        // 「効かない直し」が戻ってきている
+        Assert.DoesNotContain("AutoScaleMode = AutoScaleMode.Dpi", code, StringComparison.Ordinal);
     }
 }

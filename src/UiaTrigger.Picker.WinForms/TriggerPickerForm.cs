@@ -144,17 +144,18 @@ public sealed class TriggerPickerForm : Form, IPickerView
         Func<IPickerView, TriggerPickerPresenter>? createPresenter)
     {
         _strings = strings;
-        // **`ClientSize` は物理ピクセルで、既定では DPI で伸びない。**この 1100×700 は
-        // 96 DPI 基準の数字であり、WPF の `Width="1100"` (DIP) と WinUI の
+        // **`ClientSize` も子コントロールの寸法も物理ピクセルで、放っておくと DPI で伸びない。**
+        // この 1100×700 は 96 DPI 基準の数字であり、WPF の `Width="1100"` (DIP) と WinUI の
         // `ResizeClient(Scale(1100, dpi))` と同じものを指す (docs/DESIGN.md §12)。
-        // 宣言しないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
-        // ただ小さい。`AutoScaleDimensions` を 96 に置くと、この数字も子コントロールも
-        // 実 DPI へ揃って伸びる。
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
+        // 伸ばさないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
+        // ただ小さい。
+        //
+        // 伸ばし方と、`AutoScaleMode` では駄目な理由は `ScaleToCurrentDpi` に書いてある。
         ClientSize = new Size(1100, 700);
         BuildLayout();
         ApplyStrings();
+        // **子を足し終えてから**伸ばす。`Scale` はそのとき載っているものしか伸ばさない
+        ScaleToCurrentDpi();
 
         // ハンドルは**ここで**作る。オーバーレイはコールバックを自分のスレッドから
         // 上げてくるので、Post は UI スレッド以外から呼ばれる。ハンドル生成前の
@@ -317,6 +318,33 @@ public sealed class TriggerPickerForm : Form, IPickerView
     /// という形だけで、T1 が 106px の区画に 200px の中身を見つけて初めて分かった。
     /// </para>
     /// </remarks>
+    /// <summary>96 DPI 基準で書いた寸法を、いまの表示スケールへ揃える。</summary>
+    /// <remarks>
+    /// **<c>AutoScaleMode</c> を宣言するだけでは伸びない。**自動スケールは layout の再開で
+    /// 走るので、<c>SuspendLayout</c> … <c>ResumeLayout</c> で挟まないと一度も走らない
+    /// (実測: 宣言だけだと 175% でも元の数字のまま)。
+    ///
+    /// <para>
+    /// **その挟み方はこのフォームでは採れない。**<c>BuildLayout</c> の中で
+    /// <c>SplitContainer</c> が生きた幅から <c>SplitterDistance</c> を決めており、layout を
+    /// 止めると範囲外になって <c>InvalidOperationException</c> で落ちる (実測)。
+    /// <c>Scale</c> は layout を止めずに同じ結果を出す
+    /// (実測: 窓 1100→1925 / 幅 90 の欄→154)。
+    /// </para>
+    ///
+    /// <para>
+    /// **子を足し終えてから呼ぶこと。**<c>Scale</c> はそのとき載っているものしか伸ばさない。
+    /// </para>
+    /// </remarks>
+    private void ScaleToCurrentDpi()
+    {
+        float scale = DeviceDpi / 96f;
+        if (scale != 1f)
+        {
+            Scale(new SizeF(scale, scale));
+        }
+    }
+
     private void SizeTheConditionPane()
     {
         int usableWidth = _conditionSplit.Panel2.ClientSize.Width - SystemInformation.VerticalScrollBarWidth;
