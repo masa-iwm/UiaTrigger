@@ -396,11 +396,24 @@ jobs:
           verified on this project's CI; shipping a binary that was never built here is not something
           this repository does.
 
+          ### Stability
+
+          While the version is ``0.x`` the public API is still moving and a minor bump can break you.
+          "@
+
+          # **プレリリース札の説明は、札が在るときだけ出す。**札の無い版に
+          # 「NuGet は明示的に選ばない限り復元しない」と書くと**逆のことを教える**ことになる。
+          # 判定は --prerelease と同じ「版数に - を含むか」で行い、2 つがずれないようにする
+          if ($env:RELEASE_VERSION -like '*-*') {
+            $notes += @"
+
+
           ### About the prerelease tag
 
-          ``0.1.x-preview`` means the public API is still moving and breaking changes can land.
-          NuGet will not restore it unless you ask for prereleases explicitly.
+          This is a prerelease. NuGet will not restore it unless you ask for prereleases explicitly.
           "@
+          }
+
           $notesFile = "$env:RUNNER_TEMP/notes.md"
           Set-Content -Path $notesFile -Value $notes -Encoding utf8
 
