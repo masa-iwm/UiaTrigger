@@ -1,0 +1,161 @@
+name: Publish to nuget.org
+
+# ドラフト Release に添付された .nupkg / .snupkg を、そのまま nuget.org へ発行する
+# (docs/RELEASING.md §7)。
+#
+# **手動起動だけである。**タグ push では走らせない。取り消せないものを「タグを打ったら
+# 自動で走る」経路に載せない、というのが §3 からの一貫した規律であり、禁じているのは
+# **自動で走ること**であってワークフローを使うことではない。押すのは人のままである。
+#
+# **鍵は持たない。**GitHub の OIDC トークンを nuget.org の Trusted Publishing で
+# 短命の API キーへ交換する。長期の NuGet API キーを秘密情報として置かない (§7.3)。
+# **nuget.org 側のポリシーはこのファイルの名前 (publish-nuget.yml) に紐づく** —
+# 名前を変えると発行できなくなるので、動かすときはポリシーも直すこと。
+#
+# GitHub Packages への発行 (publish-packages.yml) とは工程を分ける。あちらは読むのにも
+# トークンが要る閉じた名前空間で、こちらは誰でも取れる公開の名前空間である。配る相手の
+# 範囲が違う。
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "発行元のタグ (ドラフト Release の名前。例 v0.1.0)"
+        required: true
+      user:
+        description: "nuget.org のユーザー名 (Trusted Publishing のポリシーの持ち主)"
+        required: true
+
+permissions:
+  # OIDC トークンを取る。これが Trusted Publishing の本体である
+  id-token: write
+  # ドラフト Release の添付を読む。read では足りない — **ドラフトは push 権限を持つ相手にしか
+  # 見えない**ので、contents: read のトークンには一覧に出ず gh が "release not found" で
+  # 落ちる (publish-packages.yml と同じ実測)
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+
+jobs:
+  publish:
+    name: Publish the packages to nuget.org
+    runs-on: windows-latest
+    steps:
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: "10.0.x"
+
+      # pack し直さない。出すのは**人が確かめた当のバイト列**である (§7.2)。
+      #
+      # **.snupkg も落とす。**dotnet nuget push が隣の .snupkg を一緒に押すのは
+      # 「同じディレクトリに在るとき」だけで、落とし忘れるとその版にシンボルは永久に付かない。
+      # publish-packages.yml の '*.nupkg' だけを写さないこと — あちらが snupkg を除くのは
+      # GitHub Packages にシンボルサーバーが無いからで、nuget.org では逆である。
+      - name: Download the packages from the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force packages | Out-Null
+          gh release download "${{ inputs.tag }}" --repo "$env:GITHUB_REPOSITORY" `
+            --pattern '*.nupkg' --pattern '*.snupkg' --dir packages
+          if ($LASTEXITCODE -ne 0) { throw "gh release download が失敗しました ($LASTEXITCODE)." }
+
+      # 件数と版数を、発行する前に数える。**押したあとでは何も直せない。**
+      - name: Check what will be published
+        shell: pwsh
+        run: |
+          $version = "${{ inputs.tag }}" -replace '^v', ''
+          $nupkgs = @(Get-ChildItem packages/*.nupkg | Sort-Object Name)
+          $snupkgs = @(Get-ChildItem packages/*.snupkg | Sort-Object Name)
+          ($nupkgs + $snupkgs) | ForEach-Object { Write-Host ("  {0}  ({1:N2} MB)" -f $_.Name, ($_.Length / 1MB)) }
+
+          if ($nupkgs.Count -ne 5) {
+            throw "nupkg が 5 つではありません ($($nupkgs.Count))。docs/RELEASING.md §1 の表を参照。"
+          }
+          if ($snupkgs.Count -ne 5) {
+            throw "snupkg が 5 つではありません ($($snupkgs.Count))。落とし忘れるとシンボルが永久に付きません。"
+          }
+          $wrong = @(($nupkgs + $snupkgs) | Where-Object { $_.Name -notlike "*.$version.nupkg" -and $_.Name -notlike "*.$version.snupkg" })
+          if ($wrong.Count -gt 0) {
+            throw "タグ ($version) と版数が違うファイルがあります: $(($wrong | ForEach-Object Name) -join ', ')."
+          }
+          Add-Content $env:GITHUB_ENV "PUBLISH_VERSION=$version"
+
+      # GitHub の OIDC トークンを nuget.org の短命 API キーへ交換する。
+      # **秘密情報は増えない** — 交換を許すかどうかは nuget.org 側のポリシーが決める。
+      - uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        id: login
+        with:
+          user: ${{ inputs.user }}
+
+      # **--skip-duplicate は付けない。**既に在る版を黙って飛ばすと「いま出しているのは
+      # このバイト列だ」という保証が消える。**--no-symbols も付けない** — nuget.org は
+      # symbols.nuget.org を持ち、.snupkg を受ける。
+      #
+      # V3 の口へ押す。V2 (www.nuget.org/api/v2/package) は snupkg を受けないので、
+      # nupkg だけが上がって**シンボルはエラーも出さずに落ちる**。
+      #
+      # ワイルドカードは渡さない (展開されないのは §6 で実測)。**依存の順に押す** —
+      # 逆にすると、索引に出た直後に依存が解決できないパッケージが公開される窓ができる。
+      - name: Push
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          $source = "https://api.nuget.org/v3/index.json"
+          $order = @(
+            "UiaTrigger.Core", "UiaTrigger.Picker.Core",
+            "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms", "UiaTrigger.Picker.WinUI")
+          foreach ($id in $order) {
+            $file = Join-Path "packages" "$id.$env:PUBLISH_VERSION.nupkg"
+            if (-not (Test-Path $file)) { throw "$file がありません。" }
+            Write-Host "--- push $id"
+            dotnet nuget push $file --source $source --api-key $env:NUGET_API_KEY
+            if ($LASTEXITCODE -ne 0) { throw "$id の push が失敗しました ($LASTEXITCODE)." }
+          }
+
+      # 「push が 1 件も走らなくても緑」を塞ぐ。プロパティではなくレジストリの応答で数える。
+      #
+      # nuget.org の検証は**非同期**である。押した直後は索引に出ていないので、しばらく待って
+      # 引き直す。**ここが赤くても push は取り消せない** — 落ちたときに読むのは
+      # 「出ていない」ではなく「まだ出ていない」かもしれない、ということである。
+      # 検索索引はさらに遅れるので、見るのは flat container のほうにする。
+      - name: Verify nuget.org serves all five versions
+        shell: pwsh
+        run: |
+          $version = $env:PUBLISH_VERSION
+          $ids = @(
+            "UiaTrigger.Core", "UiaTrigger.Picker.Core",
+            "UiaTrigger.Picker.WinUI", "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms")
+
+          $missing = @()
+          foreach ($id in $ids) {
+            $url = "https://api.nuget.org/v3-flatcontainer/$($id.ToLowerInvariant())/index.json"
+            $found = $false
+            foreach ($attempt in 1..20) {
+              try {
+                $versions = (Invoke-RestMethod -Uri $url).versions
+                if ($versions -contains $version) { $found = $true; break }
+              } catch {
+                Write-Host "  ($id) 試行 $attempt : $($_.Exception.Message)"
+              }
+              Start-Sleep -Seconds 15
+            }
+            if ($found) { Write-Host "  OK: $id $version" } else { $missing += $id }
+          }
+          if ($missing.Count -gt 0) {
+            throw "nuget.org に版 $version が見えないパッケージがあります: $($missing -join ', ')。" +
+                  "**push そのものは取り消せない** — 検証待ちなのか失敗したのか、パッケージのページで確かめること。"
+          }
+          Write-Host "OK: 5 パッケージすべて $version が nuget.org から引ける"
+
+      # シンボルの検証は nupkg が確定したあとに非同期で走る。ここでは結果が出ていないので、
+      # **緑を「シンボルまで通った」と読まない** (§7.5)。
+      - name: Remind what is still pending
+        shell: pwsh
+        run: |
+          Write-Host "::notice::シンボル (.snupkg) の検証は非同期です。数十分後にパッケージのページと登録メールを見てください。"
+          Write-Host "::notice::匿名での復元は別に確かめること (docs/RELEASING.md §7.6)。"

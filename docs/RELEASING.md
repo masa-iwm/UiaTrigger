@@ -369,43 +369,43 @@ gh release download v0.1.0 --repo masa-iwm/UiaTrigger `
 - `Get-FileHash -Algorithm SHA256` で 5 つのハッシュを控える。**押したあとレジストリから
   落とし直して突き合わせる**ため (§7.6)。
 
-### §7.3 API キー — 長期の秘密情報は持たない
+### §7.3 押す口 — Trusted Publishing
 
-方針は §3 のままである。**API キーをリポジトリにも GitHub Secrets にも置かない。**
+**API キーをリポジトリにも GitHub Secrets にも置かない** (方針は §3 のまま)。押すのは
+`.github/workflows/publish-nuget.yml` で、GitHub の OIDC トークンを nuget.org の
+**短命の API キー**へ交換する (`NuGet/login`)。秘密情報は増えない — 交換を許すかどうかは
+nuget.org 側のポリシーが決める。
 
-- **手で押す (初回はこちら)**: nuget.org で**その場で作る**キーを使う。glob は
-  `UiaTrigger.*`、有効期限は最短、scope は push のみ。**押し終えたらその場で削除する。**
-  `dotnet nuget setapikey` は使わない (`%APPDATA%\NuGet\NuGet.Config` に平文で残る)。
-  `--api-key` は引数としてだけ渡し、PowerShell の履歴 (`ConsoleHost_history.txt`) から
-  当該行を消す。
-- **Trusted Publishing (将来)**: `workflow_dispatch` 専用のワークフローから OIDC を
-  1 時間だけ有効な API キーへ交換する。**あちらのポリシーはワークフローのファイル名に
-  紐づく**ので、「どのファイルが押してよいか」がレジストリ側にも書かれることになる。
+- **`workflow_dispatch` 専用である。**タグ push では走らない。禁じているのは
+  **自動で走ること**であってワークフローを使うことではない (§3)。押すのは人のままで、
+  タグと nuget.org のユーザー名を入力する。
+- **ポリシーはワークフローの*ファイル名*に紐づく。**nuget.org 側で
+  「owner/repo の `publish-nuget.yml` からの発行を許す」と登録する。つまり
+  **「どのファイルが押してよいか」がレジストリ側にも書かれる** — これが手キーより強い点である。
+  **ファイル名を変えると発行できなくなる**ので、動かすときはポリシーも直すこと。
+- 権限は `id-token: write` (OIDC) と **`contents: write`**。ドラフト Release は push 権限を
+  持つ相手にしか見えないので、読むだけなのに write が要る (§6 と同じ実測)。
 - **未測定として明記する**: Trusted Publishing が「**まだ存在しない ID の初回 push**」を
-  許すかは測っていない。許さなければ初回だけ手押しになる。**測ってからしか
-  「できる」と書かない。**
+  許すかは測っていない。nuget.org 側でポリシーを作るとき、ID がまだ無い状態で
+  glob (`UiaTrigger.*`) を登録できるかを確かめること。できなければ、初回だけ
+  **その場で作って押したら消す**手キーになる — `dotnet nuget setapikey` は使わない
+  (`%APPDATA%\NuGet\NuGet.Config` に平文で残る)。**測ってからしか「できる」と書かない。**
 
 ### §7.4 押す
 
-```powershell
-$src = "https://api.nuget.org/v3/index.json"
-# **依存の順に押す。**逆にすると、索引に出た直後に依存が解決できないパッケージが
-# 公開される窓ができる
-foreach ($id in "UiaTrigger.Core", "UiaTrigger.Picker.Core",
-                "UiaTrigger.Picker.Wpf", "UiaTrigger.Picker.WinForms", "UiaTrigger.Picker.WinUI") {
-  dotnet nuget push "$dir\$id.$version.nupkg" --source $src --api-key $key
-  if ($LASTEXITCODE -ne 0) { throw "$id の push が失敗しました" }
-}
-```
+ワークフローがやることは次のとおりで、手で押すときも同じ順である。
 
+- **V3 の口へ押す** (`https://api.nuget.org/v3/index.json`)。**シンボルの push は V3 でしか
+  動かない** — V2 (`www.nuget.org/api/v2/package`) へ押すと nupkg だけが上がり、`.snupkg` は
+  **エラーも出さずに落ちる**。
 - **`--no-symbols` を付けない。**`publish-packages.yml` から写さないこと (§7.2 の理由)。
-- **`--skip-duplicate` を付けない。**既に在る版を黙って飛ばすと「いま押しているのは
-  このバイト列だ」という保証が消える (§6 と同じ)。
-- **V3 の口へ押す** (`api.nuget.org/v3/index.json`)。**シンボルの push は V3 でしか動かない** —
-  V2 (`www.nuget.org/api/v2/package`) へ押すと nupkg だけが上がり、`.snupkg` は
-  **エラーも出さずに落ちる**。`--symbol-source` は指定しない (V3 ならレジストリ側が回す)。
-- **ワイルドカードを渡さない。**`dotnet nuget push` は glob を展開しない (§6 で実測)。
-  1 件ずつ、どれで落ちたかが読める形で押す。
+- **`--skip-duplicate` を付けない。**既に在る版を黙って飛ばすと「いま出しているのは
+  このバイト列だ」という保証が消える。
+- **ワイルドカードを渡さない** (展開されないのは §6 で実測)。1 件ずつ、どれで落ちたかが
+  読める形で押す。
+- **依存の順に押す**: `Core` → `Picker.Core` → `Picker.Wpf` → `Picker.WinForms` →
+  `Picker.WinUI`。逆にすると、索引に出た直後に依存が解決できないパッケージが公開される
+  窓ができる。
 
 ### §7.5 押したあとに起きること
 
