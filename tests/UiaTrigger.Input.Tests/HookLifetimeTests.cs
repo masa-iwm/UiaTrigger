@@ -118,7 +118,7 @@ public sealed class HookLifetimeTests
     /// **2 段構えである。**先に両方 ON で撃って**2 つとも動く**ことを見る —
     /// これが**計数に検出力があること**の証明で、これを示さないと
     /// 後半の「1 つだけ動いた」が「たまたま 1 つしか動かなかった」と区別できない
-    /// (<c>OverlayTests.OnePicker_ShowsExactlyOneOverlay</c> と同じ役割)。
+    /// (<c>OverlayTests.OnePicker_ShowsExactlyOneFrameAndOneIcon</c> と同じ役割)。
     /// </para>
     /// <para>
     /// **どちらのピッカーを OFF にしたかは言わない。**ピッカーの窓とオーバーレイを

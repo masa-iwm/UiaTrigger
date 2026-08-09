@@ -91,7 +91,7 @@ SHA pin だけを入れると今度は更新が止まるので、`.github/depend
 | `input` | T5 (合成入力) | 必須 (同上) |
 | `aot` | AOT 発行 + ローカライズの実行検証 + S4 | 必須 |
 | `arm64-build` | ARM64 のビルドのみ (§5) | 必須 |
-| `lint` | 合成入力の規約 grep 2 本 (docs/TESTING.md §3) | 必須 |
+| `lint` | 合成入力の規約 grep 3 本 (docs/TESTING.md §3) | 必須 |
 
 対話セッションを要するジョブ (`real-uia` / `picker-ui` / `input`) も**必須である**。
 新しく足すあいだだけ `continue-on-error: true` で観測し、連続実行の実測を根拠に必須化する
@@ -226,7 +226,7 @@ API キーへ交換する) を使う。あちらのポリシーは**ワークフ
 
 - **S4 (発行レイアウトの 24 件 — `PublishedResourceTests` 18 + `HostPublishedResourceTests` 6) の緑は、発行物の新しさについて何も言わない。**
   S4 は `publish/` を起動するが、見るのはローカライズと発行レイアウトであり、枠も
-  アイコンも押さない。**古い発行物のままでも緑になる。**一方、オーバーレイの検査 54 件は
+  アイコンも押さない。**古い発行物のままでも緑になる。**一方、オーバーレイの検査 8 件 (`OverlayTests` 7 + `OverlayShadowTests` 1) は
   `bin/` 起動 = **AOT ではない**。つまり「T4 全緑」の内訳のうち、発行物 (AOT) の
   オーバーレイ挙動を裏付ける件数は 0 である。オーバーレイを AOT で確かめる道は、
   実マウスでの目視 (docs/MANUAL-CHECKS.md) か、オーバーレイの検査に発行物を起動する

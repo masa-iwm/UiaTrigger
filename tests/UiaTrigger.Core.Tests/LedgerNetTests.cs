@@ -13,8 +13,12 @@ public sealed class LedgerNetTests
     /// <summary>台帳の 1 行 (ID と網の欄)。</summary>
     private sealed record Row(string Id, string Net);
 
+    // **範囲でまとめた行も拾う** (`C3〜C6`)。単独の ID しか見ない形だと、範囲行は
+    // 網の欄が無くても**黙って飛ばされる** — 「すべての行が網の欄を持つ」という下の
+    // 主張に穴が開いたまま緑になる。T1〜T6 / K1〜K5 は他文書への案内行なので対象外である
+    // (ID の記号がそもそも A/B/C/D/L/S ではない)。
     private static readonly Regex LedgerRow = new(
-        @"^\| ([ABCDLS]\d+) \|(?<rest>.*)\|\s*$",
+        @"^\| ([ABCDLS]\d+(?:〜[ABCDLS]\d+)?) \|(?<rest>.*)\|\s*$",
         RegexOptions.CultureInvariant,
         TimeSpan.FromSeconds(1));
 

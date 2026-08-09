@@ -4,7 +4,7 @@
 
 UiaTrigger は、UI Automation で他アプリの UI 要素の出現・削除・プロパティ変化を監視し、
 条件成立時にイベントを上げる C# / .NET 10 のライブラリ群である。UI 非依存の `Core` と、
-振る舞い (`Picker.Core`) + View 3 変種 (WinUI3 / WPF / WinForms) に分かれたピッカー 4 つ、
+振る舞い (`Picker.Core`) + View 3 変種 (WinUI3 / WPF / WinForms) に分かれたピッカー 4 つ (ピッカーと一覧エディタの 2 窓)、
 サンプルホスト 3 種、CLI の `TestHost` で構成し、Native AOT 発行に対応する。
 UIA アクセスは `UiaSession` の専用 MTA スレッド 1 本に一元化し、監視は既定でイベント購読式
 (ライブラリが自分の判断でポーリングすることはない)。設計の正は docs/DESIGN.md。
@@ -14,10 +14,10 @@ UIA アクセスは `UiaSession` の専用 MTA スレッド 1 本に一元化し
 | プロジェクト | 役割 |
 |---|---|
 | `src/UiaTrigger.Core` | UI 非依存ライブラリ。`UiaSession` (公開 API)・モデル (POCO)・ビーム探索式要素解決・`TriggerMonitor`・JSON context |
-| `src/UiaTrigger.Picker.Core` | UI 非依存のピッカー本体 (`net10.0-windows` / AnyCPU / CsWin32 のみ)。`TriggerPickerPresenter`・オーバーレイ・継ぎ目 (`IPickerView` ほか) |
-| `src/UiaTrigger.Picker.WinUI` | WinUI3 の View。`TriggerPickerWindow` と `.resw`。振る舞いは持たない |
-| `src/UiaTrigger.Picker.Wpf` | WPF の View。`TriggerPickerWindow`。振る舞いは持たない |
-| `src/UiaTrigger.Picker.WinForms` | Windows Forms の View。`TriggerPickerForm` と `TreeMirror`。振る舞いは持たない |
+| `src/UiaTrigger.Picker.Core` | UI 非依存のピッカー本体 (`net10.0-windows` / AnyCPU / CsWin32 のみ)。`TriggerPickerPresenter`・`TriggerListEditorPresenter`・オーバーレイ・継ぎ目 (`IPickerView` / `ITriggerListEditorView` ほか) |
+| `src/UiaTrigger.Picker.WinUI` | WinUI3 の View。`TriggerPickerWindow` / `TriggerListEditorWindow` と `.resw`。振る舞いは持たない |
+| `src/UiaTrigger.Picker.Wpf` | WPF の View。`TriggerPickerWindow` / `TriggerListEditorWindow`。振る舞いは持たない |
+| `src/UiaTrigger.Picker.WinForms` | Windows Forms の View。`TriggerPickerForm` / `TriggerListEditorForm` / `TriggerListEditor` と `TreeMirror`。振る舞いは持たない |
 | `src/UiaTrigger.App.Shared` | サンプルホスト 3 つが共有するコマンドライン読み取り (`HostOptions` / `HostWindowPlacer`)。AnyCPU・**配らない** (公開型を持たず `InternalsVisibleTo` で見せる) |
 | `src/UiaTrigger.App.WinUI` | サンプルホスト (WinUI3)。Picker 起動 + JSON 保存 + 監視のショーケース (docs/DESIGN.md D9) |
 | `src/UiaTrigger.App.Wpf` | サンプルホスト (WPF)。Picker 起動 + JSON 保存 |

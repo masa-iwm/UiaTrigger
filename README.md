@@ -132,8 +132,8 @@ Windows Forms share the `.resx` in `Picker.Core`).
 - **The persistence model is `TriggerDefinition`** (it carries its own `Id` key). The file format is still
   the host's business, but the library *provides* `UiaTrigger.Serialization.TriggerJsonContext`
   (source-generated), so a host only has to add it to `TypeInfoResolverChain`. If you want triggers alone
-  in a single file, `UiaTrigger.Persistence.TriggerStore` works as-is. Default path:
-  `%LOCALAPPDATA%\UiaTrigger\triggers.json`
+  in a single file, `UiaTrigger.Persistence.TriggerStore` works as-is — you give it the path. The
+  sample hosts use `%LOCALAPPDATA%\UiaTrigger\triggers.json`
 - **The shape of a trigger**: `On` (`ElementAppeared` / `ElementRemoved` / `PropertyChanged` /
   `WhileMatching`) and `Clauses` (a list of per-property predicates, combined with `Combine` = `All` or
   `Any`) are independent. That lets you write "the element appeared **and** Value is X". `MinInterval`
@@ -334,8 +334,10 @@ var trigger = new TriggerDefinition
 > The five documents under `docs/` are **maintainer-facing and written in Japanese**, and stay that
 > way by design. This README, `README.ja.md` and the changelog are the user-facing ones.
 
-**Releases** attach the three sample hosts and the console tool as ready-to-run zips (win-x64), so
-you can try the picker without building anything. The library itself comes from NuGet.
+**Releases** attach the three sample hosts and the console tool as ready-to-run zips, so you can
+try the picker without building anything. `UiaTrigger.TestHost` and the WinUI host are
+self-contained `win-x64` builds; the WPF and Windows Forms hosts are framework-dependent and need
+the .NET Desktop Runtime. The library itself comes from NuGet.
 
 > **Note**: while the version is `0.x`, the public API and the `triggers.json` format are
 > **not yet stable** — a minor bump can change them in breaking ways, and there is no migration

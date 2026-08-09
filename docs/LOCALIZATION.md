@@ -148,11 +148,14 @@ ja-JP で `1234.5` が同じ表記のままでも、区切りやマイナス記�
 |---|---|---|---|
 | Core のユーザー向け文字列 (例外・診断を含む) | `Strings.resx` / `Strings.ja.resx` | `ResourceManager` + サテライトアセンブリ | `ja/UiaTrigger.Core.resources.dll` (AOT ではネイティブイメージに取り込まれる) |
 | Picker / App の UI 文字列 | `Strings/en-us/Resources.resw` (既定) / `Strings/ja-jp/Resources.resw` | MRT Core (`resources.pri`) + `x:Uid` / `ResourceLoader` | `<アプリ名>.pri` に**マージされる** |
+| WPF / WinForms ホストと `TestHost` のユーザー向け文字列 | `Resources/Strings.resx` / `Strings.ja.resx` | `ResourceManager` + サテライトアセンブリ (`AppStrings`) | `ja/<アセンブリ名>.resources.dll` |
 | 公開 API の IntelliSense | `Resources/<アセンブリ名>.ja.xml` | IDE / Roslyn の XML doc 探索 | `ja/<アセンブリ名>.xml` |
 
-3 つ目は置き方がサテライトアセンブリと同じでも**仕組みは別物**で、`ResourceManager` は
-一切関与しない (docs/LOCALIZATION.md §5)。WPF / WinForms のピッカーは resx 経路
-(`ResxPickerStrings`)、WinUI のピッカーは resw 経路 (`MrtPickerStrings`) を使う。
+**resw 経路を通るのは WinUI だけである。**WPF / WinForms のピッカーは resx 経路
+(`ResxPickerStrings`)、WinUI のピッカーは resw 経路 (`MrtPickerStrings`) を使い、
+ホストも同じ分かれ方をする (`App.WinUI` は resw、`App.Wpf` / `App.WinForms` / `TestHost` は resx)。
+最後の行は置き方がサテライトアセンブリと同じでも**仕組みは別物**で、`ResourceManager` は
+一切関与しない (§5)。
 
 ### x:Uid の解決規則
 
@@ -229,7 +232,7 @@ resx のキー集合一致 (docs/LOCALIZATION.md §3) と同じ理由で、ja.xm
 
 - **控えは `obj` だけに置き、`bin` へは出さない。**中身は非公開メンバーの日本語コメントを
   含む絞り込み前のものであり、配ってはいけないものそのものである
-  (実測: `UiaTrigger.Core` は 620 対 317)。名前が違うので他のどの検査にも掛からず、
+  (実測: `UiaTrigger.Core` は 693 対 331)。名前が違うので他のどの検査にも掛からず、
   混ざっても静かに配られる — `TheDocumentationFilesAreBuiltAndCopied` が出力側を数えている。
 - **控えを書き直すかどうかは更新時刻で決める。**csc が `.xml` を書き直したなら絞り込み前、
   書き直していないなら中身は前回の絞り込み済みなので触ってはいけない。

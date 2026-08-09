@@ -286,7 +286,7 @@ public sealed class OverlayTests
     /// **逆向きの壊れ方 — アイコンにも付けてしまい、確定アイコンが押せなくなる — を
     /// 機械で捕まえるのはここだけである。**合成入力で確定を押す検査は無く、
     /// 目視 (MANUAL-CHECKS §3 の「見えているアイコンは全面が押せる」) が一次の網である。
-    /// ここで**原因のほう**を固定しておく。<c>TheOverlayWindowClass_RegistersACursor</c> が
+    /// ここで**原因のほう**を固定しておく。<c>TheIconWindowClass_RegistersACursor</c> が
     /// カーソルの見た目ではなくクラスの登録を見ているのと同じ規律である。
     /// </para>
     /// <para>

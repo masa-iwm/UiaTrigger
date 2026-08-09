@@ -130,7 +130,7 @@ public List<TriggerDefinition> Triggers { get; set; } = [];
 - **永続化モデルは `TriggerDefinition`** (キー `Id` を内包)。ファイル形式はホストの自由という方針は
   変えていないが、ライブラリが `UiaTrigger.Serialization.TriggerJsonContext` (source-gen) を*提供*するので、
   ホストは `TypeInfoResolverChain` に足すだけでよい。トリガーだけを 1 ファイルに置くなら
-  `UiaTrigger.Persistence.TriggerStore` がそのまま使える。既定パス: `%LOCALAPPDATA%\UiaTrigger\triggers.json`
+  `UiaTrigger.Persistence.TriggerStore` がそのまま使える (パスは呼び出し側が渡す)。サンプルホストは `%LOCALAPPDATA%\UiaTrigger\triggers.json` を使う
 - **トリガーの形**: `On` (`ElementAppeared` / `ElementRemoved` / `PropertyChanged` / `WhileMatching`) と
   `Clauses` (プロパティごとの述語のリスト、`Combine` で `All` / `Any`) が独立している。
   「要素が出現し、**かつ** Value が X」のような組み合わせが書ける。`MinInterval` で発火レート制限
@@ -311,7 +311,7 @@ var trigger = new TriggerDefinition
 | [docs/RELEASING.md](docs/RELEASING.md) | パッケージ構成・CI の構成・リリース手順・パッケージ化の罠の台帳 |
 | [docs/MANUAL-CHECKS.md](docs/MANUAL-CHECKS.md) | 自動化できない範囲の手動確認チェックリスト |
 
-**リリース**には、サンプルホスト 3 つとコンソール版が展開してすぐ動く zip (win-x64) として
+**リリース**には、サンプルホスト 3 つとコンソール版が展開してすぐ動く zip として
 添付される。ビルドせずにピッカーを試せる。ライブラリ本体は NuGet から取ること。
 
 > **注意**: 版数が `0.x` のあいだ、公開 API と `triggers.json` の形式は**まだ安定していません**。

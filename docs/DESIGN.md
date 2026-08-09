@@ -13,7 +13,7 @@
 | パッケージの中身 | **5 つとも MSIL (AnyCPU)**。利用者にアーキテクチャの制約は掛からない。**これは `UiaTrigger.slnx` が配るプロジェクトを `Platform` に固定していないことで保たれている** — 配布物は `dotnet pack UiaTrigger.slnx` (ソリューション pack) が作るので、固定すればそのまま `lib/` へ流れる。ソリューションビルドの `bin\x64` を見て「x64 のパッケージだ」と結論しないこと |
 | 版数 | `0.1.0-preview.1` から。**`1.0.0` で出すことは「安定している」という約束**であり、公開 API の再構成が続くうちは出さない。プレリリース札があれば利用者が明示的に選ばない限り復元されない |
 | 過去互換 | **0.x のあいだは持たない** (安定版で互換方針を立て直す)。旧形式の判別処理そのものを持たない — 読み替えるべき過去のファイルが公開版には存在しないため。代わりに**版数だけは最初から書き込む** (`TriggerJson.FormatVersion = 1`)。版数の無いファイルは後から見分けようがなく、それを増やさないことだけが将来の移行を可能にする。`FormatVersion` は 1 のままでよく、「既存 JSON がバイト単位で変わらない」は目標にしない |
-| `InternalsVisibleTo` | **製品アセンブリ向けは持たない** (テストアセンブリに限る)。詳細は §12 |
+| `InternalsVisibleTo` | **配るアセンブリは製品アセンブリ向けに持たない** (テストアセンブリに限る)。配らない `App.Shared` だけがサンプルホスト 3 つへ見せる (公開型を持たない共有のため)。詳細は §12 |
 | ライセンス | MIT |
 | ローカライズ | **en-US をプライマリ (neutral)、ja-JP をサテライトで追加**。公開 API の XML doc・例外メッセージ・UI 文字列すべてが対象。`README.md` = 英語 (正) / `README.ja.md` = 日本語。詳細は docs/LOCALIZATION.md |
 
@@ -55,7 +55,7 @@ UiaSession (public, IAsyncDisposable)   … 1 セッション = 1 MTA ディス�
   └─ CreateMonitor(options) → TriggerMonitor    … セッションを共有できる
 ```
 
-- 要素ツリーの探索・ヒットテスト・スナップショット・座標からの記録は Core の公開機能である。これが無いと第三者は自前のピッカー / インスペクタを作れない。専用の型や MTA スレッドを別に立てる理由は無く、**MTA スレッドはプロセスに 1 本**である (オーバーレイも同じ判断を守る — §10)
+- 要素ツリーの探索・ヒットテスト・スナップショット・座標からの記録は Core の公開機能である。これが無いと第三者は自前のピッカー / インスペクタを作れない。専用の型や MTA スレッドを別に立てる理由は無く、**1 セッション = MTA スレッド 1 本**である (オーバーレイも同じ判断を守る — §10)。セッションを増やせばスレッドも増えるので、ホストは自前の `UiaSession` を作らずピッカーのものを使う (§12)
 - **公開メンバーのシグネチャに interop 型は現れない。**`UiaTrigger.Interop` / `UiaTrigger.Threading` は公開型を持たない (C7)。「不透明ハンドル」という設計は 1 箇所漏れれば意味を失うので `PublicApiTests` が縛る
 - interop の out は **nullable** で宣言する (A15)。UIA は `ElementFromPoint` / `ElementFromHandle` で null を返しうるため、非 null 宣言は例外化の経路を作る
 - `StartAsync` の `CancellationToken` は「実行開始前のみキャンセル可」として honor する (A16)。偽の affordance を置かない
@@ -89,6 +89,7 @@ public sealed class TriggerDefinition
     public string? Expression { get; set; }                         // 入れ子は文字列で (§4)
     public TimeSpan? MinInterval { get; set; }                      // 発火レート制限 (C11)
     public TimeSpan? PollInterval { get; set; }                     // §5
+    public bool NotifyOnStoppedMatching { get; set; }               // 立ち下がり通知 (C14)
 }
 ```
 
@@ -255,7 +256,7 @@ public sealed class TriggerDefinition
 公開形は 3 変種とも `Task<IReadOnlyList<TriggerDefinition>?>` (null = キャンセル)。**エディタは保存先 (`TriggerStore` の場所) も監視 (`TriggerMonitor`) も所有しない** — 渡されたものの写しを編集し、写しを返すだけである。同期シグネチャにしないのは、**WinUI3 の `Window` に窓単位のモーダル API が無い**ため (律速は WinUI 側。WPF / WinForms は内部で `ShowDialog`、WinUI は `TaskCompletionSource` + `Closed` の modeless)。
 
 - **深いコピーは `TriggerJsonContext` の往復**で取る。手で写すとモデルにプロパティが増えたとき黙って欠け、しかも欠けるのは「エディタを通したときだけ」なので保存されたファイルを見るまで分からない。source-generated なので AOT でも動く
-- **写しは 3 か所**: コンストラクタ (渡されたリスト) / `Snapshot` (返すリスト) / 子ピッカーへ渡す定義。3 つ目を忘れるとキャンセルしても作業用リストが変わる — ピッカーは渡された実体へ書き戻す契約だからである
+- **写しは 4 か所**: コンストラクタ (渡されたリスト) / `Snapshot` (返すリスト) / 子ピッカーへ**渡す**定義 / ピッカーから**戻ってきた**定義。渡すほうを忘れるとキャンセルしても作業用リストが変わる (ピッカーは渡された実体へ書き戻す契約だからである)。戻りのほうを忘れると、確定後もピッカーが持っている実体と作業用リストが同じものになる (C19)
 - 編集中の差し替えは「**その位置で**」。末尾へ移すと利用者が並べた順序が編集で崩れる。id を変えて確定したときは衝突する行を先に消す (残すと id が重複したリストを返し `AddAsync` が投げる)
 - 子ピッカーは同時 1 枚。2 枚開けると「どちらのコミットがどの行か」が決まらない
 - **複合を 1 件だけ選ぶと、下段は「まとめる」ではなく「書き換える」になる。**欄にその複合の値 (式・絞るだけの句名・ポーリング間隔・立ち下がり通知) が入り、ボタンは `CombineButtonUpdate` を名乗る。押すと `TriggerComposer.Update` が**その行をその位置で**書き換える (編集中の差し替えと同じ理由で末尾へ移さない)。判断は**押した時点の選択**で行い、ボタンの文言では行わない — 行を差し替えると選択が落ちるので、文言のほうは遅れうる。句が 2 つあるだけの `PropertyChanged` トリガーは対象外 (`Update` の契約と揃える)
@@ -323,7 +324,7 @@ public sealed class TriggerDefinition
 
 ### Custom の角 — ポーリングが新しく作る唯一の失敗形
 
-`WatchedValuesChanged` は `TriggerProperty.Custom` に対して無条件に true を返す (スナップショットに入らないので前回値を持てない)。素直にポーリングすると**監視付き Custom 句が毎周期鳴る**。`ElementSlot.CustomValues` に直前値を残し、**ポーリング経路だけ**で突き合わせる。
+`WatchedValuesChanged` は `TriggerProperty.Custom` に対して無条件に true を返す (スナップショットに入らないので前回値を持てない)。素直にポーリングすると**監視付き Custom 句が毎周期鳴る**。`ElementSlot.Observations` (`SlotObservations`) に直前値を残し、**ポーリング経路だけ**で突き合わせる。
 
 > イベント経路にキャッシュを効かせない本当の理由は「間隔 0 のときの発火意味を変えないこと」
 > である。「イベント経路では UIA がその Custom ID の変化を伝えてきている」は誤り —
@@ -420,10 +421,10 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 
 ### 再購読の閉路 — 「購読が無い → イベントが来ない → 掃引が走らない」
 
-掃引を予約する経路は 4 つしかない: ルートの `WindowOpened` / ルートの `WindowClosed` / トリガーごとの `StructureChanged` / `CheckAlive` の要素消滅。未解決のトリガーが構造購読を失うと、このどれも起きない状況では**購読が無い → イベントが来ない → 掃引が走らない → 購読が張り直されない**という閉路に入り、例外も通知も出ないままそのトリガーは永久に解決しなくなる。これを塞ぐ規律は 3 つ:
+掃引を予約する経路は 4 つしかない: ルートの `WindowOpened` / ルートの `WindowClosed` / トリガーごとの `StructureChanged` / `OnPropertyChanged` が要素の消滅を捉えたとき。(**`CheckAlive` は掃引の中から呼ばれるので何も予約しない** — 予約の入口と混同しないこと。5 つ目の入口である `SubscriptionRepair` は、まさにこの閉路を破るために足したものである — 下の 2。)未解決のトリガーが構造購読を失うと、このどれも起きない状況では**購読が無い → イベントが来ない → 掃引が走らない → 購読が張り直されない**という閉路に入り、例外も通知も出ないままそのトリガーは永久に解決しなくなる。これを塞ぐ規律は 3 つ:
 
 1. **張り替えられると分かるまで壊さない。**購読の張り替えは「新しい購読を先に立て、古いものを外すのは立ったと分かってから」。1 つも張れなかったときは古い購読をそのまま残す — 相手が忙しいだけかもしれず、壊すと戻る道が無くなる。`targets` が空のときは 2 つの意味を分ける: 解決した結果として経路が空 (対象がウィンドウ自身) なら広いウィンドウ購読は外す (残すと B2 で潰した状態に戻る)。未解決でウィンドウを特定できなかっただけなら残す
-2. **購読を失ったトリガーを拾い直す** (`SubscriptionRepair`)。最初の購読からして失敗した場合は古い購読も無く 0 件のまま閉路に入るので、1 だけでは足りない。判定は純関数 `SubscriptionHealth.IsOrphaned` = 「購読 0 件 **かつ** 張ろうとしたウィンドウが記録されている」。**`Count == 0` だけにすると誤爆する** — まだ起動していないアプリのトリガーが常に「壊れている」と見なされ、再試行が回りっぱなしになる = §5 の「ライブラリが自分の判断でポーリングしない」を、直したつもりで壊す。`SubscriptionRepair` は壊れている間だけ動き、健全なときはタイマーが 1 本も armed にならない。間隔は 2 秒から倍々で 30 秒頭打ち、復旧したら戻す — 再試行 1 回 = 掃引 1 回で、掃引はピッカーと共有する MTA スレッドの上で相手ごとに待たされうるから、機械が苦しいときほど激しく叩く形にしない
+2. **購読を失ったトリガーを拾い直す** (`SubscriptionRepair`)。最初の購読からして失敗した場合は古い購読も無く 0 件のまま閉路に入るので、1 だけでは足りない。判定は純関数 `SubscriptionHealth.IsOrphaned` = スロットの状態が `WaitingOrphaned` か `ResolvedOrphaned` のとき。前者が「購読 0 件 **かつ** 張ろうとしたウィンドウが記録されている」、後者が「解決済みなのに要るはずのプロパティ購読が無い」である (**後者は構造購読の件数を見ない** — 解決したあとに購読だけ落ちた形がこちらである)。**`Count == 0` だけにすると誤爆する** — まだ起動していないアプリのトリガーが常に「壊れている」と見なされ、再試行が回りっぱなしになる = §5 の「ライブラリが自分の判断でポーリングしない」を、直したつもりで壊す。`SubscriptionRepair` は壊れている間だけ動き、健全なときはタイマーが 1 本も armed にならない。間隔は 2 秒から倍々で 30 秒頭打ち、復旧したら戻す — 再試行 1 回 = 掃引 1 回で、掃引はピッカーと共有する MTA スレッドの上で相手ごとに待たされうるから、機械が苦しいときほど激しく叩く形にしない
 3. **診断を黙らせない。**`TriggerMonitorDiagnostics.OrphanedTriggerCount` がこの閉路の観測点である。`StructureIsPathScoped` は購読を持たないトリガーを動かさない (「出現待ちのトリガーがあれば false」ではない)
 
 `IsSameElement` が `COMException` を「死んでいる」と読む判断には根拠が要る — **比較できないことと死んでいることは別**で、相手が塞がれているだけでも同じ例外が出る (`COMException` は相手が忙しいときほど出る = いちばん診断が要る場面で出る)。
@@ -560,7 +561,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 
 ピッカーは `UiaTrigger.Picker.Core` (振る舞い: presenter / オーバーレイ / フック / `net10.0-windows` / AnyCPU / CsWin32) と、薄い View 3 変種 (`Picker.WinUI` / `.Wpf` / `.WinForms`) に割れている。分割が成立する前提は `DisableRuntimeMarshalling` が**アセンブリ単位**であること (§2)。
 
-継ぎ目 (`IPickerView` / `IUiDispatcher` / `IUiTimer` / `ICursorSource` / `IPickerStrings` / `IDpiSource`) は「**UI フレームワークごとに答えが違うもの**」だけに切る。コンテナ実体化を待つリトライ・「空欄」の表し方 (`NumberBox` = `NaN`、`TextBox` = 空文字)・アクティベーション猶予のような「そのフレームワークの事実」は View に置く。共通化すると 3 つとも間違った最小公倍数になる。
+継ぎ目 (`IPickerView` / `ITriggerListEditorView` / `IUiDispatcher` / `IUiTimer` / `ICursorSource` / `IPickerStrings` / `IDpiSource`) は「**UI フレームワークごとに答えが違うもの**」だけに切る。コンテナ実体化を待つリトライ・「空欄」の表し方 (`NumberBox` = `NaN`、`TextBox` = 空文字)・アクティベーション猶予のような「そのフレームワークの事実」は View に置く。共通化すると 3 つとも間違った最小公倍数になる。
 
 - **行を開くことには 2 つの意味がある**ことを型に出す: `IsExpanded = true` (ユーザーが開いた → 子を全列挙する) と `ExpandForDisplay()` (ピッカーが組んだ部分木を表示のためだけに開く)。presenter は `IsExpanded` を書かない — View は TwoWay で束縛しているので、書くと書き戻しが抽象を貫通する。取り違えるとホバーのたびに経路上の全段が兄弟を取りに行く
 - 公開面は絞る。View / ホストが実装または供給するものだけを公開し、内部の継ぎ目 (`IPickerElement` / `IPickerServices` / `IOverlay` / `OverlayGeometry`) は internal + IVT にとどめる。「使わないフィールドは置かない」(§3 の Search 方式と同じ判断)
@@ -568,7 +569,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 
 ### InternalsVisibleTo と公開面
 
-- **製品アセンブリ向けの `InternalsVisibleTo` は無い。**製品アセンブリが Core の internal な COM 型を掴む状態は「第三者には同じことができない = ライブラリとして使えない」と同義である。Picker は公開 API (`UiaSession`) だけで書ける
+- **配るアセンブリは製品アセンブリ向けの `InternalsVisibleTo` を持たない** (配らない `App.Shared` は例外で、公開型を持たないままサンプルホスト 3 つへ見せる)。製品アセンブリが Core の internal な COM 型を掴む状態は「第三者には同じことができない = ライブラリとして使えない」と同義である。Picker は公開 API (`UiaSession`) だけで書ける
 - 一方、探索アルゴリズムの継ぎ目 (`IElementTree` / `ElementResolver` / `WindowCandidateCache` / `ElementIdentity`) は public にしない。公開すると「解決の内部表現」が API 契約になり、interop や探索方式の変更が破壊的変更に変わる。テストアセンブリへの IVT に限る
 - `PublicApiTests` が縛るもの: IVT の宛先がテストアセンブリだけであること / `UiaTrigger.Interop` / `UiaTrigger.Threading` に公開型が無いこと / **公開メンバーのシグネチャに interop 型が現れないこと** (3 つ目が本質)
 - IVT はプロセス境界を越えない。ホストを子プロセスとして駆動するテストは、IVT を足しても相手側の実体には触れず、自分のプロセスに別のコピーを読み込むだけである
@@ -578,7 +579,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 - **`App.WinUI` だけがショーケースを兼ねる** (ピッカー → 監視の E2E / 複合条件をまとめる UI / ログ一覧)。3 重化しても得るものが無い。README の "Two asymmetries are deliberate" が公開済みの決定であり、ホスト側の文字列検査は明示の例外表 (WinUI にだけ在るキー) を持つ — 例外表は「在る」の主張なので、表のキーが実在することも別に assert しないと腐る
 - 条件欄のスクロールは 3 変種で機構が違う: WPF は `WrapPanel` が折り返して縦に伸び (縦スクロールが受け止める)、WinForms は `AutoScroll` が両方向のバーを出し、WinUI は明示の高さ上限 + 横スクロール + 折り返し幅の供給が要る。**「揃っていないから揃える」で直さないこと** — 行の並べ方がそれぞれの枠組みの流儀で違うのが原因で、壊れていない 2 つを触ることになる。WinUI / WPF の条件欄の高さ上限は XAML 側を正とする (定数で持つと XAML を変えた日に黙ってずれる)。**WinUI の `HorizontalScrollMode` と `HorizontalScrollBarVisibility` は独立していない** — 後者が `Auto` なら前者を `Disabled` にしてもスクロールは生きたままで、片方だけの退行は振る舞いに出ない (実測)。対で書き、対で縛る。縦バーのぶんは出ていなくても常に幅から引く — 足りないと、バーの出入りと折り返しが互いを駆動する振動になる
 - ホストの監視の作法 (サンプルは読まれて写されるので、作法そのものが仕様である): 録り直しは **`RemoveAsync(id)` → `AddAsync(def)`** の順 (`AddAsync` は id 重複で `ArgumentException`)。イベントハンドラー内の非同期呼び出しを投げっぱなしにしない (誰も観測しない faulted Task になる)。イベントは別スレッドで来るので Dispatcher で渡し直す。`UnhandledException` はログ一覧へ出す (握り潰すサンプルは見えない失敗形を隠すことで実演する)。ログ一覧には上限を置く。ホストは `CreateMonitor` ではなく単体の `TriggerMonitor` を使う — 要素を調べているのはピッカーであってホストではなく、自前の `UiaSession` を作ると 3 本目の UIA スレッドが立つ
-- 窓の既定サイズは 3 変種で同じ値にする (ピッカー 1100×700 / エディタ 900×560 / サンプルホスト 900×600)。**WinUI3 の `Window` だけは XAML で宣言できない**ので、`AppWindow.ResizeClient` を**コンストラクターで** (窓を出す前に) 呼ぶ。与えないと OS 既定 = 画面に比例する大きさで開き、3840×2160 では窓が画面をほぼ埋める。**`ResizeClient` が取るのは物理ピクセルである** — WPF の `Width="1100"` は DIP なので、表示スケールを掛けないと 175% の画面で他の 2 変種の 57% の大きさになる (例外も警告も出ず、ただ小さい)。掛け算のために DPI が要り、それは窓を出す前 = `XamlRoot.RasterizationScale` がまだ無い時点なので、View 側に `GetDpiForWindow` の P/Invoke が 1 つだけ在る。**この既定サイズは T4 からは観測できない** — ハーネスがホストの窓を割り付けの矩形へ退かすときに寸法も合わせるためで、網はソースの形 (`PickerWindowDefaultSizeTests`) に置く
+- 窓の既定サイズは 3 変種で同じ値にする (ピッカー 1100×700 / エディタ 900×560 / サンプルホスト 900×600)。**WinUI3 の `Window` だけは XAML で宣言できない**ので、`AppWindow.ResizeClient` を**コンストラクターで** (窓を出す前に) 呼ぶ。与えないと OS 既定 = 画面に比例する大きさで開き、3840×2160 では窓が画面をほぼ埋める。**`ResizeClient` が取るのは物理ピクセルである** — WPF の `Width="1100"` は DIP なので、表示スケールを掛けないと 175% の画面で他の 2 変種の 57% の大きさになる (例外も警告も出ず、ただ小さい)。掛け算のために DPI が要り、それは窓を出す前 = `XamlRoot.RasterizationScale` がまだ無い時点なので、View 側に `GetDpiForWindow` の P/Invoke が在る (`Picker.WinUI` と `App.WinUI` に 1 つずつ — `App.Shared` は公開型を持たないので共有できない)。**この既定サイズは T4 からは観測できない** — ハーネスがホストの窓を割り付けの矩形へ退かすときに寸法も合わせるためで、網はソースの形 (`PickerWindowDefaultSizeTests`) に置く
 - 区切り (GridSplitter): WinUI3 だけ標準の区切りを持たないので Toolkit の Sizers を使う (自作しない)。位置は永続化しない (設定を持たない道具として一貫)。`ResizeDirection` / `ResizeBehavior` は明示する — 既定の推測は外れても例外にならず、掴んでも何も起きない。両側に `MinWidth` / `MinHeight` (無いと戻すための掴み代ごと畳める)。WinForms の `SplitterDistance` は**比率で、ドッキングが済んでから**入れる — 絶対値は狭い画面で setter が黙って詰め、変種間の見た目が崩れる。オブジェクト初期化子の時点では既定幅しか無い
 
 ### AnyCPU と x64、AOT
@@ -658,7 +659,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | B10 | `UiaElement` の明示 `Dispose` は進行中の借用 (`Borrowed`) と排他する。借用中に要求された解放は借用終了まで遅延する — 進行中のクロスプロセス呼び出しの真下で `FinalRelease` すると、例外ではなくアクセス違反でプロセスごと落ちる | §7 | テストが ID で参照 |
 | C1 | トリガーは動的に増減できる (`AddAsync` / `RemoveAsync`)。停止は張った単位で外し、セッション共有時に他の購読者を巻き添えにしない | §3 | テストが ID で参照 |
 | C2 | Core は「UIA セッション + 監視」である。`UiaSession` が要素 API を公開し、第三者が自前のピッカー / インスペクタを作れる | §3 | テストが ID で参照 |
-| C3〜C6 | トリガーモデル: キー (`Id`) はモデルに内包する / ライフサイクル (`TriggerOn`) と値の述語 (`PropertyClause`) を分離する / 句は複数持てて平坦に結合する / `TriggerProperty.Custom` + `CustomPropertyId` が任意プロパティへの逃げ道である | §3 |
+| C3〜C6 | トリガーモデル: キー (`Id`) はモデルに内包する / ライフサイクル (`TriggerOn`) と値の述語 (`PropertyClause`) を分離する / 句は複数持てて平坦に結合する / `TriggerProperty.Custom` + `CustomPropertyId` が任意プロパティへの逃げ道である | §3 | テストが ID で参照 |
 | C7 | 実装詳細は公開しない。`UiaTrigger.Interop` / `UiaTrigger.Threading` は公開型ゼロ、公開型は `UiaTrigger` 名前空間に置く | §3 | テストが ID で参照 |
 | C8 | 列挙の永続形式はモデル自身が持つ (`[JsonConverter(JsonStringEnumConverter<T>)]`)。ホストが合成した serializer 経路には設定が引き継がれない | §3 | テストが ID で参照 |
 | C9 | ログは `ILogger` (`Microsoft.Extensions.Logging.Abstractions` が唯一の実行時依存)。ログのメッセージは英語固定 | §3 | テストが ID で参照 |
