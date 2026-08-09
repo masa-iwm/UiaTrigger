@@ -87,10 +87,8 @@ public sealed class TriggerListEditorViewTests
     {
         Sta.Run(() =>
         {
-            CultureInfo original = CultureInfo.CurrentUICulture;
-            try
+            using (CultureScope.Enter("en-US"))
             {
-                CultureInfo.CurrentUICulture = new CultureInfo("en-US");
                 var window = new TriggerListEditorWindow(
                     new ResxPickerStrings(), [], createPresenter: null, FakeWpfPicker);
                 try
@@ -105,10 +103,6 @@ public sealed class TriggerListEditorViewTests
                 {
                     window.Close();
                 }
-            }
-            finally
-            {
-                CultureInfo.CurrentUICulture = original;
             }
         });
     }
@@ -302,10 +296,8 @@ public sealed class TriggerListEditorViewTests
     {
         Sta.Run(() =>
         {
-            CultureInfo original = CultureInfo.CurrentUICulture;
-            try
+            using (CultureScope.Enter("en-US"))
             {
-                CultureInfo.CurrentUICulture = new CultureInfo("en-US");
                 using var form = new TriggerListEditorForm(
                     new ResxPickerStrings(), [], createPresenter: null, FakeWinFormsPicker);
 
@@ -315,10 +307,6 @@ public sealed class TriggerListEditorViewTests
                 Assert.Contains(all, c => c is Button { Name: "DecomposeTriggerButton", Text: "Take apart" });
                 // 一覧は見出しを持たないので、読み上げ名が唯一の手がかりである
                 Assert.Contains(all, c => c is ListBox { Name: "EditorTriggerList", AccessibleName: "Triggers" });
-            }
-            finally
-            {
-                CultureInfo.CurrentUICulture = original;
             }
         });
     }

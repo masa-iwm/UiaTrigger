@@ -151,10 +151,8 @@ public sealed class TriggerPickerWpfWindowTests
     {
         Sta.Run(() =>
         {
-            CultureInfo original = CultureInfo.CurrentUICulture;
-            try
+            using (CultureScope.Enter("en-US"))
             {
-                CultureInfo.CurrentUICulture = new CultureInfo("en-US");
                 using TriggerPickerWindow window = CreateWindow(new ResxPickerStrings());
 
                 Assert.Equal("Pick an element — UiaTrigger", window.Title);
@@ -165,10 +163,6 @@ public sealed class TriggerPickerWpfWindowTests
                 // **引くのは XAML が書いているキーである** — 辞書側の綴りだけを見ると、
                 // 参照側とずれていても緑になる (R-057 がまさにそれだった)
                 Assert.Equal("Confirm this element", window.Resources[XamlToolTipKey()]);
-            }
-            finally
-            {
-                CultureInfo.CurrentUICulture = original;
             }
         });
     }

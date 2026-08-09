@@ -95,20 +95,14 @@ public sealed class TriggerPickerWinFormsTests
     {
         Sta.Run(() =>
         {
-            CultureInfo original = CultureInfo.CurrentUICulture;
-            try
+            using (CultureScope.Enter("en-US"))
             {
-                CultureInfo.CurrentUICulture = new CultureInfo("en-US");
                 using TriggerPickerForm form = CreateForm(new ResxPickerStrings());
 
                 Assert.Equal("Pick an element — UiaTrigger", form.Text);
                 Assert.Contains(
                     form.Controls.Cast<Control>().SelectMany(Descendants),
                     c => c is Button { Text: "Add trigger" });
-            }
-            finally
-            {
-                CultureInfo.CurrentUICulture = original;
             }
         });
     }
