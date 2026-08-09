@@ -6,6 +6,25 @@ What changed, for the people using this library. The reasoning behind each decis
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). While the version is
 `0.x`, the public API is still moving and a minor bump can break you.
 
+## 0.1.0-preview.8
+
+### Fixed
+
+- **`UiaTrigger.Picker.WinUI` shipped an assembly that only loads in an x64 process.** The package
+  put an AMD64 build of `UiaTrigger.Picker.WinUI.dll` under `lib/`, and that path carries no
+  architecture, so an ARM64 or x86 application restored the package without a warning and then
+  failed at load with `BadImageFormatException`. The packaged assembly is AnyCPU again, like the
+  other four. (This removes an architecture constraint from the package; it is not a claim that the
+  library has been *run* on ARM64, which remains unverified.)
+
+### Changed
+
+- **The four picker packages no longer declare `Microsoft.Extensions.Logging.Abstractions` as a
+  direct dependency.** It still reaches every package through `UiaTrigger.Core`, exactly as the
+  README describes, and the version you restore does not change — only the declaration in the
+  `.nuspec` did.
+- **The packages carry a title and release notes**, so they read properly on nuget.org.
+
 ## 0.1.0-preview.7
 
 ### Changed
@@ -26,6 +45,14 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
 - **`UiaSession.GetChildrenAsync`, `GetAncestorChainAsync` and `GetOverlapStackAsync` return `null`
   when the lookup fails**, and an empty list only when there genuinely is nothing. They used to
   return an empty list for both, so a caller could not tell "nothing there" from "could not ask".
+- **`UiaSessionOptions.Resolver` is new.** Recording now reads the same `ResolverOptions` the
+  resolver uses, so a limit you set applies to both halves instead of only to resolution.
+- **`ResolverOptions.RecordingSiblingScan` is new** — how many siblings recording walks, derived
+  from `MaxChildrenPerLevel`.
+- **`ResolverOptions.StepClassNameMismatchPenalty` now defaults to `-30` instead of `-50`.** A class
+  name that did not match used to be enough on its own to put a path permanently out of reach. An
+  existing `triggers.json` can now resolve to an element that it previously refused, so re-check any
+  definition you recorded against an application that renames its window classes.
 
 ### Fixed
 
@@ -43,6 +70,13 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Whil
   bypassed redaction** — the name of the step being recorded, and reads of a `Custom` property.
 - **A trigger whose `Window.ProcessName` is null is treated as absent rather than matching
   everything.**
+- **A control type with an unknown id now spells the same in every culture.**
+  `UiaControlTypeNames.GetName` formatted the number with the current culture, and that string is
+  persisted and compared — in a culture that groups digits, the same id produced a different
+  spelling and saved definitions silently stopped matching.
+- **`UiaSession.BuildDefinitionFromCursorAsync` and `ElementFromCursorAsync` now throw
+  `InvalidOperationException`** when the cursor position cannot be read. They used to carry on with
+  an unchecked point, which recorded whatever happened to be at the top-left of the screen.
 - **`TriggerComposer.Compose` refuses a composite source with a reason** instead of producing a
   definition that `TriggerMonitor` rejects later.
 - **A clause name can no longer contain a comma**, which made the composite's own field ambiguous.
