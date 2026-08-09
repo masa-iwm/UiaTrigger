@@ -398,6 +398,7 @@ T2 (§1) はこの事例を初日に検出するために設計されている�
 | 5 | T1 | `TriggerDraftValidatorTests.Apply_AlwaysProducesADefinitionTheMonitorAccepts` / `TriggerComposerTests.Compose_WithAPollInterval_ProducesADefinitionTheMonitorAccepts` / `Update_AlwaysProducesADefinitionTheMonitorAccepts` | ランナーで `IUIAutomation.GetRootElement` が `E_FAIL` を返す。実測 20 回中 1 回。**`monitor.StartAsync` を呼ぶ T1 はどれも同じ形で落ちうる** — 名前で覚えず「実 UIA を触る T1」で括ること |
 | 6 | T4 / T5 | `PickerHostProcess.OpenAndAwaitPlacement` を通るすべて (`OpenPicker` / `OpenEditor` の入口) | `TimeoutException: AutomationId 'OpenPickerButton' (または `EditListButton`) の要素 が 10 秒以内に成立しませんでした`。**名前で覚えないこと** — 落ちるのはハーネスの 1 か所で、そこを通る WinUI のテストはどれも同じ形で落ちる |
 | 7 | T3 | `TestTargetProcess.Start` を通るすべて (実測で見えたのは `ControlTypeNameScenarioTests.Snapshot_LocalizedControlType_DiffersFromTheStableName`) | 対象アプリの起動段で落ちる。実測は全体実行 1 回のみで、単体・全体とも再現せず (0/2)。**本文が取れていない** — 次に落ちたら必ず取ること。(6) と同じく落ちるのはハーネスの 1 か所なので、名前ではなく「対象アプリを起こす T3」で括る |
+| 8 | T5 | `OverlayClickTests.AClickOnTheFrame_ReachesTheApplicationBelow` (落ちるのは `SyntheticInput.CursorGuard.MoveTo`) | `SetCursorPos` が成功を返したのにカーソルが 11px ずれた位置に居た (`(774,364)` を頼んで `(774,375)`)。ランナーで 1 回、直後の再実行では再現せず (1/2)。手元では緑。**製品ではなくハーネスの狙いの検算で止まっている** — この形で落ちたら「クリックが効かない」と読まないこと |
 
 **(1)** 全体実行 (7 件) でまれに落ちる (実測 6 回中 1 回)。単体実行・`OverlayClickTests` との
 2 件組・ランナーでの全体実行では再現していない。**落ちたときの本文が取れていない** —
@@ -520,6 +521,20 @@ System.TimeoutException : AutomationId 'OpenPickerButton' の要素 が 10 秒�
 その値で、同じ 1 つの操作の前半と後半にあたる)。**まだ入れていない** — 待ちを伸ばすのは
 「落ちなくなった」と「見えなくなった」を区別できない側の変更なので、
 上の実測だけでは足りないと判断した。
+
+**(8)** ランナーで 1 回だけ観測した。`CursorGuard.MoveTo` は `SetCursorPos` の**戻り値だけを
+信じない** — 置いたあとに `GetCursorPos` で読み直して一致を要求する。今回はそこで
+11px の食い違い (`(774,364)` を頼んで `(774,375)`) が出て止まった。
+
+**この形は製品の失敗ではない。**枠のクリックスルー (M1) が成立していないのではなく、
+撃つ前の狙いが立てられなかったのである。`MoveTo` がこの検算を持っているのは、
+ずれたまま撃つと「クリックが効かない」という**別の顔**で失敗するからで、
+それでは M1 の結論とハーネスの不調を取り違える。
+
+**検算を緩めないこと。**一致を要求するのをやめれば、この失敗は消えるかわりに
+「狙っていない点を押した結果」が M1 の答えとして通る。原因 (別のフックか、
+リモートデスクトップのカーソル制御か、直前のテストの復元との競合か) は未特定である。
+再現したら本文を取り、ここに足すこと。
 
 ## §6 ローカル実行の注意
 
