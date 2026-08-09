@@ -144,18 +144,23 @@ public sealed class TriggerPickerForm : Form, IPickerView
         Func<IPickerView, TriggerPickerPresenter>? createPresenter)
     {
         _strings = strings;
-        // **`ClientSize` も子コントロールの寸法も物理ピクセルで、放っておくと DPI で伸びない。**
-        // この 1100×700 は 96 DPI 基準の数字であり、WPF の `Width="1100"` (DIP) と WinUI の
-        // `ResizeClient(Scale(1100, dpi))` と同じものを指す (docs/DESIGN.md §12)。
-        // 伸ばさないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
-        // ただ小さい。
+        // **手書きの数字だけを伸ばす。**この 1100×700 は 96 DPI 基準であり、WPF の
+        // `Width="1100"` (DIP) と WinUI の `ResizeClient(Scale(1100, dpi))` と同じものを指す
+        // (docs/DESIGN.md §12)。伸ばさないと 175% の画面で他の 2 変種の 57% で開く。
         //
-        // 伸ばし方と、`AutoScaleMode` では駄目な理由は `ScaleToCurrentDpi` に書いてある。
-        ClientSize = new Size(1100, 700);
+        // **`Form.Scale` で一括に伸ばしてはいけない。**フォントは OS が既に DPI 相当で与え
+        // (9pt → 28px)、`AutoSize` のコントロールはそれに追従するので**既に正しい寸法**である。
+        // そこへ一括の倍率を掛けると二重に伸び、**枠だけ膨らんで文字が取り残される** (実測)。
+        //
+        // `AutoScaleMode` は生成時には何もしない (実測: 宣言だけでは自動スケールが走らない) が、
+        // `None` のままだと**モニタ間を移動しても再スケールしない** — WPF は DIP、WinUI は
+        // 自前で追従するので、宣言しないとここだけが取り残される。
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = LogicalToDeviceUnits(new Size(1100, 700));
+        ScaleFixedWidths();
         BuildLayout();
         ApplyStrings();
-        // **子を足し終えてから**伸ばす。`Scale` はそのとき載っているものしか伸ばさない
-        ScaleToCurrentDpi();
 
         // ハンドルは**ここで**作る。オーバーレイはコールバックを自分のスレッドから
         // 上げてくるので、Post は UI スレッド以外から呼ばれる。ハンドル生成前の
@@ -237,6 +242,29 @@ public sealed class TriggerPickerForm : Form, IPickerView
     public void StopAutoSelect() => _autoSelect.Checked = false;
 
     /// <summary>コントロールを組み立てる。デザイナーは使わない。</summary>
+    /// <summary>手書きの固定幅を、いまの表示スケールへ揃える。</summary>
+    /// <remarks>
+    /// 初期化子に書いた数字は 96 DPI 基準の論理ピクセルなので、そのままだと 175% の画面で
+    /// **文字だけが大きくて欄がはみ出す**。フォントと <c>AutoSize</c> のコントロールは
+    /// OS が既に DPI 相当で与えるので**触らない** — 触ると二重に伸びる (実測)。
+    /// </remarks>
+    private void ScaleFixedWidths()
+    {
+        foreach (Control fixedWidth in new Control[]
+        {
+            _viewCombo, _searchBox, _keyBox, _displayNameBox, _onCombo, _propCombo, _condCombo,
+            _textOperand, _valueOperand, _lowOperand, _highOperand, _toleranceOperand,
+            _minIntervalOperand, _pollIntervalOperand,
+        })
+        {
+            fixedWidth.Width = LogicalToDeviceUnits(fixedWidth.Width);
+        }
+
+        // 折り返しの上限も論理ピクセルである
+        _hint.MaximumSize = new Size(LogicalToDeviceUnits(_hint.MaximumSize.Width), 0);
+        _confirmed.MaximumSize = new Size(LogicalToDeviceUnits(_confirmed.MaximumSize.Width), 0);
+    }
+
     private void BuildLayout()
     {
         var topBar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true };
@@ -281,8 +309,8 @@ public sealed class TriggerPickerForm : Form, IPickerView
         //
         // Controls.Add の時点でレイアウトが走り、幅は ClientSize (1100) 基準になる。
         // Panel1MinSize / Panel2MinSize は WPF・WinUI 側の ColumnDefinition.MinWidth と同じ値である。
-        _split.Panel1MinSize = 240;
-        _split.Panel2MinSize = 240;
+        _split.Panel1MinSize = LogicalToDeviceUnits(240);
+        _split.Panel2MinSize = LogicalToDeviceUnits(240);
 
         // 開始位置は**比率で入れる** (docs/DESIGN.md §12)。
         //
@@ -293,8 +321,8 @@ public sealed class TriggerPickerForm : Form, IPickerView
         // 例外も警告も出ず、狭い画面でだけツリーが太くなる形である。
         _split.SplitterDistance = (int)Math.Round((_split.Width - _split.SplitterWidth) * 6.0 / 11.0);
 
-        _conditionSplit.Panel1MinSize = 80;
-        _conditionSplit.Panel2MinSize = 80;
+        _conditionSplit.Panel1MinSize = LogicalToDeviceUnits(80);
+        _conditionSplit.Panel2MinSize = LogicalToDeviceUnits(80);
     }
 
     /// <summary>
@@ -318,32 +346,6 @@ public sealed class TriggerPickerForm : Form, IPickerView
     /// という形だけで、T1 が 106px の区画に 200px の中身を見つけて初めて分かった。
     /// </para>
     /// </remarks>
-    /// <summary>96 DPI 基準で書いた寸法を、いまの表示スケールへ揃える。</summary>
-    /// <remarks>
-    /// **<c>AutoScaleMode</c> を宣言するだけでは伸びない。**自動スケールは layout の再開で
-    /// 走るので、<c>SuspendLayout</c> … <c>ResumeLayout</c> で挟まないと一度も走らない
-    /// (実測: 宣言だけだと 175% でも元の数字のまま)。
-    ///
-    /// <para>
-    /// **その挟み方はこのフォームでは採れない。**<c>BuildLayout</c> の中で
-    /// <c>SplitContainer</c> が生きた幅から <c>SplitterDistance</c> を決めており、layout を
-    /// 止めると範囲外になって <c>InvalidOperationException</c> で落ちる (実測)。
-    /// <c>Scale</c> は layout を止めずに同じ結果を出す
-    /// (実測: 窓 1100→1925 / 幅 90 の欄→154)。
-    /// </para>
-    ///
-    /// <para>
-    /// **子を足し終えてから呼ぶこと。**<c>Scale</c> はそのとき載っているものしか伸ばさない。
-    /// </para>
-    /// </remarks>
-    private void ScaleToCurrentDpi()
-    {
-        float scale = DeviceDpi / 96f;
-        if (scale != 1f)
-        {
-            Scale(new SizeF(scale, scale));
-        }
-    }
 
     private void SizeTheConditionPane()
     {

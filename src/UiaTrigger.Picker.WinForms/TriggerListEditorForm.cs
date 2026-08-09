@@ -108,19 +108,24 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         Func<TriggerPickerForm>? createPicker)
     {
         _strings = strings;
-        // **`ClientSize` も子コントロールの寸法も物理ピクセルで、放っておくと DPI で伸びない。**
-        // この 900×560 は 96 DPI 基準の数字であり、WPF の `Width="900"` (DIP) と WinUI の
-        // `ResizeClient(Scale(900, dpi))` と同じものを指す (docs/DESIGN.md §12)。
-        // 伸ばさないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
-        // ただ小さい。
+        // **手書きの数字だけを伸ばす。**この 900×560 は 96 DPI 基準であり、WPF の
+        // `Width="900"` (DIP) と WinUI の `ResizeClient(Scale(900, dpi))` と同じものを指す
+        // (docs/DESIGN.md §12)。伸ばさないと 175% の画面で他の 2 変種の 57% で開く。
         //
-        // 伸ばし方と、`AutoScaleMode` では駄目な理由は `ScaleToCurrentDpi` に書いてある。
-        ClientSize = new Size(900, 560);
+        // **`Form.Scale` で一括に伸ばしてはいけない。**フォントは OS が既に DPI 相当で与え
+        // (9pt → 28px)、`AutoSize` のコントロールはそれに追従するので**既に正しい寸法**である。
+        // そこへ一括の倍率を掛けると二重に伸び、**枠だけ膨らんで文字が取り残される** (実測)。
+        //
+        // `AutoScaleMode` は生成時には何もしない (実測: 宣言だけでは自動スケールが走らない) が、
+        // `None` のままだと**モニタ間を移動しても再スケールしない** — WPF は DIP、WinUI は
+        // 自前で追従するので、宣言しないとここだけが取り残される。
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = LogicalToDeviceUnits(new Size(900, 560));
         StartPosition = FormStartPosition.CenterParent;
+        ScaleFixedWidths();
         BuildLayout();
         ApplyStrings();
-        // **子を足し終えてから**伸ばす。`Scale` はそのとき載っているものしか伸ばさない
-        ScaleToCurrentDpi();
         _createPicker = createPicker ?? (() => new TriggerPickerForm());
 
         // Enter / Esc をボタンに結び付ける (WPF の IsDefault / IsCancel に相当)
@@ -170,32 +175,21 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
     }
 
     /// <summary>コントロールを組み立てる。デザイナーは使わない。</summary>
-    /// <summary>96 DPI 基準で書いた寸法を、いまの表示スケールへ揃える。</summary>
+
+    /// <summary>手書きの固定幅を、いまの表示スケールへ揃える。</summary>
     /// <remarks>
-    /// **<c>AutoScaleMode</c> を宣言するだけでは伸びない。**自動スケールは layout の再開で
-    /// 走るので、<c>SuspendLayout</c> … <c>ResumeLayout</c> で挟まないと一度も走らない
-    /// (実測: 宣言だけだと 175% でも元の数字のまま)。
-    ///
-    /// <para>
-    /// **その挟み方はピッカー側では採れない。**<c>BuildLayout</c> の中で
-    /// <c>SplitContainer</c> が生きた幅から <c>SplitterDistance</c> を決めており、layout を
-    /// 止めると範囲外になって <c>InvalidOperationException</c> で落ちる (実測)。
-    /// 2 つの窓で形を揃えるため、こちらも <c>Scale</c> にする。
-    /// <c>Scale</c> は layout を止めずに窓と子を同じ倍率で伸ばす
-    /// (実測: 窓 1100→1925 / 幅 90 の欄→154)。
-    /// </para>
-    ///
-    /// <para>
-    /// **子を足し終えてから呼ぶこと。**<c>Scale</c> はそのとき載っているものしか伸ばさない。
-    /// </para>
+    /// 初期化子に書いた数字は 96 DPI 基準の論理ピクセルなので、そのままだと 175% の画面で
+    /// **文字だけが大きくて欄がはみ出す**。フォントと <c>AutoSize</c> のコントロールは
+    /// OS が既に DPI 相当で与えるので**触らない** — 触ると二重に伸びる (実測)。
     /// </remarks>
-    private void ScaleToCurrentDpi()
+    private void ScaleFixedWidths()
     {
-        float scale = DeviceDpi / 96f;
-        if (scale != 1f)
+        foreach (Control fixedWidth in new Control[] { _expression, _unwatched, _combinePollInterval })
         {
-            Scale(new SizeF(scale, scale));
+            fixedWidth.Width = LogicalToDeviceUnits(fixedWidth.Width);
         }
+
+        _status.MaximumSize = new Size(LogicalToDeviceUnits(_status.MaximumSize.Width), 0);
     }
 
     private void BuildLayout()

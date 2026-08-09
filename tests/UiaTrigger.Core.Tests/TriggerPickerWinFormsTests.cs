@@ -540,8 +540,13 @@ public sealed class TriggerPickerWinFormsTests
             SplitContainer split = Splitter(form, "TreeSplitter");
 
             Assert.False(split.IsSplitterFixed);
-            Assert.Equal(240, split.Panel1MinSize);
-            Assert.Equal(240, split.Panel2MinSize);
+
+            // **最小幅は 96 DPI 基準の 240 を実 DPI へ直した値である。**素の 240 と比べると、
+            // 175% の画面でだけ落ちる (実測: 420)。他の 2 変種の ColumnDefinition.MinWidth は
+            // DIP なので、実 DPI へ直したこちらと同じものを指す
+            int expectedMinWidth = form.LogicalToDeviceUnits(240);
+            Assert.Equal(expectedMinWidth, split.Panel1MinSize);
+            Assert.Equal(expectedMinWidth, split.Panel2MinSize);
 
             int usable = split.Width - split.SplitterWidth;
             string measured =

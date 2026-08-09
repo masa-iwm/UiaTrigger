@@ -57,7 +57,7 @@ public sealed class PickerWindowDefaultSizeTests
             @"Width=""(\d+)""\s+Height=""(\d+)""");
         (int Width, int Height) winForms = Sizes(
             "src/UiaTrigger.Picker.WinForms/TriggerPickerForm.cs",
-            @"ClientSize = new Size\((\d+), (\d+)\)");
+            @"ClientSize = (?:LogicalToDeviceUnits\()?new Size\((\d+), (\d+)\)");
         (int Width, int Height) winUi = Sizes(
             "src/UiaTrigger.Picker.WinUI/TriggerPickerWindow.xaml.cs",
             @"DefaultWidth = (\d+);\s*private const int DefaultHeight = (\d+);");
@@ -75,7 +75,7 @@ public sealed class PickerWindowDefaultSizeTests
             @"Width=""(\d+)""\s+Height=""(\d+)""");
         (int Width, int Height) winForms = Sizes(
             "src/UiaTrigger.Picker.WinForms/TriggerListEditorForm.cs",
-            @"ClientSize = new Size\((\d+), (\d+)\)");
+            @"ClientSize = (?:LogicalToDeviceUnits\()?new Size\((\d+), (\d+)\)");
         (int Width, int Height) winUi = Sizes(
             "src/UiaTrigger.Picker.WinUI/TriggerListEditorWindow.xaml.cs",
             @"DefaultWidth = (\d+);\s*private const int DefaultHeight = (\d+);");
@@ -100,7 +100,7 @@ public sealed class PickerWindowDefaultSizeTests
             @"Width=""(\d+)""\s+Height=""(\d+)""");
         (int Width, int Height) winForms = Sizes(
             "src/UiaTrigger.App.WinForms/MainForm.cs",
-            @"ClientSize = new Size\((\d+), (\d+)\)");
+            @"ClientSize = (?:LogicalToDeviceUnits\()?new Size\((\d+), (\d+)\)");
         (int Width, int Height) winUi = Sizes(
             "src/UiaTrigger.App.WinUI/MainWindow.xaml.cs",
             @"DefaultWidth = (\d+);\s*private const int DefaultHeight = (\d+);");
@@ -156,11 +156,16 @@ public sealed class PickerWindowDefaultSizeTests
     /// 通ったまま 175% の画面で 1 つだけ小さく開く — 実際にそうなっていた。
     /// </para>
     /// <para>
-    /// **<c>AutoScaleMode</c> では伸びない。**手書きのフォームには設計時の寸法が無く、
-    /// <c>Dpi</c> / <c>Font</c> のどちらを宣言しても 175% の画面で元の数字のまま開く
-    /// (実測: 窓 1100×700 のまま)。伸びるのは <c>Scale</c> のほうで、窓と子コントロールを
-    /// 同じ倍率で伸ばす (実測: 窓 1100→1925 / 幅 90 の欄→154)。**この 2 つを取り違えると、
-    /// 宣言を足したのに何も変わらないまま「直した」ことになる。**
+    /// **伸ばすのは手書きの数字だけである。**フォントは OS が既に DPI 相当で与え
+    /// (実測: 9pt → 175% で 28px)、<c>AutoSize</c> のコントロールはそれに追従するので
+    /// **既に正しい寸法**である。<c>Form.Scale</c> で一括に伸ばすと二重になり、
+    /// **枠だけ膨らんで文字が取り残される** (実測: AutoSize のボタンが 139×40 → 243×70)。
+    /// 論理ピクセルを実 DPI へ直す API は <c>LogicalToDeviceUnits</c> である。
+    /// </para>
+    /// <para>
+    /// <c>AutoScaleMode</c> の宣言は生成時には何もしない (実測: 宣言だけでは自動スケールが
+    /// 走らない) が、<c>None</c> のままだと**モニタ間を移動しても再スケールしない**ので
+    /// 宣言する。WPF は DIP、WinUI は自前で追従するので、ここだけが取り残される。
     /// </para>
     /// <para>
     /// **実際にその大きさで開くことは人が見る** (docs/MANUAL-CHECKS.md §4.3.1)。
@@ -173,11 +178,10 @@ public sealed class PickerWindowDefaultSizeTests
     public void TheWinFormsWindowsScaleTheirSizeToTheCurrentDpi(string relativePath)
     {
         string code = Read(relativePath);
-        Assert.Contains("ScaleToCurrentDpi();", code, StringComparison.Ordinal);
-        Assert.Contains("float scale = DeviceDpi / 96f;", code, StringComparison.Ordinal);
-        Assert.Contains("Scale(new SizeF(scale, scale));", code, StringComparison.Ordinal);
-        // **宣言しただけで満足しない。**AutoScaleMode は伸ばさないので、これが残っていたら
-        // 「効かない直し」が戻ってきている
-        Assert.DoesNotContain("AutoScaleMode = AutoScaleMode.Dpi", code, StringComparison.Ordinal);
+        Assert.Contains("ClientSize = LogicalToDeviceUnits(new Size(", code, StringComparison.Ordinal);
+        Assert.Contains("AutoScaleMode = AutoScaleMode.Dpi", code, StringComparison.Ordinal);
+        // **一括の Scale は戻さない。**AutoSize のコントロールまで二重に伸ばすので、
+        // 窓は正しくなるのに中身の釣り合いが崩れる
+        Assert.DoesNotContain("Scale(new SizeF(scale, scale));", code, StringComparison.Ordinal);
     }
 }

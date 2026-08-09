@@ -14,22 +14,6 @@ internal sealed class MainForm : Form
     // 読み書きの両方がこの 1 つのフィールドを通る
 
 
-    /// <summary>96 DPI 基準で書いた寸法を、いまの表示スケールへ揃える。</summary>
-    /// <remarks>
-    /// **<c>AutoScaleMode</c> を宣言するだけでは伸びない** — 自動スケールは layout の再開で
-    /// 走るので、<c>SuspendLayout</c> … <c>ResumeLayout</c> で挟まないと一度も走らない (実測)。
-    /// その挟み方は配る側のピッカーでは採れない (<c>SplitContainer</c> が生きた幅を要る) ので、
-    /// 3 つの窓とも <c>Scale</c> で揃えてある。**子を足し終えてから呼ぶこと。**
-    /// </remarks>
-    private void ScaleToCurrentDpi()
-    {
-        float scale = DeviceDpi / 96f;
-        if (scale != 1f)
-        {
-            Scale(new SizeF(scale, scale));
-        }
-    }
-
     private readonly string _filePath = HostOptions.TriggerFile ?? TriggerFilePath.Default;
     private readonly List<TriggerDefinition> _triggers = [];
 
@@ -56,14 +40,20 @@ internal sealed class MainForm : Form
 
     public MainForm()
     {
-        // **`ClientSize` も子コントロールの寸法も物理ピクセルで、既定では DPI で伸びない。**
-        // この 900×600 は 96 DPI 基準の数字であり、WPF の `Width="900"` (DIP) と WinUI の
-        // `ResizeClient(Scale(900, dpi))` と同じものを指す (docs/DESIGN.md §12)。
-        // 伸ばさないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
-        // ただ小さい。
+        // **手書きの数字だけを伸ばす。**この 900×600 は 96 DPI 基準であり、WPF の
+        // `Width="900"` (DIP) と WinUI の `ResizeClient(Scale(900, dpi))` と同じものを指す
+        // (docs/DESIGN.md §12)。伸ばさないと 175% の画面で他の 2 変種の 57% で開く。
         //
-        // 伸ばし方と、`AutoScaleMode` では駄目な理由は `ScaleToCurrentDpi` に書いてある。
-        ClientSize = new Size(900, 600);
+        // **`Form.Scale` で一括に伸ばしてはいけない。**フォントは OS が既に DPI 相当で与え
+        // (9pt → 28px)、`AutoSize` のコントロールはそれに追従するので**既に正しい寸法**である。
+        // そこへ一括の倍率を掛けると二重に伸び、**枠だけ膨らんで文字が取り残される** (実測)。
+        //
+        // `AutoScaleMode` は生成時には何もしない (実測: 宣言だけでは自動スケールが走らない) が、
+        // `None` のままだと**モニタ間を移動しても再スケールしない** — WPF は DIP、WinUI は
+        // 自前で追従するので、宣言しないとここだけが取り残される。
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = LogicalToDeviceUnits(new Size(900, 600));
 
         var bar = new FlowLayoutPanel { Dock = DockStyle.Top, AutoSize = true, WrapContents = true };
         bar.Controls.AddRange([_openPicker, _openAnother, _delete, _reload, _editList, _status]);
@@ -78,8 +68,6 @@ internal sealed class MainForm : Form
         _reload.Text = AppStrings.Get("ReloadButton.Content");
         _editList.Text = AppStrings.Get("EditListButton.Content");
         _path.Text = _filePath;
-        // **子を足し終えてから**伸ばす。`Scale` はそのとき載っているものしか伸ばさない
-        ScaleToCurrentDpi();
 
         _openPicker.Click += (_, _) =>
         {
