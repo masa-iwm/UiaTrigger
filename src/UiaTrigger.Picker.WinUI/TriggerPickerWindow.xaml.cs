@@ -178,6 +178,13 @@ public sealed partial class TriggerPickerWindow : Window, IPickerView, IDisposab
                 Close();
                 break;
             case Windows.System.VirtualKey.Enter when _editSession:
+                // **確定に使う値は「いま画面に出ているもの」でなければならない。**
+                // しきい値の欄 (`NumberBox`) は焦点を持ったままだと入力を `Value` へ
+                // 確定しないことがあり、遅延した `Commit` がそれを読むと
+                // **画面には出ているのに保存されない**という形になる (T6 実測)。
+                // [確定] を押したときはクリックが焦点を奪うので必ず確定される —
+                // Enter でも同じ状態にしてから走らせ、2 つの経路の差を無くす。
+                _ = CommitButton.Focus(FocusState.Programmatic);
                 // **確定はこの窓を閉じる**ので、Esc と同じ理由で入力が掃けてから走らせる
                 _ = DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, _presenter.Commit);
                 break;
