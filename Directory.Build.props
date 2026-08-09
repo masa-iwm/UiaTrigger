@@ -75,15 +75,15 @@
   <!--
     パッケージの共通メタデータ (docs/DESIGN.md D4 / docs/RELEASING.md §1)
 
-    版数は 0.1.0-preview.1 から始める。0.x のあいだ公開 API は安定化前で、
-    破壊的に変わりうる (README / CHANGELOG がそう告知している)。1.0.0 で出すと
-    「安定している」という約束になるので出さない。プレリリース札を付けてあるので、
-    利用者が明示的に選ばない限り復元されない。
+    nuget.org へ出すのは札なしの 0.1.0 からである。プレリリース札 (-preview.*) は
+    ドラフト Release と GitHub Packages での検証にだけ使う (docs/RELEASING.md §1)。
+    0.x のあいだ公開 API は安定化前で破壊的に変わりうる (README / CHANGELOG がそう
+    告知している)。1.0.0 で出すと「安定している」という約束になるので出さない。
 
     Description と PackageTags は**プロジェクトごと**に書く (中身が違うため)。
   -->
   <PropertyGroup>
-    <Version>0.1.0-preview.8</Version>
+    <Version>0.1.0</Version>
     <Authors>masa-iwm</Authors>
     <Product>UiaTrigger</Product>
     <Copyright>Copyright (c) 2026 masa-iwm</Copyright>

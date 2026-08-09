@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/masa-iwm/UiaTrigger/main/schema/triggers.schema.json",
+  "title": "UiaTrigger trigger file",
+  "type": "object",
+  "properties": {
+    "$schema": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "Version": {
+      "type": "integer"
+    },
+    "Triggers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "string"
+          },
+          "DisplayName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Window": {
+            "type": "object",
+            "properties": {
+              "ProcessName": {
+                "type": "string"
+              },
+              "ProcessNameMatch": {
+                "enum": [
+                  "Ignored",
+                  "Preferred",
+                  "Required"
+                ]
+              },
+              "ProcessPath": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ProcessPathMatch": {
+                "enum": [
+                  "Ignored",
+                  "Preferred",
+                  "Required"
+                ]
+              },
+              "ClassName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ClassNameMatch": {
+                "enum": [
+                  "Ignored",
+                  "Preferred",
+                  "Required"
+                ]
+              },
+              "WindowName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "WindowNameMatch": {
+                "enum": [
+                  "Ignored",
+                  "Preferred",
+                  "Required"
+                ]
+              }
+            }
+          },
+          "Locator": {
+            "type": "object",
+            "properties": {
+              "View": {
+                "enum": [
+                  "Raw",
+                  "Control",
+                  "Content"
+                ]
+              },
+              "Search": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "AutomationId": {
+                    "type": "string"
+                  }
+                }
+              },
+              "Steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ControlType": {
+                      "type": "integer"
+                    },
+                    "AutomationId": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "Name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ClassName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "SiblingIndex": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "On": {
+            "enum": [
+              "ElementAppeared",
+              "ElementRemoved",
+              "PropertyChanged",
+              "WhileMatching",
+              "StoppedMatching"
+            ]
+          },
+          "Combine": {
+            "enum": [
+              "All",
+              "Any"
+            ]
+          },
+          "Expression": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "Clauses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "Name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "DisplayName": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "Window": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "ProcessName": {
+                      "type": "string"
+                    },
+                    "ProcessNameMatch": {
+                      "enum": [
+                        "Ignored",
+                        "Preferred",
+                        "Required"
+                      ]
+                    },
+                    "ProcessPath": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ProcessPathMatch": {
+                      "enum": [
+                        "Ignored",
+                        "Preferred",
+                        "Required"
+                      ]
+                    },
+                    "ClassName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "ClassNameMatch": {
+                      "enum": [
+                        "Ignored",
+                        "Preferred",
+                        "Required"
+                      ]
+                    },
+                    "WindowName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "WindowNameMatch": {
+                      "enum": [
+                        "Ignored",
+                        "Preferred",
+                        "Required"
+                      ]
+                    }
+                  }
+                },
+                "Locator": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "View": {
+                      "enum": [
+                        "Raw",
+                        "Control",
+                        "Content"
+                      ]
+                    },
+                    "Search": {
+                      "$ref": "#/properties/Triggers/items/properties/Locator/properties/Search"
+                    },
+                    "Steps": {
+                      "$ref": "#/properties/Triggers/items/properties/Locator/properties/Steps"
+                    }
+                  }
+                },
+                "Watch": {
+                  "type": "boolean"
+                },
+                "Property": {
+                  "enum": [
+                    "Name",
+                    "AutomationId",
+                    "ControlType",
+                    "BoundingRectangle",
+                    "AccessKey",
+                    "AcceleratorKey",
+                    "HelpText",
+                    "IsEnabled",
+                    "IsOffscreen",
+                    "Value",
+                    "RangeValue",
+                    "RangeValueMinimum",
+                    "RangeValueMaximum",
+                    "ClassName",
+                    "Custom"
+                  ]
+                },
+                "CustomPropertyId": {
+                  "type": "integer"
+                },
+                "Op": {
+                  "enum": [
+                    "Always",
+                    "Equals",
+                    "NotEquals",
+                    "Between",
+                    "NotBetween",
+                    "GreaterThan",
+                    "LessThan",
+                    "LessOrEqual",
+                    "GreaterOrEqual",
+                    "RegexMatch",
+                    "RegexNotMatch"
+                  ]
+                },
+                "Text": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "Value": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "Low": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "High": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "Tolerance": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "MinInterval": {
+            "$comment": "Represents a System.TimeSpan value.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?(\\d\u002B\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"
+          },
+          "PollInterval": {
+            "$comment": "Represents a System.TimeSpan value.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^-?(\\d\u002B\\.)?\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,7})?$"
+          },
+          "NotifyOnStoppedMatching": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "Id"
+        ]
+      }
+    }
+  }
+}

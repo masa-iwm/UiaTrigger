@@ -130,9 +130,48 @@ public static class TriggerStore
         ArgumentException.ThrowIfNullOrEmpty(path);
         ArgumentNullException.ThrowIfNull(triggers);
 
-        var file = new TriggerFile { Triggers = [.. triggers] };
+        var file = new TriggerFile { Schema = TriggerJson.SchemaFileName, Triggers = [.. triggers] };
         // truncate-in-place で書くと、書き込み中のクラッシュで全トリガー定義が失われる
         // (docs/DESIGN.md A17)
         AtomicFile.Write(path, stream => JsonSerializer.Serialize(stream, file, TriggerJsonContext.Default.TriggerFile));
+
+        // **schema を隣へ置く。**$schema は相対名で書いてあるので、置かないとエディタが
+        // 解決できず「壊れた参照が入ったファイル」を配ることになる。
+        // 書けなくても保存は成功させる — 補完のための補助であって、定義そのものではない。
+        WriteSchemaBeside(path);
+    }
+
+    /// <summary>Writes the schema next to <paramref name="path"/>, ignoring failures.</summary>
+    /// <remarks>
+    /// 書けない理由 (読み取り専用のフォルダなど) でトリガーの保存まで失敗させない。
+    /// **同じ内容なら書き直さない** — 保存のたびに更新時刻だけが動くと、
+    /// 変更を見張っている道具が無意味に反応する。
+    /// </remarks>
+    private static void WriteSchemaBeside(string path)
+    {
+        try
+        {
+            string? folder = Path.GetDirectoryName(Path.GetFullPath(path));
+            if (folder is null)
+            {
+                return;
+            }
+            string schemaPath = Path.Combine(folder, TriggerJson.SchemaFileName);
+            string schema = TriggerJson.Schema;
+            if (File.Exists(schemaPath) && string.Equals(File.ReadAllText(schemaPath), schema, StringComparison.Ordinal))
+            {
+                return;
+            }
+            // **StreamWriter で包まないこと。**破棄すると渡されたストリームまで閉じ、
+            // AtomicFile がその後の差し替えに使えなくなる (実測: ObjectDisposedException)
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(schema);
+            AtomicFile.Write(schemaPath, stream => stream.Write(bytes));
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
     }
 }

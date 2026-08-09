@@ -206,6 +206,16 @@
     <member name="F:UiaTrigger.Models.TriggerProperty.Value">
       <summary>文字列の値。<c>ValuePattern.Value</c> から読む。パスワード欄では伏せられる。</summary>
     </member>
+    <member name="F:UiaTrigger.Serialization.TriggerJson.SchemaFileName">
+      <summary>トリガーファイルの隣へ書き出す schema ファイルの名前。</summary>
+      <remarks>
+        相対名なのは意図である。エディタは <c>$schema</c> を文書自身のフォルダを基準に
+        解決するので、ファイルを別の場所へ写しても、オフラインでも対になったまま効く。
+      </remarks>
+    </member>
+    <member name="F:UiaTrigger.Serialization.TriggerJson.SchemaId">
+      <summary>schema の正の置き場。生成した schema に <c>$id</c> として書き込まれる。</summary>
+    </member>
     <member name="F:UiaTrigger.Serialization.TriggerJson.FormatVersion">
       <summary>
         <see cref="P:UiaTrigger.Serialization.TriggerFile.Version" /> に書き込む版数であり、
@@ -1701,6 +1711,15 @@
         <see cref="F:UiaTrigger.Models.MatchStrength.Preferred" /> の実行ファイルのパスが一致したときの順位加点。
       </summary>
     </member>
+    <member name="P:UiaTrigger.Serialization.TriggerFile.Schema">
+      <summary>この定義ファイルの schema の在り処。JSON には <c>$schema</c> として書かれる。</summary>
+      <remarks>
+        <see cref="M:UiaTrigger.Persistence.TriggerStore.Save(System.String,System.Collections.Generic.IEnumerable{UiaTrigger.Models.TriggerDefinition})" />
+        が <see cref="F:UiaTrigger.Serialization.TriggerJson.SchemaFileName" /> を隣へ書き出し、
+        ここをそれへ向ける。利用者側の設定なしにエディタが補完と検証を効かせるためである。
+        <c>$schema</c> を持たないファイルもそのまま読める。
+      </remarks>
+    </member>
     <member name="P:UiaTrigger.Serialization.TriggerFile.Triggers">
       <summary>保存されているトリガー。書き込まれた順に並ぶ。</summary>
     </member>
@@ -2201,6 +2220,16 @@
       <summary>
         このライブラリ付属のサンプルホストが永続化するドキュメント。ホストは任意の形を使ってよい。
       </summary>
+    </member>
+    <member name="P:UiaTrigger.Serialization.TriggerJson.Schema">
+      <summary>トリガーファイルの JSON Schema (テキスト)。</summary>
+      <remarks>
+        **モデルから生成する**ので、手で書いた写しのようにずれることがない。
+        トリガーを別の場所へ保存するホストが、同じ補完を提供したいときに使う。
+        ライブラリ自身は
+        <see cref="M:UiaTrigger.Persistence.TriggerStore.Save(System.String,System.Collections.Generic.IEnumerable{UiaTrigger.Models.TriggerDefinition})" />
+        の中でこれを書き出す。
+      </remarks>
     </member>
     <member name="T:UiaTrigger.Serialization.TriggerJson">
       <summary>

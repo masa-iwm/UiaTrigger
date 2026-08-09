@@ -11,7 +11,7 @@
 | 対象 SKU | C# / .NET 10 / WinUI 3 / Native AOT 発行対応の、**他アプリ UI 要素監視ライブラリ**。変更しない |
 | 配布形態 | **NuGet パッケージ 5 つ**: `UiaTrigger.Core` (→ `Microsoft.Extensions.Logging.Abstractions`) / `UiaTrigger.Picker.Core` (→ Core) / `UiaTrigger.Picker.WinUI` / `.Wpf` / `.WinForms` (→ Picker.Core)。README が「自分のアプリと同じ UI フレームワークの `Picker.*` を参照する」と案内している以上、5 つとも配らないと案内が嘘になる。サンプルホスト 3 つと `TestHost` は NuGet では配れないので GitHub Releases の zip で配る |
 | パッケージの中身 | **5 つとも MSIL (AnyCPU)**。利用者にアーキテクチャの制約は掛からない。**これは `UiaTrigger.slnx` が配るプロジェクトを `Platform` に固定していないことで保たれている** — 配布物は `dotnet pack UiaTrigger.slnx` (ソリューション pack) が作るので、固定すればそのまま `lib/` へ流れる。ソリューションビルドの `bin\x64` を見て「x64 のパッケージだ」と結論しないこと |
-| 版数 | `0.1.0-preview.1` から。**`1.0.0` で出すことは「安定している」という約束**であり、公開 API の再構成が続くうちは出さない。プレリリース札があれば利用者が明示的に選ばない限り復元されない |
+| 版数 | **nuget.org へは札なしの `0.1.0` から**。プレリリース札 (`-preview.*`) はドラフト Release と GitHub Packages での検証にだけ使う。**`1.0.0` で出すことは「安定している」という約束**であり、公開 API の再構成が続くうちは出さない — `0.x` であること自体が破壊的変更の告知である (docs/RELEASING.md §1) |
 | 過去互換 | **0.x のあいだは持たない** (安定版で互換方針を立て直す)。旧形式の判別処理そのものを持たない — 読み替えるべき過去のファイルが公開版には存在しないため。代わりに**版数だけは最初から書き込む** (`TriggerJson.FormatVersion = 1`)。版数の無いファイルは後から見分けようがなく、それを増やさないことだけが将来の移行を可能にする。`FormatVersion` は 1 のままでよく、「既存 JSON がバイト単位で変わらない」は目標にしない |
 | `InternalsVisibleTo` | **配るアセンブリは製品アセンブリ向けに持たない** (テストアセンブリに限る)。配らない `App.Shared` だけがサンプルホスト 3 つへ見せる (公開型を持たない共有のため)。詳細は §12 |
 | ライセンス | MIT |
@@ -674,6 +674,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | C18 | 句名の妥当性・一意性は**式の有無に関わらず**検査する。位置由来の名前 (`cN`) は同じ綴りの id と衝突しうるので、「全部まとめる」でも重複は起きる — 検査を式の中に閉じ込めると、保存はできるのに `AddAsync` だけが弾く複合が作れる | §4 | テストが ID で参照 |
 | C19 | 公開境界 (`AddAsync` / `StartAsync` / ピッカーの `TriggerCommitted`) を渡る `TriggerDefinition` は受け取った側が `TriggerJsonContext` 往復で写す。写さない API (`Compose` の Window / Locator 共有) は共有と寿命を XML doc に明記する | §3 | テストが ID で参照 |
 | C20 | 定義の検証は列挙の定義域と文字列の null まで見る。域外値・null は黙って「鳴らないトリガー / Any 扱い」にならず、**単一の検証関数** (`TriggerDefinitionRules`) が全入口 (JSON 読込・`AddAsync`・`Apply`・`Compose`) で理由付きに弾く — 検証が入口ごとに分散すると、最も寛容な入口 (デシリアライズ) が事実上の門になる | §3 | テストが ID で参照 |
+| C22 | トリガーファイルの JSON Schema は**モデルから生成する** (`JsonSchemaExporter`)。手で書いた写しはモデルが育った日に黙って古くなり、**エディタが正しい定義を赤線で拒む**という一番たちの悪い形で出る。`TriggerStore.Save` は `$schema` を相対名で書き、schema を隣へ置く — 置かないと壊れた参照を配ることになる。リポジトリの `schema/` に在るのは**公開する写し**で、生成物と一致することをテストが縛る | §3 | テストが ID で参照 |
 | C21 | `IsPassword` の伏字化は**全読み取り経路**に適用される。C12 の「復活しない」は経路記録 (`ElementPathStep.Name`) と `Custom` 読みを含む — スナップショット関門を通らない経路が伏字化を素通りすると、平文が定義ファイルに残り、発火イベントでホストへ渡る | §3 | テストが ID で参照 |
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 | テストが ID で参照 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 | テストが ID で参照 |

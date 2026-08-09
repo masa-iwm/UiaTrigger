@@ -131,6 +131,10 @@ public List<TriggerDefinition> Triggers { get; set; } = [];
   変えていないが、ライブラリが `UiaTrigger.Serialization.TriggerJsonContext` (source-gen) を*提供*するので、
   ホストは `TypeInfoResolverChain` に足すだけでよい。トリガーだけを 1 ファイルに置くなら
   `UiaTrigger.Persistence.TriggerStore` がそのまま使える (パスは呼び出し側が渡す)。サンプルホストは `%LOCALAPPDATA%\UiaTrigger\triggers.json` を使う
+- **トリガーファイルには JSON Schema がある。**`TriggerStore.Save` は `triggers.schema.json` を
+  隣に書き出し、ファイルへ `$schema` を書き込むので、利用者側の設定なしにエディタの補完と検証が効く。
+  別の場所へ保存するなら `TriggerJson.Schema` が同じテキストを返す。schema は**モデルから生成する**
+  ので、ライブラリが読む形からずれない
 - **トリガーの形**: `On` (`ElementAppeared` / `ElementRemoved` / `PropertyChanged` / `WhileMatching`) と
   `Clauses` (プロパティごとの述語のリスト、`Combine` で `All` / `Any`) が独立している。
   「要素が出現し、**かつ** Value が X」のような組み合わせが書ける。`MinInterval` で発火レート制限

@@ -134,6 +134,10 @@ Windows Forms share the `.resx` in `Picker.Core`).
   (source-generated), so a host only has to add it to `TypeInfoResolverChain`. If you want triggers alone
   in a single file, `UiaTrigger.Persistence.TriggerStore` works as-is — you give it the path. The
   sample hosts use `%LOCALAPPDATA%\UiaTrigger\triggers.json`
+- **The trigger file has a JSON Schema.** `TriggerStore.Save` writes `triggers.schema.json` beside
+  the file and stamps `$schema` into it, so an editor completes and validates the file with no
+  per-user configuration. `TriggerJson.Schema` returns the same text if you store triggers somewhere
+  else. The schema is generated from the model, so it cannot drift from what the library reads
 - **The shape of a trigger**: `On` (`ElementAppeared` / `ElementRemoved` / `PropertyChanged` /
   `WhileMatching`) and `Clauses` (a list of per-property predicates, combined with `Combine` = `All` or
   `Any`) are independent. That lets you write "the element appeared **and** Value is X". `MinInterval`
