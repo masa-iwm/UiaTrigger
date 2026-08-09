@@ -184,10 +184,15 @@ jobs:
                   $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
                   $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
                   $checked++
-                  if ($machine -ne 0x14C) {
-                    $bad += ("{0} -> {1} (machine=0x{2:X})" -f $pkg.Name, $e.FullName, $machine)
+                  # **Picker.WinUI だけは x64 である** (docs/DESIGN.md D5)。WinUI 3 は
+                  # アーキテクチャ固定を要求するので、あれは Platform=x64 で建てている。
+                  # 除外にせず**逆を要求する**のは、うっかり AnyCPU で建った日にも
+                  # 気づくためである — 黙って通す穴を作らない
+                  $want = if ($pkg.Name -like 'UiaTrigger.Picker.WinUI.*') { 0x8664 } else { 0x14C }
+                  if ($machine -ne $want) {
+                    $bad += ("{0} -> {1} (machine=0x{2:X}, 期待 0x{3:X})" -f $pkg.Name, $e.FullName, $machine, $want)
                   } else {
-                    Write-Host ("  OK: {0} -> {1} (MSIL)" -f $pkg.Name, $e.FullName)
+                    Write-Host ("  OK: {0} -> {1} (machine=0x{2:X})" -f $pkg.Name, $e.FullName, $machine)
                   }
                 } finally {
                   Remove-Item $temp -Force -ErrorAction SilentlyContinue
@@ -198,15 +203,15 @@ jobs:
             }
           }
           # **1 つも見ていないのに緑にしない** (docs/TESTING.md §2)。配る 5 パッケージが
-          # それぞれ lib/<TFM>/*.dll を 1 つ持つ
+          # それぞれ lib/<TFM>/*.dll を 1 つ持ち、サテライトのぶんが上乗せされる
           if ($checked -lt 5) {
             throw "検査できた lib の dll が $checked 件しかありません (5 パッケージぶん在るはずです)。"
           }
           if ($bad) {
             $bad | ForEach-Object { Write-Host "::error::MSIL ではないアセンブリを配ろうとしています: $_" }
-            throw "配布物に MSIL でないアセンブリがあります (docs/DESIGN.md D4): $($bad -join '; ')."
+            throw "配布物のアセンブリが期待したアーキテクチャではありません (docs/DESIGN.md D4/D5): $($bad -join '; ')."
           }
-          Write-Host "OK: 配布する $checked 個のアセンブリはすべて MSIL です"
+          Write-Host "OK: 配布する $checked 個のアセンブリは期待どおりのアーキテクチャです"
 
       # 配布するホストは win-x64 だけである。
       # **ARM64 は出さない** — docs/RELEASING.md §5 が「AOT の ARM64 発行だけは未確認」と

@@ -677,7 +677,7 @@ HWND の再利用にも注意が要る (A9): 購読の張り替え判定を「HW
 | D1 | 純ロジック層は UIA 非依存の継ぎ目を持ち、COM 無しでテストできる | docs/TESTING.md §1 | テストが ID で参照 |
 | D2 | CI が常時走る。AOT 発行の破壊は interop の変更で AOT 発行時にしか失敗しないものがあるため、発行までを CI が通す | docs/TESTING.md §1 | テストが ID で参照 |
 | D3 | `TreatWarningsAsErrors=true`。警告 0 がビルドの不変条件である | — | テストが ID で参照 |
-| D4 | NuGet 5 パッケージ / MIT / プレリリース版数から。パッケージは全て MSIL | §1 | テストが ID で参照 |
+| D4 | NuGet 5 パッケージ / MIT / プレリリース版数から。配るアセンブリは `Picker.WinUI` を除いて MSIL — あれだけは WinUI 3 の要求で x64 である (D5)。**除外ではなく逆を要求する**形でリリース時に検査する (うっかり AnyCPU で建った日にも気づくため) | §1 | テストが ID で参照 |
 | D5 | ライブラリは AnyCPU。App の RID は `Platform` から導き、ARM64 でも建つ | §12 | テストが ID で参照 |
 | D6 | README は実装と一致させる。英語版が正である | docs/LOCALIZATION.md | 網なし — 散文と実装の一致に機械的な判定基準が無い。README が書いた決定の**実装側**は個別のテストが縛る |
 | D7 | サンプルは XAML 未処理例外を握り潰さない。`UnhandledException` はログへ出す | §12 | テストが ID で参照 |
