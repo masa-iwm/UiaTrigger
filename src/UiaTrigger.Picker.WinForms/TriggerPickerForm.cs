@@ -144,6 +144,14 @@ public sealed class TriggerPickerForm : Form, IPickerView
         Func<IPickerView, TriggerPickerPresenter>? createPresenter)
     {
         _strings = strings;
+        // **`ClientSize` は物理ピクセルで、既定では DPI で伸びない。**この 1100×700 は
+        // 96 DPI 基準の数字であり、WPF の `Width="1100"` (DIP) と WinUI の
+        // `ResizeClient(Scale(1100, dpi))` と同じものを指す (docs/DESIGN.md §12)。
+        // 宣言しないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
+        // ただ小さい。`AutoScaleDimensions` を 96 に置くと、この数字も子コントロールも
+        // 実 DPI へ揃って伸びる。
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(1100, 700);
         BuildLayout();
         ApplyStrings();

@@ -108,6 +108,14 @@ public sealed class TriggerListEditorForm : Form, ITriggerListEditorView
         Func<TriggerPickerForm>? createPicker)
     {
         _strings = strings;
+        // **`ClientSize` は物理ピクセルで、既定では DPI で伸びない。**この 900×560 は
+        // 96 DPI 基準の数字であり、WPF の `Width="900"` (DIP) と WinUI の
+        // `ResizeClient(Scale(900, dpi))` と同じものを指す (docs/DESIGN.md §12)。
+        // 宣言しないと 175% の画面で他の 2 変種の 57% の大きさで開く — 例外も警告も出ず、
+        // ただ小さい。`AutoScaleDimensions` を 96 に置くと、この数字も子コントロールも
+        // 実 DPI へ揃って伸びる。
+        AutoScaleDimensions = new SizeF(96F, 96F);
+        AutoScaleMode = AutoScaleMode.Dpi;
         ClientSize = new Size(900, 560);
         StartPosition = FormStartPosition.CenterParent;
         BuildLayout();

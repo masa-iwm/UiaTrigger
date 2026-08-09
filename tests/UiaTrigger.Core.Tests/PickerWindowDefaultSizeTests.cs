@@ -145,4 +145,30 @@ public sealed class PickerWindowDefaultSizeTests
         Assert.Contains("GetDpiForWindow", code, StringComparison.Ordinal);
         Assert.Contains("Scale(widthAt96, dpi)", code, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Windows Forms 側も表示スケールに従うこと。
+    ///
+    /// <para>
+    /// <c>ClientSize</c> は**物理ピクセル**であり、既定 (<c>AutoScaleMode.None</c>) では
+    /// DPI で伸びない。上の 3 つと同じ数字を書いていても**単位が違う**ので、
+    /// 数字の一致を見る <see cref="ThePickerWindowOpensAtTheSameSizeInAllThreeVariants"/> は
+    /// 通ったまま 175% の画面で 1 つだけ小さく開く — 実際にそうなっていた。
+    /// </para>
+    /// <para>
+    /// <c>AutoScaleDimensions</c> を 96 に置くことが「この数字は 96 DPI 基準である」という
+    /// 宣言であり、WinUI 側の <c>Scale(widthAt96, dpi)</c> と対になる。
+    /// **実際にその大きさで開くことは人が見る** (docs/MANUAL-CHECKS.md §4.3.1)。
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData("src/UiaTrigger.Picker.WinForms/TriggerPickerForm.cs")]
+    [InlineData("src/UiaTrigger.Picker.WinForms/TriggerListEditorForm.cs")]
+    [InlineData("src/UiaTrigger.App.WinForms/MainForm.cs")]
+    public void TheWinFormsWindowsDeclareTheirSizeIsAt96Dpi(string relativePath)
+    {
+        string code = Read(relativePath);
+        Assert.Contains("AutoScaleDimensions = new SizeF(96F, 96F)", code, StringComparison.Ordinal);
+        Assert.Contains("AutoScaleMode = AutoScaleMode.Dpi", code, StringComparison.Ordinal);
+    }
 }

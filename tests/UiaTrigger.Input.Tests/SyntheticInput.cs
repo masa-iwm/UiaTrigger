@@ -42,6 +42,13 @@ internal static partial class SyntheticInput
     /// <summary>Enter。編集セッションのピッカーでは確定になる。</summary>
     public const ushort VkEnter = 0x0D;
 
+    /// <summary>
+    /// 数字の 2。**打鍵で入れることに意味がある** — UIA の <c>ValuePattern</c> で値を書くと
+    /// <c>NumberBox</c> の「打った文字を <c>Value</c> へ確定する」段を飛ばしてしまい、
+    /// まさにそこが壊れている形を素通りさせる。
+    /// </summary>
+    public const ushort VkDigit2 = 0x32;
+
     public const ushort VkLeft = 0x25;
 
     /// <summary>→ キー。</summary>

@@ -11,6 +11,7 @@
 // フックではなく通常のフォーカス経路なので、撃つ前に UIA でフォーカスを与え、
 // UIA で狙いを検算する (SetFocus / HasKeyboardFocus — どちらも合成入力ではない)。
 using System.Windows.Automation;
+using UiaTrigger.Models;
 using UiaTrigger.Picker.UiTests;
 using Xunit;
 
@@ -141,5 +142,82 @@ public sealed class EnterKeyTests
             EditorScenario.Settle,
             "[OK] にフォーカスがある Enter はエディタを閉じること (Enter は届いている)",
             scenario.Diagnostics);
+    }
+
+    /// <summary>
+    /// **編集で開いた子ピッカーで、しきい値の欄に打った値が Enter の確定に載ること。**
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>NumberBox</c> は打った文字をすぐ <c>Value</c> にせず、Enter か焦点喪失で確定する。
+    /// 確定の前に <c>ReadDraft</c> が走ると、**画面には 2 と出ているのに保存されるのは空**という
+    /// 形になる — 例外も警告も出ず、閉じた窓だけが残る。
+    /// </para>
+    /// <para>
+    /// **打鍵で入れること。**UIA の <c>ValuePattern</c> で書くと確定の段そのものを飛ばすので、
+    /// 壊れていても緑になる。見るのは保存された定義であって画面ではない — 画面は打った文字を
+    /// そのまま映すので、確定が落ちていても正しく見える。
+    /// </para>
+    /// <para>
+    /// 退行: <c>TriggerPickerWindow</c> の <c>NumberBox</c> 群への <c>AddHandler</c>
+    /// (<c>handledEventsToo</c>) を外す → Enter が窓まで届かず確定が積まれない。
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void EnterInAThresholdBox_CommitsTheTypedValue()
+    {
+        using var cursor = SyntheticInput.CursorGuard.Save();
+        using var scenario = EditorScenario.Open();
+
+        scenario.OpenEditor();
+        scenario.RecordOneThroughTheChildPicker(out string id);
+        scenario.Accept();
+
+        scenario.OpenEditor();
+        scenario.SelectTheRowContaining(id);
+        AutomationElement picker = scenario.EditTheSelectedRow();
+
+        // **狙うのは内側の Edit である。**<c>NumberBox</c> 自身はフォーカスを受け取れず、
+        // <c>SetFocus</c> が「ターゲット要素は、フォーカスを受け取ることができません」で落ちる (実測)。
+        AutomationElement minInterval =
+            picker.RequireByIdEventually("MinIntervalOperand", scenario.Diagnostics);
+        AutomationElement input = Ui.Until(
+            () => minInterval.FindFirst(
+                TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit)),
+            EditorScenario.Settle,
+            "最小発火間隔の欄の中の入力欄が出ること",
+            scenario.Diagnostics);
+        scenario.RequireKeyboardFocus(input, "子ピッカーの最小発火間隔の欄");
+        SyntheticInput.TapKey(SyntheticInput.VkDigit2);
+        SyntheticInput.TapKey(SyntheticInput.VkEnter);
+
+        _ = Ui.Until(
+            () => scenario.PickerWindowCount() == 0 ? "ok" : null,
+            EditorScenario.Settle,
+            "しきい値の欄の Enter が確定として効き、子ピッカーが閉じること",
+            scenario.Diagnostics);
+
+        // **開き直して欄に載っていることまで見る。**保存されていても読み戻せなければ、
+        // 次に編集した人は空欄のまま確定して**気づかずに消す**。保存と読み戻しは別の経路である
+        // (<c>TriggerDraftValidator.Apply</c> と <c>LoadDefinition</c>)。
+        // 確定で一覧が建て直されるので、選択は取り直す
+        scenario.SelectTheRowContaining(id);
+        AutomationElement reopened = scenario.EditTheSelectedRow();
+        string? shown = Ui.Until(
+            () => reopened.ById("MinIntervalOperand")?.FindFirst(
+                      TreeScope.Descendants,
+                      new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Edit))
+                  ?.ValueOf(),
+            EditorScenario.Settle,
+            "開き直した子ピッカーの最小発火間隔の欄に値が載ること",
+            scenario.Diagnostics);
+        Assert.Equal("2", shown);
+        SyntheticInput.TapKey(SyntheticInput.VkEscape);
+
+        scenario.Accept();
+
+        TriggerDefinition saved = Assert.Single(scenario.SavedTriggers());
+        Assert.Equal(TimeSpan.FromSeconds(2), saved.MinInterval);
     }
 }
