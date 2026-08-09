@@ -432,7 +432,15 @@ nuget.org 側のポリシーが決める。
   (実測: `lib` の dll は完全に一致した)。全体のハッシュで比べると毎回誤報になる。
 - 5 つのページで: README が描画される / **Dependencies パネルと README の依存表が一致する** /
   ライセンスが MIT と出る / Source Repository のリンクが効く。
-- 数十分後に Symbols の状態を見る。落ちていたら**次の版で直す** (その版のシンボルは戻らない)。
+- **シンボルはページの表示ではなくシンボルサーバーの応答で確かめる。**「登録されたように見える」と「デバッガがソースへ入れる」は別のことである。
+  配る `.dll` のデバッグディレクトリから鍵を組んで引く:
+  `https://symbols.nuget.org/download/symbols/<pdb 名>/<CodeView の GUID を 32 桁大文字>FFFFFFFF/<pdb 名>`
+  (portable PDB の age は常に `FFFFFFFF`)。**`SymbolChecksum` ヘッダーが要る** —
+  付けないと **403 が返る**。あれは「無い」ではなく「その形では答えない」である (実測)。
+  値はデバッグディレクトリの `PdbChecksum` から `<アルゴリズム>:<16 進>` で作る。
+  さらに取れた PDB の SourceLink の地図を読み、**その URL が実際に引けること**まで見る —
+  地図がタグの指すコミットを指していなければ、シンボルは在ってもソースへは入れない。
+  落ちていたら**次の版で直す** (その版のシンボルは戻らない)。
 - **匿名で復元できること。GitHub Packages では一度も測れなかった経路である** (§6)。
   素のディレクトリに新規プロジェクトを作り、nuget.org だけを見る `nuget.config` で
   `dotnet add package UiaTrigger.Core` が通ること。**`--packages` で別のフォルダを指すか、
